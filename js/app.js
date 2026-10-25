@@ -509,6 +509,23 @@
       toast('Проект изменён в другой вкладке. Скачайте текущую копию перед перезагрузкой, чтобы сохранить правки.');
     }
   });
+  // Additive bridge: the video mode can ask to open a script without touching the active project silently.
+  window.ShortsEditor = Object.freeze({
+    pause: pausePlayback,
+    confirm: confirmAction,
+    useScript({ title, scenes }) {
+      if (!Array.isArray(scenes) || !scenes.length || scenes.length > 12 || scenes.some(scene => typeof scene.text !== 'string')) throw new Error('Нет сцен для переноса.');
+      const next = C.createProject();
+      next.name = String(title || 'Сценарий ролика').slice(0, 80);
+      next.scenes = scenes.map(scene => ({ id: C.id(), text: scene.text }));
+      next.script = next.scenes.map(scene => scene.text).join('\n');
+      next.sourceScript = next.script;
+      next.selectedSceneId = next.scenes[0].id;
+      const action = () => { replaceProject(next); document.dispatchEvent(new Event('shorts:editor-opened')); };
+      if (hasWork()) confirmAction('Открыть сценарий ролика в редакторе?', 'Текущий проект редактора будет заменён. При необходимости сначала скачайте его. В редакторе длительность оценивается по словам; настройки видео останутся в отдельном режиме.', 'Открыть сценарий', action);
+      else action();
+    }
+  });
   elapsedMs = sceneStart(project.selectedSceneId);
   renderAll();
   if (loaded.error) {
