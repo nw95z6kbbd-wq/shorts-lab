@@ -1,0 +1,52 @@
+"""Package the existing static app and its self-contained downloadable version."""
+import argparse
+from pathlib import Path
+import re
+import shutil
+from urllib.parse import quote
+from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def prepare(output):
+    html = (ROOT / "index.html").read_text(encoding="utf-8")
+    css = (ROOT / "styles.css").read_text(encoding="utf-8")
+    html = html.replace('<link rel="stylesheet" href="styles.css">', '<style>\n' + css + '\n</style>')
+    favicon = quote((ROOT / "assets/favicon.svg").read_text(encoding="utf-8"), safe="")
+    html = html.replace('href="assets/favicon.svg"', 'href="data:image/svg+xml,' + favicon + '"')
+    scripts = re.findall(r'<script src="([^"]+)" defer></script>', html)
+    if scripts != ["js/core.js", "js/storage.js", "js/integrations.js", "js/app.js"]:
+        raise ValueError("Script order changed: update the single-file packaging before publication.")
+    html = re.sub(r'\s*<script src="[^"]+" defer></script>', "", html)
+    inline = "\n".join('<script>\n' + (ROOT / src).read_text(encoding="utf-8").replace("</script", "<\\/script") + '\n</script>' for src in scripts)
+    html = html.replace("</body>", inline + "\n</body>")
+    if re.search(r'<script[^>]+src=|<link[^>]+href="(?:assets/|styles.css)', html):
+        raise ValueError("The standalone HTML still references external application files.")
+
+    downloads = ROOT / "downloads"
+    downloads.mkdir(exist_ok=True)
+    (downloads / "Shorts-Studio.html").write_text(html, encoding="utf-8")
+    # Fixed metadata makes rebuilding the ZIP repeatable across machines.
+    info = ZipInfo("Shorts-Studio.html", date_time=(2026, 1, 1, 0, 0, 0))
+    info.compress_type = ZIP_DEFLATED
+    info.external_attr = 0o100644 << 16
+    with ZipFile(downloads / "Shorts-Studio.zip", "w") as archive:
+        archive.writestr(info, html.encode("utf-8"))
+
+    files = [ROOT / "index.html", ROOT / "styles.css", ROOT / ".nojekyll"]
+    files += sorted((ROOT / "js").glob("*.js"))
+    files += sorted(file for file in (ROOT / "assets").rglob("*") if file.is_file())
+    files += [downloads / "Shorts-Studio.html", downloads / "Shorts-Studio.zip"]
+    for file in files:
+        target = output / file.relative_to(ROOT)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(file, target)
+    print(f"Prepared {len(files)} static files in {output}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=ROOT / "_site")
+    args = parser.parse_args()
+    prepare(args.output.resolve())
