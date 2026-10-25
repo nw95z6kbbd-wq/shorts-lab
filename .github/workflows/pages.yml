@@ -17,7 +17,8 @@ concurrency:
 jobs:
   check:
     name: Check app and prepare static site
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -36,9 +37,15 @@ jobs:
           for file in js/*.js; do node --check "$file"; done
           node --test tests/*.test.cjs
       - name: Install browser test dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Select browser available on runner
         run: |
-          python -m pip install -r requirements-dev.txt
-          python -m playwright install --with-deps chromium
+          shorts_browser="$(command -v google-chrome || command -v chromium || true)"
+          if [ -n "$shorts_browser" ]; then
+            printf 'CHROMIUM_PATH=%s\n' "$shorts_browser" >> "$GITHUB_ENV"
+          else
+            python -m playwright install --with-deps chromium
+          fi
       - name: Check editor functionality
         run: python tests/browser.py
       - name: Check real browser video and audio recording
