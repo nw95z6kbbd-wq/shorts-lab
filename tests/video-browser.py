@@ -171,6 +171,12 @@ def run():
                 assert len(set(frame_hashes)) == 3, 'Video frames should change across scenes.'
                 assert page.evaluate('window.__testTracks.length >= 2 && window.__testTracks.every(track => track.readyState === "ended")')
                 page.wait_for_function('Number.isFinite(document.getElementById("generatedVideo").duration) && document.getElementById("generatedVideo").duration > 17')
+                page.evaluate('async () => { const video = document.getElementById("generatedVideo"); video.currentTime = .3; await video.play(); }')
+                page.wait_for_function('!document.getElementById("generatedVideo").paused')
+                page.locator('#backToEditor').click()
+                assert page.evaluate('document.getElementById("generatedVideo").paused'), 'Leaving video mode must also stop native file playback.'
+                assert page.evaluate(f"localStorage.getItem('{EDITOR_KEY}')") == old_project
+                page.locator('#createVideoMode').click()
                 print(f'PASS: actual 18-second {extension} download; ffprobe/ffmpeg confirm 720×1280, motion, audio and silence padding ({info["format"]["format_name"]})', flush=True)
 
                 # Remove MP4 from the browser-reported supported formats, but record with the real WebM encoder.

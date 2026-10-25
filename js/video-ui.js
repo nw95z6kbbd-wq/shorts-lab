@@ -183,6 +183,7 @@
   function stopPreview() {
     previewEpoch++; previewing = false; previewStarting = false;
     cancelAnimationFrame(previewFrame); previewAudio?.stop(); previewAudio = null;
+    $('generatedVideo').pause();
     $('playGeneratedPreview').querySelector('span').textContent = 'Смотреть';
     $('playGeneratedPreview').querySelector('use').setAttribute('href', '#i-play');
     updateSupport();
