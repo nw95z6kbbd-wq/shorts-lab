@@ -18,7 +18,7 @@ jobs:
   check:
     name: Check app and prepare static site
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -84,6 +84,10 @@ jobs:
           PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
           UX_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/ux-browser.py
           PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
+      - name: Check portable ZIP backups and restored video
+        run: |
+          python tests/check-errors.py tests/backup-browser.py
+          BACKUP_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/backup-browser.py
       - name: Check deployment under repository path
         run: python tests/pages.py
       - name: Upload static site
@@ -167,11 +171,13 @@ jobs:
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-migration-browser.py
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-browser.py
           PERSISTENCE_BROWSER=webkit PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
+          BACKUP_BROWSER=webkit python tests/check-errors.py tests/backup-browser.py
+          BACKUP_BROWSER=webkit BACKUP_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/backup-browser.py
 
   safari:
     name: Native Safari on macOS
     runs-on: macos-15-intel
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:

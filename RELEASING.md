@@ -26,6 +26,8 @@
    python3 tests/video-browser.py
    python3 tests/media-browser.py
    python3 tests/product-browser.py
+   python3 tests/backup-browser.py
+   BACKUP_ENTRY=downloads/Shorts-Studio.html python3 tests/backup-browser.py
    python3 tests/pages.py
    ```
 

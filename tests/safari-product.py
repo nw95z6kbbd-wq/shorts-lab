@@ -16,6 +16,7 @@ import traceback
 import urllib.error
 import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from backup_native import check_native_backup
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -300,6 +301,7 @@ def run():
                 print('::warning title=Native Safari recording unavailable::Safari '+str(capabilities.get('browserVersion'))+'; explanatory message verified; export NOT verified: '+json.dumps(support),flush=True)
             click('#backToEditor')
             assert script('return !document.getElementById("scriptStudio").hidden;')
+            check_native_backup(ROOT,f'http://127.0.0.1:{server.server_port}/',script,command,click,wait_for)
     finally:
         if session:
             try: request('DELETE','/session/'+session)

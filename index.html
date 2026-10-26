@@ -11,11 +11,14 @@
   <link rel="stylesheet" href="video.css">
   <link rel="stylesheet" href="product.css">
   <link rel="stylesheet" href="ux.css">
+  <link rel="stylesheet" href="backup.css">
   <script src="js/core.js" defer></script>
   <script src="js/product.js" defer></script>
   <script src="js/video-core.js" defer></script>
   <script src="js/project-db.js" defer></script>
   <script src="js/storage.js" defer></script>
+  <script src="js/zip-store.js" defer></script>
+  <script src="js/backup-format.js" defer></script>
   <script src="js/integrations.js" defer></script>
   <script src="js/app.js" defer></script>
   <script src="js/video-renderer.js" defer></script>
@@ -25,6 +28,7 @@
   <script src="js/video-ui.js" defer></script>
   <script src="js/product-ui.js" defer></script>
   <script src="js/ux.js" defer></script>
+  <script src="js/backup-ui.js" defer></script>
 </head>
 <body>
   <div id="studioViewport" class="studio-viewport" role="region" aria-label="Рабочая область Shorts Studio" tabindex="0">
@@ -69,7 +73,7 @@
         </nav>
       </section>
     </div>
-    <div class="sidebar-files"><div class="nav-label">ПРОЕКТ</div><button class="nav-item" id="saveProject"><svg><use href="#i-download"/></svg>Скачать проект</button><button class="nav-item" id="openProject"><svg><use href="#i-upload"/></svg>Открыть проект</button><input id="projectFile" type="file" accept=".json,application/json" hidden></div>
+    <div class="sidebar-files"><div class="nav-label">ПРОЕКТ</div><button class="nav-item backup-nav" data-backup-export><svg><use href="#i-download"/></svg>Скачать ZIP-копию</button><button class="nav-item" data-backup-import><svg><use href="#i-upload"/></svg>Восстановить ZIP</button><p class="backup-note">Оба черновика и оригиналы медиа.<span data-backup-status aria-live="polite">Храните копию вне браузера.</span></p><button class="nav-item" id="saveProject"><svg><use href="#i-download"/></svg>Скачать JSON редактора</button><button class="nav-item" id="openProject"><svg><use href="#i-upload"/></svg>Открыть JSON</button><input id="projectFile" type="file" accept=".json,application/json" hidden></div>
     <nav class="product-nav" aria-label="Сведения о Shorts Studio"><button class="nav-item" data-product-open="updates" aria-label="Что нового" title="Что нового"><svg><use href="#i-sparkles"/></svg><span class="product-nav-label">Что нового</span></button><button class="nav-item" data-product-open="about" aria-label="О Shorts Studio" title="О Shorts Studio"><svg><use href="#i-info"/></svg><span class="product-nav-label">О Shorts Studio</span></button><span class="product-version-pill product-mobile-version" data-product-version>—</span></nav>
     <div class="sidebar-bottom"><div class="local-card"><span class="local-icon"><svg><use href="#i-monitor"/></svg></span><strong>Ваше творчество — у вас</strong><p>Работает в браузере.<br>Без регистрации и облака.</p><span class="local-status"><span></span>Локальный режим</span></div><div class="sidebar-version">SHORTS STUDIO <span class="product-sidebar-version" data-product-version>—</span></div></div>
   </aside>
@@ -77,7 +81,7 @@
   <div class="workspace">
     <header class="topbar"><div class="breadcrumb"><span>Студия</span><span class="breadcrumb-divider">/</span><span id="videoBreadcrumb" hidden>Видео по идее</span><label for="projectName" class="sr-only">Название проекта</label><input id="projectName" maxlength="80" value="Мой Short" autocomplete="off"></div><span id="editorSaveState" hidden>Восстановление…</span></header>
 
-    <div class="mobile-filebar" aria-label="Файлы проекта"><span>ФАЙЛ ПРОЕКТА</span><button class="text-button" id="saveProjectMobile"><svg><use href="#i-download"/></svg>Скачать проект</button><button class="text-button" id="openProjectMobile"><svg><use href="#i-upload"/></svg>Открыть проект</button></div>
+    <div class="mobile-filebar" aria-label="Файлы проекта"><span>ФАЙЛ ПРОЕКТА</span><button class="text-button" id="saveProjectMobile" aria-label="Скачать JSON редактора"><svg><use href="#i-download"/></svg>JSON ↓</button><button class="text-button" id="openProjectMobile" aria-label="Открыть JSON редактора"><svg><use href="#i-upload"/></svg>JSON ↑</button><button class="text-button backup-nav" data-backup-export>ZIP-копия</button><button class="text-button" data-backup-import>Из ZIP</button><p class="backup-note">ZIP: оба черновика и оригиналы медиа. <span data-backup-status aria-live="polite">Храните копию вне браузера.</span></p></div>
     <main id="mainContent">
       <aside class="product-update-notice" id="productUpdateNotice" aria-label="Доступна история обновлений" hidden><span class="update-spark" aria-hidden="true">✦</span><div class="notice-message"><strong>Shorts Studio <span data-product-version>—</span> — ваша студия растёт</strong><p>Узнайте, какие возможности уже доступны.</p></div><button class="text-button" data-product-open="updates">Посмотреть изменения</button><button id="productDismissNotice" class="product-notice-close" aria-label="Закрыть уведомление об обновлении">×</button></aside>
       <section class="page-heading"><div><div class="eyebrow"><span></span>МЕНЬШЕ МИНУТЫ. БОЛЬШЕ СМЫСЛА.</div><h1 id="studioTitle">Ваша следующая история<span>.</span></h1><p id="studioDescription">Превратите идею в Short, который досмотрят до конца.</p></div><div class="heading-actions"><button class="button button-secondary video-mode-button" id="createVideoMode"><svg><use href="#i-sparkles"/></svg>Создать видео по идее</button><button class="button button-secondary" id="backToEditor" hidden><svg><use href="#i-prev"/></svg>К редактору</button><button class="button button-secondary" id="newProject"><svg><use href="#i-plus"/></svg>Новый проект</button><button class="button button-primary" id="exportSrt"><svg><use href="#i-download"/></svg>Экспорт SRT</button></div></section>
@@ -135,6 +139,15 @@
   </div>
     <div class="save-status" id="saveStatus" role="status" aria-live="polite" aria-atomic="true" hidden><svg aria-hidden="true"><use href="#i-clock"/></svg><span id="saveStatusText"></span></div>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <input id="backupFile" type="file" accept=".zip,application/zip" hidden>
+  <dialog id="backupDialog" class="backup-dialog" aria-labelledby="backupTitle">
+    <h2 id="backupTitle">Резервная ZIP-копия</h2>
+    <p>ZIP хранит редактируемые черновики обоих режимов и исходные изображения, голос и музыку. MP4/WebM — готовое видео. Данные браузера могут быть очищены: сохраняйте ZIP на другом устройстве или диске.</p>
+    <p id="backupMessage" role="status" aria-live="polite"></p>
+    <progress id="backupProgress" max="100" value="0" aria-label="Подготовка резервной копии"></progress>
+    <p id="backupError" role="alert" hidden></p><ul id="backupWarnings"></ul>
+    <div class="backup-actions"><a id="backupDownload" class="button button-primary" hidden>Скачать ZIP-копию</a><button id="backupConfirm" class="button button-primary" hidden>Заменить оба черновика</button><button id="backupOpen" class="button button-primary" hidden>Открыть восстановленные проекты</button><button id="backupFresh" class="button button-secondary" hidden>Новая ZIP-копия</button><button id="backupBackground" class="button button-secondary" hidden>Продолжить в фоне</button><button id="backupCancel" class="button button-secondary">Отмена</button></div>
+  </dialog>
   <dialog id="confirmDialog"><form method="dialog"><span class="dialog-icon"><svg><use href="#i-info"/></svg></span><h2 id="dialogTitle">Продолжить?</h2><p id="dialogDescription"></p><div class="dialog-actions"><button class="button button-secondary" value="cancel" autofocus>Отмена</button><button class="button button-primary" id="dialogConfirm" value="confirm">Продолжить</button></div></form></dialog>
   <dialog id="productDialog" class="product-dialog" aria-labelledby="productDialogTitle">
     <div class="product-dialog-header"><div><div class="product-dialog-eyebrow">SHORTS STUDIO · СДЕЛАНО ДЛЯ ВАШИХ ИСТОРИЙ</div><h2 id="productDialogTitle">Что нового</h2></div><button id="productClose" class="product-dialog-close" aria-label="Закрыть информацию о продукте">×</button></div>
