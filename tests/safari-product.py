@@ -55,7 +55,8 @@ def run():
         while time.monotonic()<deadline:
             if script('return Boolean(' + code + ');'): return
             time.sleep(.15)
-        raise AssertionError('Safari condition timed out: ' + code)
+        details=script('return {inert:document.body.inert,focus:document.hasFocus(),active:document.activeElement?.id,dialog:document.getElementById("productDialog")?.open};')
+        raise AssertionError('Safari condition timed out: ' + code + '; ' + str(details))
     def element(selector):
         result=command('POST','/element',{'using':'css selector','value':selector})
         return result['element-6066-11e4-a52e-4f735466cecf']
@@ -83,7 +84,7 @@ def run():
             assert script('return Array.from(document.querySelectorAll("[data-product-version]")).every(e=>e.textContent=== "v"+ShortsProduct.version);')
             before=script('return [localStorage.getItem("shorts-studio.project.v1"),localStorage.getItem("shorts-studio.video.v1")];')
             click('.product-toolbar [data-product-open="updates"]')
-            assert script('return document.getElementById("productDialog").open;')
+            wait_for('document.getElementById("productDialog").open')
             assert script('return document.querySelectorAll(".release-item").length;')==len(product['releases'])
             assert script('return Array.from(document.querySelectorAll(".release-heading time")).map(e=>e.dateTime);')==[release['date'] for release in product['releases']]
             click('#productClose');command('POST','/refresh',{})
@@ -94,6 +95,7 @@ def run():
             assert script('return document.getElementById("productOwner").value;')==product['rights']['owner']
             script('document.getElementById("productOwner").value="Проверка Safari";')
             click('#productProfileForm button[type="submit"]')
+            wait_for('document.getElementById("productProfileStatus").textContent.includes("Сохранено только")')
             assert 'Сохранено только' in script('return document.getElementById("productProfileStatus").textContent;')
             click('#productClose');command('POST','/refresh',{})
             wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)

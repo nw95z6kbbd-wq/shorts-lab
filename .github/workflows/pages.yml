@@ -143,9 +143,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Enable Safari WebDriver
-        run: |
-          sudo /usr/bin/safaridriver --enable
-          open -a Safari
+        run: sudo /usr/bin/safaridriver --enable
       - name: Check product UI and video smoke test in real Safari
         env:
           SAFARI_BASELINE_ROOT: .safari-baseline

@@ -50,6 +50,11 @@
     clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 300);
     if (!maxSaveTimer) maxSaveTimer = setTimeout(saveNow, 2000);
   }
+  function mediaLoading() {
+    clearTimeout(saveTimer); clearTimeout(maxSaveTimer); saveTimer = maxSaveTimer = null;
+    saveEpoch++;
+    $('videoDraftStatus').textContent = 'Сохранение…';
+  }
   function setMode(open) {
     if (!open) {
       stopPreview();
@@ -203,7 +208,7 @@
       const file = node('input'); file.type = 'file'; file.accept = 'image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp'; file.id = 'video-scene-image-' + index;
       file.addEventListener('change', async () => {
         const selected = file.files[0]; file.value = ''; if (!selected || busy || decoding) return;
-        stopPreview(); invalidateResult(); error(''); decoding = true; lockControls();
+        stopPreview(); invalidateResult(); error(''); decoding = true; mediaLoading(); lockControls();
         let decoded;
         try {
           decoded = await M.decodeImage(selected);
@@ -212,7 +217,7 @@
           decoded.persisted = false; assets.set(id, decoded); decoded = null; scene.imageId = id; scene.imageName = selected.name; scene.visual = 'image';
           manuallyEdited = true; renderScenes(); changed(); await saveNow();
           if (!stored) error('Изображение доступно для предпросмотра и экспорта, но браузер не сохранил его. После перезагрузки выберите файл заново.');
-        } catch (cause) { decoded?.dispose(); error(cause.message); }
+        } catch (cause) { decoded?.dispose(); error(cause.message); saveSoon(); }
         finally { decoding = false; lockControls(); }
       });
       upload.append(file); imageRow.append(upload);
@@ -398,7 +403,7 @@
     if (!file || busy || decoding) return;
     const previous = audioBuffer;
     const epoch = ++audioEpoch;
-    stopPreview(); invalidateResult(); error(''); decoding = true; audioBuffer = null;
+    stopPreview(); invalidateResult(); error(''); decoding = true; mediaLoading(); audioBuffer = null;
     $('removeVideoAudio').hidden = true; $('videoAudioInfo').textContent = 'Читаем аудиофайл…'; lockControls();
     try {
       const decoded = await R.decodeAudio(file);
@@ -409,7 +414,7 @@
       changed(); await saveNow();
       $('videoAudioInfo').textContent = file.name + ' · ' + decoded.duration.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' сек';
       $('removeVideoAudio').hidden = false;
-    } catch (cause) { if (epoch === audioEpoch) { audioBuffer = previous; $('videoAudioInfo').textContent = draft.voiceName || 'Без аудиодорожки'; error(cause.message); } }
+    } catch (cause) { if (epoch === audioEpoch) { audioBuffer = previous; $('videoAudioInfo').textContent = draft.voiceName || 'Без аудиодорожки'; $('removeVideoAudio').hidden = !previous && !draft.voiceAssetId; error(cause.message); saveSoon(); } }
     finally { if (epoch === audioEpoch) { decoding = false; rebuild(); lockControls(); } }
   });
   $('removeVideoAudio').addEventListener('click', () => {
@@ -420,7 +425,7 @@
     if (!file || busy || decoding) return;
     const previous = musicBuffer;
     const epoch = ++musicEpoch;
-    stopPreview(); invalidateResult(); error(''); decoding = true; musicBuffer = null;
+    stopPreview(); invalidateResult(); error(''); decoding = true; mediaLoading(); musicBuffer = null;
     $('removeVideoMusic').hidden = true; $('videoMusicInfo').textContent = 'Читаем аудиофайл…'; lockControls();
     try {
       const decoded = await R.decodeAudio(file);
@@ -431,7 +436,7 @@
       changed(); await saveNow();
       $('videoMusicInfo').textContent = file.name + ' · ' + decoded.duration.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' сек';
       $('removeVideoMusic').hidden = false;
-    } catch (cause) { if (epoch === musicEpoch) { musicBuffer = previous; $('videoMusicInfo').textContent = draft.musicName || 'Без музыки'; error(cause.message); } }
+    } catch (cause) { if (epoch === musicEpoch) { musicBuffer = previous; $('videoMusicInfo').textContent = draft.musicName || 'Без музыки'; $('removeVideoMusic').hidden = !previous && !draft.musicAssetId; error(cause.message); saveSoon(); } }
     finally { if (epoch === musicEpoch) { decoding = false; rebuild(); lockControls(); } }
   });
   $('removeVideoMusic').addEventListener('click', () => {
