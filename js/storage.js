@@ -3,15 +3,16 @@
   document.body.inert = true;
   const DB = window.ShortsProjectDB, repo = DB.createRepository();
   const keys = { editor: 'shorts-studio.project.v1', video: 'shorts-studio.video.v1' };
-  const sessions = new Map(), pending = new Map(), legacy = {}, warnings = {};
+  const sessions = new Map(), pending = new Map(), legacyAssets = new Map(), legacy = {}, warnings = {};
   let unavailable = null;
   let channel;
   try { channel = new BroadcastChannel('shorts-studio.projects'); } catch (_) {}
   const writer = ShortsCore.id();
   function message(error) {
-    if (error.name === 'QuotaExceededError') return 'Хранилище заполнено. Новые правки не сохранены; предыдущая версия доступна. Освободите место и повторите сохранение, не закрывая вкладку.';
+    if (error.name === 'QuotaExceededError') return 'Хранилище заполнено. Новые правки не сохранены; предыдущая версия доступна. Освободите место на устройстве, не очищая данные Shorts Studio, и повторите сохранение, не закрывая вкладку.';
     if (['SecurityError', 'ReferenceError', 'TypeError'].includes(error.name)) return 'Браузер запретил доступ к IndexedDB. Изменения доступны только в этой вкладке.';
     if (error.name === 'VersionError') return 'Хранилище создано более новой версией приложения. Обновите страницу; данные не заменены.';
+    if (['InvalidStateError', 'UnknownError', 'AbortError', 'DataCloneError', 'NotReadableError'].includes(error.name)) return 'Браузер не смог завершить операцию хранилища. Предыдущая версия не заменена; новые правки остаются во вкладке.';
     return error.message || 'Хранилище недоступно. Новые правки доступны только в этой вкладке.';
   }
   function readLegacy() {
@@ -65,7 +66,9 @@
       const records = readLegacy(), video = records.find(record => record.id === 'video');
       if (Object.keys(keys).some(slot => legacy[slot] === undefined)) throw new Error('Не удалось проверить прежние данные localStorage. Миграция отложена; старые данные не изменены.');
       const files = await legacyImages(video ? DB.references('video', video.state) : []);
+      for (const file of files) legacyAssets.set(file.id, file);
       await repo.migrate(records, files, legacy);
+      legacyAssets.clear();
     } catch (error) { unavailable = error; readLegacy(); }
   })();
   async function load(slot = 'editor') {
@@ -75,7 +78,7 @@
     if (unavailable) {
       let project = null;
       try { if (legacy[slot]) project = DB.normalize(slot, JSON.parse(legacy[slot])); } catch (_) {}
-      return { project, error: message(unavailable) + ' Автосохранение отключено до повторного открытия страницы.' };
+      return { project, writable: false, error: message(unavailable) + ' Автосохранение отключено до повторного открытия страницы.' };
     }
     try {
       const record = await repo.read(slot); session.revision = record?.revision || 0;
@@ -87,8 +90,8 @@
           project = DB.normalize(slot, record.previous.state); recovery = 'Текущее сохранение повреждено. Восстановлена предыдущая корректная версия.';
         }
       }
-      return { project, error: recovery || warnings[slot] || null };
-    } catch (error) { unavailable = error; return { project: null, error: 'Не удалось открыть сохранённый проект. Автоматическая замена отключена. ' + message(error) }; }
+      return { project, writable: true, error: recovery || warnings[slot] || null };
+    } catch (error) { unavailable = error; return { project: null, writable: false, error: 'Не удалось открыть сохранённый проект. Автоматическая замена отключена. ' + message(error) }; }
   }
   function save(project, slot = 'editor') {
     const session = sessions.get(slot), snapshot = structuredClone(project);
@@ -115,7 +118,7 @@
   };
   window.ShortsStorage = Object.freeze({ ready, load, save,
     stage(id, blob, name, kind) { pending.set(id, { id, blob, name, kind }); },
-    async asset(id) { await ready; if (pending.has(id)) return pending.get(id); if (unavailable) throw unavailable; return repo.asset(id); },
+    async asset(id) { await ready; if (pending.has(id)) return pending.get(id); if (unavailable) { if (legacyAssets.has(id)) return legacyAssets.get(id); throw unavailable; } return repo.asset(id); },
     discard(id) { pending.delete(id); },
     pending: id => pending.has(id)
   });

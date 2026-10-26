@@ -30,9 +30,10 @@ def run():
             }''')
             page.evaluate('''()=>{window.originalPut=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(value){if(this.name==='meta')throw new DOMException('full','QuotaExceededError');return originalPut.call(this,value);};}''')
             adapter()
-            failed=page.evaluate('async()=>{const loaded=await ShortsStorage.load("editor");const save=await ShortsStorage.save({...loaded.project,name:"Must not replace"});const db=ShortsProjectDB.createRepository();return {loaded,save,head:await db.read("editor"),asset:await db.asset("old"),migration:await db.migration()};}')
+            failed=page.evaluate('async()=>{const loaded=await ShortsStorage.load("editor");const save=await ShortsStorage.save({...loaded.project,name:"Must not replace"});const db=ShortsProjectDB.createRepository();return {loaded,save,head:await db.read("editor"),asset:await db.asset("old"),migration:await db.migration(),volatileImage:await (await ShortsStorage.asset("old")).blob.text()};}')
             assert failed['loaded']['project']['name']=='Независимый редактор' and failed['loaded']['error']
             assert not failed['save']['ok'] and not failed['head'] and not failed['asset'] and not failed['migration']
+            assert failed['volatileImage']=='unchanged original'
             page.evaluate('()=>{IDBObjectStore.prototype.put=window.originalPut;}')
             core();adapter()
             recovered=page.evaluate('''async()=>{const e=await ShortsStorage.load('editor'),v=await ShortsStorage.load('video');const saved=await ShortsStorage.save({...e.project,name:'Новый редактор'});return {e,v,saved,oldEditor:localStorage.getItem('shorts-studio.project.v1'),oldVideo:localStorage.getItem('shorts-studio.video.v1'),copied:await (await ShortsStorage.asset('old')).blob.text()};}''')

@@ -543,7 +543,8 @@ window.ShortsEditorReady = (async function () {
   renderAll();
   if (loaded.error) {
     $('storageWarning').hidden = false;
-    updateSaveStatus('Проверьте сохранение проекта', true);
+    $('storageWarning').textContent = loaded.error;
+    updateSaveStatus(loaded.writable ? 'Проверьте сохранение проекта' : 'Ошибка сохранения', true);
     toast(loaded.error);
   } else if (!loaded.project) await saveNow();
   else updateSaveStatus('Сохранено на устройстве');

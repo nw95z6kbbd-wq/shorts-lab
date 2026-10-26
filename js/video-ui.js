@@ -463,5 +463,8 @@
   if (!loaded.project && !loadError) await saveNow();
   else if (!loadError) $('videoDraftStatus').textContent = 'Сохранено на устройстве';
   window.ShortsVideoRestored = true;
-  if (loadError) error(loadError);
+  if (loadError) {
+    $('videoDraftStatus').textContent = loaded.writable ? 'Проверьте сохранённые данные' : 'Ошибка сохранения';
+    error(loadError);
+  }
 })();
