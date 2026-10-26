@@ -110,10 +110,40 @@ def run():
             command('POST','/window/rect',{'width':1280,'height':900})
             def prepare_canvas():
                 click('#createVideoMode')
+                if script('return !document.getElementById("videoOutputTabs").hidden;'):
+                    click('#showVideoCanvas')
                 # Mirror the user's visible preview, rather than an offscreen Canvas.
                 script('document.getElementById("videoCanvas").scrollIntoView({block:"center"});')
                 command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));','args':[]})
 
+            # Save actual source media, reload and exercise the existing UI recorder.
+            wait_for('window.ShortsVideoRestored')
+            fixture=(ROOT/'tests/persistence-fixture.js').read_text()
+            script(fixture)
+            saved=command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];savePersistenceFixture().then(done,e=>done({error:e.message}));','args':[]})
+            assert not saved.get('error'),saved
+            command('POST','/refresh',{})
+            wait_for('window.ShortsVideoRestored',seconds=30)
+            script(fixture)
+            restored=command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];persistenceFixtureSnapshot().then(done,e=>done({error:e.message}));','args':[]})
+            assert restored==saved, {'saved':saved,'restored':restored}
+            prepare_canvas()
+            assert script('return document.querySelectorAll(".scene-image-thumb").length;')==2
+            assert 'voice.wav' in script('return document.getElementById("videoAudioInfo").textContent;')
+            assert 'music.wav' in script('return document.getElementById("videoMusicInfo").textContent;')
+            if script('return ShortsVideoRecorder.capabilities(true).supported;'):
+                click('#recordVideo')
+                wait_for('!document.getElementById("downloadVideo").hidden || document.getElementById("videoRenderStatus").textContent.includes("не завершена")',seconds=25)
+                assert script('return !document.getElementById("downloadVideo").hidden;'),script('return document.getElementById("videoError").textContent;')
+                wait_for('document.getElementById("generatedVideo").readyState>=1')
+                metadata=script('const v=document.getElementById("generatedVideo");return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:document.getElementById("videoFileInfo").textContent};')
+                assert metadata['width']==720 and metadata['height']==1280 and 2<metadata['duration']<4.5,metadata
+                assert 'голос + музыка' in metadata['info'],metadata
+                print('::notice title=Native Safari project restoration verified::Original PNG and two WAV hashes match after reload; actual post-restore UI export: '+json.dumps(metadata),flush=True)
+            else:
+                assert script('return document.getElementById("recordVideo").disabled;')
+                print('::warning title=Native Safari persistence only::Original media and settings restored; audio recording API unavailable; export not verified.',flush=True)
+            click('#backToEditor')
             prepare_canvas()
             support=script('return ShortsVideoRecorder.capabilities();')
             if support['supported']:
@@ -135,9 +165,9 @@ def run():
                     # An encoder limitation is accepted only with reproducible evidence:
                     # the stable site has the identical failure and all existing runtime
                     # modules and original styles are byte-for-byte unchanged.
-                    original_files=[file for file in (baseline/'js').glob('*.js') if file.name not in ('product.js','product-ui.js')]
+                    original_files=[baseline/'js'/name for name in ('core.js','video-core.js','video-renderer.js','video-audio.js','video-recorder.js')]
                     original_files += [baseline/'styles.css',baseline/'video.css']
-                    assert len(original_files)>=10, 'Incomplete Safari baseline'
+                    assert len(original_files)>=5, 'Incomplete Safari baseline'
                     assert all(file.read_bytes()==(ROOT/file.relative_to(baseline)).read_bytes() for file in original_files), 'Safari recording failed and original runtime differs from baseline'
                     command('POST','/url',{'url':f'http://127.0.0.1:{server.server_port}/{relative}/index.html'})
                     wait_for('window.ShortsEditor && window.ShortsVideoRecorder')

@@ -55,7 +55,8 @@
         try { tx = db.transaction(stores, mode); } catch (error) { reject(error); return; }
         const timer = setTimeout(() => { cause = failure('TIMEOUT', 'Сохранение не завершилось вовремя. Предыдущая версия сохранена.'); try { tx.abort(); } catch (_) {} }, 15000);
         tx.oncomplete = () => { clearTimeout(timer); resolve(result); };
-        tx.onabort = tx.onerror = () => { clearTimeout(timer); reject(cause || tx.error || failure('ABORT', 'Операция хранилища прервана.')); };
+        tx.onerror = event => { cause ||= event.target.error; };
+        tx.onabort = () => { clearTimeout(timer); reject(cause || tx.error || failure('ABORT', 'Операция хранилища прервана.')); };
         const abort = error => { cause = error; try { tx.abort(); } catch (_) {} };
         try { run(tx, value => { result = value; }, abort); } catch (error) { abort(error); }
       });

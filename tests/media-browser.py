@@ -113,7 +113,7 @@ def run():
                 page.locator('#video-scene-camera-1').select_option('pan-left')
                 expect(page.locator('#videoTiming')).to_have_value('manual')
                 expect(page.locator('#videoTotalTime')).to_contain_text('5 сек')
-                expect(page.locator('#videoDraftStatus')).to_contain_text('сохранён')
+                expect(page.locator('#videoDraftStatus')).to_contain_text('Сохранено')
                 page.reload(); page.locator('#createVideoMode').click()
                 expect(page.locator('.scene-image-thumb')).to_have_count(2)
                 expect(page.locator('#recordVideo')).to_be_enabled()
@@ -178,15 +178,18 @@ def run():
                 other=blocked.new_page();other.on('pageerror',lambda e:errors.append(str(e)))
                 other.goto(url);other.locator('#createVideoMode').click()
                 other.locator('#video-scene-image-0').set_input_files({'name':'red.png','mimeType':'image/png','buffer':base64.b64decode(images['red.png']['data'])})
-                expect(other.locator('#videoError')).to_contain_text('не сохранил')
+                expect(other.locator('#videoDraftStatus')).to_contain_text('Ошибка сохранения')
                 expect(other.locator('#recordVideo')).to_be_enabled()
                 expect(other.locator('#videoDraftStatus')).to_contain_text('только во вкладке')
                 other.reload();other.locator('#createVideoMode').click()
-                expect(other.locator('#videoPlanError')).to_be_visible();expect(other.locator('#recordVideo')).to_be_disabled()
+                # No split localStorage write: unavailable IDB leaves the prior legacy
+                # animated draft intact, rather than saving a dangling image reference.
+                expect(other.locator('.scene-image-thumb')).to_have_count(0)
+                expect(other.locator('#video-scene-visual-0')).to_have_value('animated')
                 blocked.close()
                 assert not errors, errors
                 assert all(request.startswith((base,'blob:','data:')) for request in requests), requests
-                print('PASS: unavailable image storage is explicit, missing images never silently export, no JS errors or external requests', flush=True)
+                print('PASS: unavailable storage is explicit, volatile images are not committed and the previous draft is retained, no JS errors or external requests', flush=True)
                 print('All 6 media browser check groups passed.', flush=True)
             finally: browser.close()
     finally: server.shutdown();server.server_close()

@@ -48,7 +48,9 @@ jobs:
             python -m playwright install --with-deps chromium
           fi
       - name: Check editor functionality
-        run: python tests/browser.py
+        run: |
+          python tests/project-db-browser.py
+          python tests/browser.py
       - name: Check real browser video and audio recording
         run: |
           if ! command -v ffprobe >/dev/null; then
@@ -57,12 +59,14 @@ jobs:
           fi
           python tests/video-browser.py
           python tests/media-browser.py
+          python tests/project-browser.py
       - name: Prepare Pages files and downloads
         run: python scripts/prepare-site.py
       - name: Check product information and standalone version
         run: |
           python tests/product-browser.py
           PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/product-browser.py
+          PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/project-browser.py
       - name: Check deployment under repository path
         run: python tests/pages.py
       - name: Upload static site
@@ -112,11 +116,14 @@ jobs:
           python scripts/prepare-site.py
           PRODUCT_BROWSER=webkit python tests/product-browser.py
           PRODUCT_BROWSER=webkit PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/product-browser.py
+          PERSISTENCE_BROWSER=webkit python tests/project-db-browser.py
+          PERSISTENCE_BROWSER=webkit python tests/project-browser.py
+          PERSISTENCE_BROWSER=webkit PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/project-browser.py
 
   safari:
     name: Native Safari on macOS
     runs-on: macos-15
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:

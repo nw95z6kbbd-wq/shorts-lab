@@ -110,7 +110,7 @@ def run():
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
                 page.set_viewport_size({'width': 1440, 'height': 1000})
                 page.locator('#video-scene-0').fill('Ручная правка видеосцены.')
-                expect(page.locator('#videoDraftStatus')).to_contain_text('сохранён')
+                expect(page.locator('#videoDraftStatus')).to_contain_text('Сохранено')
                 page.reload()
                 page.locator('#openVideoMode').click()
                 expect(page.locator('#video-scene-0')).to_have_value('Ручная правка видеосцены.')

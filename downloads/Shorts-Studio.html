@@ -86,7 +86,7 @@
   </aside>
 
   <div class="workspace">
-    <header class="topbar"><div class="breadcrumb"><span>Студия</span><span class="breadcrumb-divider">/</span><span id="videoBreadcrumb" hidden>Видео по идее</span><label for="projectName" class="sr-only">Название проекта</label><input id="projectName" maxlength="80" value="Мой Short" autocomplete="off"></div><span class="save-status" id="saveStatus" role="status"><svg><use href="#i-check"/></svg><span>Сохранено на устройстве</span></span></header>
+    <header class="topbar"><div class="breadcrumb"><span>Студия</span><span class="breadcrumb-divider">/</span><span id="videoBreadcrumb" hidden>Видео по идее</span><label for="projectName" class="sr-only">Название проекта</label><input id="projectName" maxlength="80" value="Мой Short" autocomplete="off"></div><span class="save-status" id="saveStatus" role="status"><svg><use href="#i-check"/></svg><span>Восстановление…</span></span></header>
     <div class="product-toolbar" aria-label="Сведения о продукте"><span class="product-version-label"><span>SHORTS STUDIO</span><span class="product-version-pill" data-product-version>—</span></span><div class="product-toolbar-actions"><button data-product-open="updates">Что нового</button><button data-product-open="about" aria-label="О Shorts Studio">О проекте</button></div></div>
     <div class="mobile-filebar" aria-label="Файлы проекта"><span>ФАЙЛ ПРОЕКТА</span><button class="text-button" id="saveProjectMobile"><svg><use href="#i-download"/></svg>Скачать проект</button><button class="text-button" id="openProjectMobile"><svg><use href="#i-upload"/></svg>Открыть проект</button></div>
     <main id="mainContent">
@@ -109,8 +109,8 @@
           <div class="video-editor">
             <section class="panel idea-panel"><div class="video-section-heading"><div><h2>Какую историю расскажем?</h2><p>Опишите идею. Мы подготовим основу для вашего ролика.</p></div><button class="text-button" id="videoDemo">Демо · 18 сек</button></div><label for="videoIdea" class="sr-only">Идея ролика</label><textarea id="videoIdea" maxlength="280" rows="3" placeholder="Например: мистическая история про заброшенный дом"></textarea><div class="idea-actions"><span>Локальные шаблоны · без API и нейросетей</span><button class="button button-primary" id="generateIdea"><svg><use href="#i-sparkles"/></svg>Создать сценарий</button></div></section>
             <section class="panel video-settings"><div class="video-section-heading"><div><h2>Ваш ролик</h2><p>Анимация и субтитры уже включены.</p></div><span class="format-badge">720 × 1280 · 24 кадра/с</span></div><div class="video-settings-grid"><label>Название<input id="videoTitle" maxlength="80" placeholder="Название ролика"></label><label>Расчёт времени<select id="videoTiming"><option value="auto">Автоматически</option><option value="manual">Вручную по сценам</option></select></label><label>Длительность в авто<select id="videoDuration"><option value="15">15 секунд</option><option value="18" selected>18 секунд</option><option value="20">20 секунд</option><option value="30">30 секунд</option><option value="60">60 секунд</option></select></label><label>Атмосфера<select id="videoTheme"><option value="mystery">Туманный дом</option><option value="space">Космос</option><option value="sunrise">Рассвет</option><option value="neon">Неон</option></select></label><label>Субтитры<select id="videoCaption"><option value="accent">Акцент на словах</option><option value="classic">Классика</option><option value="outline">Контур</option></select></label><label class="video-format-setting">Формат записи<select id="videoFormat"><option value="auto">Авто: MP4, иначе WebM</option><option value="webm">WebM</option></select></label></div><p class="video-hint" id="videoTotalTime"></p><p class="video-hint" id="videoFormatHint"></p></section>
-            <section class="panel video-audio"><div class="video-section-heading"><div><h2>Голос и озвучка</h2><p>Отдельная дорожка для речи.</p></div><svg><use href="#i-upload"/></svg></div><div class="video-audio-controls"><label class="button button-secondary audio-upload" for="videoAudio">Выбрать аудио<input id="videoAudio" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm"></label><span id="videoAudioInfo">Без аудиодорожки</span><button class="text-button" id="removeVideoAudio" hidden>Убрать</button></div><div class="video-volume"><label for="videoVolume">Громкость</label><input id="videoVolume" type="range" min="0" max="100" value="70"><output id="videoVolumeValue" for="videoVolume">70%</output></div><p class="video-hint">Аудио обрезается по длине ролика; если оно короче, в конце будет тишина. Файл остаётся на устройстве; после перезагрузки выберите его заново.</p></section>
-            <section class="panel video-audio"><div class="video-section-heading"><div><h2>Фоновая музыка</h2><p>Независимая дорожка с плавными краями.</p></div><svg><use href="#i-upload"/></svg></div><div class="video-audio-controls"><label class="button button-secondary audio-upload" for="videoMusic">Выбрать музыку<input id="videoMusic" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm"></label><span id="videoMusicInfo">Без музыки</span><button class="text-button" id="removeVideoMusic" hidden>Убрать</button></div><div class="video-volume"><label for="videoMusicVolume">Громкость музыки</label><input id="videoMusicVolume" type="range" min="0" max="100" value="25"><output id="videoMusicVolumeValue" for="videoMusicVolume">25%</output></div><div class="music-fades"><label>Появление, сек<input id="videoMusicFadeIn" type="number" min="0" max="10" step="0.1" value="1"></label><label>Затухание, сек<input id="videoMusicFadeOut" type="number" min="0" max="10" step="0.1" value="1"></label></div><p class="video-hint">Голос и музыка звучат одновременно. Короткая музыка затухает перед своим окончанием. Аудио нужно выбрать заново после перезагрузки; оно не распознаётся и не выравнивает субтитры автоматически.</p></section>
+            <section class="panel video-audio"><div class="video-section-heading"><div><h2>Голос и озвучка</h2><p>Отдельная дорожка для речи.</p></div><svg><use href="#i-upload"/></svg></div><div class="video-audio-controls"><label class="button button-secondary audio-upload" for="videoAudio">Выбрать аудио<input id="videoAudio" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm"></label><span id="videoAudioInfo">Без аудиодорожки</span><button class="text-button" id="removeVideoAudio" hidden>Убрать</button></div><div class="video-volume"><label for="videoVolume">Громкость</label><input id="videoVolume" type="range" min="0" max="100" value="70"><output id="videoVolumeValue" for="videoVolume">70%</output></div><p class="video-hint">Аудио обрезается по длине ролика; если оно короче, в конце будет тишина. Файл остаётся на устройстве; исходный файл сохраняется вместе с проектом, если хранилище доступно.</p></section>
+            <section class="panel video-audio"><div class="video-section-heading"><div><h2>Фоновая музыка</h2><p>Независимая дорожка с плавными краями.</p></div><svg><use href="#i-upload"/></svg></div><div class="video-audio-controls"><label class="button button-secondary audio-upload" for="videoMusic">Выбрать музыку<input id="videoMusic" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm"></label><span id="videoMusicInfo">Без музыки</span><button class="text-button" id="removeVideoMusic" hidden>Убрать</button></div><div class="video-volume"><label for="videoMusicVolume">Громкость музыки</label><input id="videoMusicVolume" type="range" min="0" max="100" value="25"><output id="videoMusicVolumeValue" for="videoMusicVolume">25%</output></div><div class="music-fades"><label>Появление, сек<input id="videoMusicFadeIn" type="number" min="0" max="10" step="0.1" value="1"></label><label>Затухание, сек<input id="videoMusicFadeOut" type="number" min="0" max="10" step="0.1" value="1"></label></div><p class="video-hint">Голос и музыка звучат одновременно. Короткая музыка затухает перед своим окончанием. Музыка восстанавливается вместе с проектом; она не распознаётся и не выравнивает субтитры автоматически.</p></section>
             <section class="video-storyboard" aria-labelledby="videoScenesHeading"><div class="section-heading"><div><h2 id="videoScenesHeading">Сцены ролика <span id="videoSceneCount">0</span></h2><p>Редактируйте текст — анимация подстроится.</p></div><button class="text-button" id="addVideoScene"><svg><use href="#i-plus"/></svg>Добавить</button></div><div id="videoScenes" class="scene-list"></div><div class="video-scene-actions"><button class="text-button" id="videoToEditor">Открыть сценарий в редакторе</button><button class="text-button" id="videoSrt"><svg><use href="#i-download"/></svg>Субтитры SRT</button></div><p class="video-hint">Черновик этого режима хранится отдельно. Перенос в редактор потребует подтверждения замены текущего проекта.</p></section>
           </div>
           <aside class="video-preview-column"><section class="panel video-preview-panel"><div class="preview-heading"><h2><svg><use href="#i-play"/></svg><span id="videoPreviewHeading">Анимация ролика</span></h2><span class="format-badge">9:16</span></div><div class="video-output-tabs" id="videoOutputTabs" hidden><button class="active" id="showVideoCanvas" aria-pressed="true">Анимация</button><button id="showVideoFile" aria-pressed="false">Готовый файл</button></div><div class="video-canvas-wrap"><canvas id="videoCanvas" width="720" height="1280" aria-label="Анимированный предпросмотр ролика 9:16">Браузер не поддерживает Canvas.</canvas><video id="generatedVideo" controls playsinline preload="metadata" hidden aria-label="Готовый видеоролик"></video></div><div class="video-preview-controls"><button class="button button-secondary" id="playGeneratedPreview"><svg><use href="#i-play"/></svg><span>Смотреть</span></button><span id="videoPreviewTime">0:00 / 0:18</span></div><label class="sr-only" for="videoSeek">Позиция предпросмотра</label><input id="videoSeek" class="video-seek" type="range" min="0" max="18000" value="0" step="50"><div class="video-render-controls"><button class="button button-primary" id="recordVideo"><svg><use href="#i-sparkles"/></svg>Собрать видео</button><button class="button button-secondary" id="cancelVideo" hidden>Отменить запись</button><progress id="videoProgress" max="100" value="0" aria-label="Прогресс записи видео" hidden></progress><p id="videoRenderStatus" role="status">Запись займёт 18 секунд. Оставьте вкладку открытой.</p><a class="button button-primary" id="downloadVideo" hidden><svg><use href="#i-download"/></svg>Скачать видео</a><p id="videoFileInfo" class="video-hint" hidden></p></div></section><div class="video-local-note"><svg><use href="#i-monitor"/></svg><p>Всё создаётся в вашем браузере.<br>Без сервера, ключей и платных сервисов.</p></div></aside>
@@ -373,35 +373,516 @@
 
 </script>
 <script>
+(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'));
+  else root.ShortsVideoCore = factory(root.ShortsCore);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (C) {
+  'use strict';
+  const WIDTH = 720, HEIGHT = 1280, FPS = 24;
+  const DEMO_IDEA = 'Мистическая история про заброшенный дом';
+  const DEMO_SCENES = [
+    'Этот заброшенный дом помнил то, что я забыл.',
+    'Ночью в пустом окне вдруг зажёгся свет.',
+    'За дверью кто-то тихо назвал моё имя.',
+    'На полу лежала моя детская фотография.',
+    'Но я никогда здесь не был.',
+    'На обороте написано: «С возвращением домой». '
+  ];
+  const TEMPLATES = {
+    mystery: ['Ночью в пустом окне вдруг зажёгся свет.', 'За дверью кто-то тихо назвал моё имя.', 'На полу лежала моя детская фотография.', 'Но я никогда здесь не был.', 'На обороте написано: «С возвращением домой».'],
+    space: ['Подними голову и представь бесконечное ночное небо.', 'Свет далёких звёзд летел к нам годами.', 'За каждой светящейся точкой скрывается целая история.', 'А мы видим лишь маленькую часть Вселенной.', 'Какое открытие ждёт нас за следующим горизонтом?'],
+    sunrise: ['Большой путь начинается с одного маленького шага.', 'Не обязательно знать все ответы заранее.', 'Сегодня попробуй сделать то, что давно откладывал.', 'Даже небольшой результат уже меняет твою историю.', 'Какой первый шаг ты сделаешь прямо сейчас?'],
+    neon: ['В привычном мире всегда есть необычный ракурс.', 'Остановись на секунду и присмотрись к деталям.', 'Иногда одна случайная встреча меняет всё.', 'Так обычный день становится началом новой истории.', 'А что случится, если сделать следующий шаг?']
+  };
+
+  function themeForIdea(idea) {
+    if (/космос|зв[её]зд|планет|вселен|галактик/iu.test(idea)) return 'space';
+    if (/мист|страш|заброш|призрак|тайн|хоррор|дом|ночь|лес/iu.test(idea)) return 'mystery';
+    if (/мотивац|мечт|успех|путь|шаг|привычк|начать|путешеств/iu.test(idea)) return 'sunrise';
+    return 'neon';
+  }
+
+  function generateFromIdea(value) {
+    const idea = String(value || '').trim().replace(/\s+/gu, ' ');
+    if (idea.length < 3 || !C.countWords(idea)) throw new Error('Опишите идею хотя бы несколькими словами.');
+    if (idea.length > 280) throw new Error('Сократите идею до 280 символов.');
+    const theme = themeForIdea(idea);
+    let hook = idea.replace(/[.!?…]+/gu, ',').replace(/[,\s]+$/gu, '');
+    if (hook.length > 240) hook = hook.slice(0, 237).replace(/\s+\S*$/u, '') + '…';
+    const script = ['Представь: ' + hook + '.', ...TEMPLATES[theme]].join('\n');
+    return {
+      version: 1, idea, title: idea.slice(0, 80), theme, caption: 'accent',
+      durationSeconds: 18, volume: 0.7, format: 'auto', edited: false,
+      timing: 'auto', musicVolume: .25, musicFadeIn: 1, musicFadeOut: 1,
+      scenes: C.createScenes(script).slice(0, 12)
+    };
+  }
+
+  function demo() {
+    const draft = generateFromIdea(DEMO_IDEA);
+    draft.title = 'Дом, который помнит';
+    draft.scenes = DEMO_SCENES.map(text => ({ id: C.id(), text: text.trim() }));
+    return draft;
+  }
+
+  function parseDraft(value) {
+    const data = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!data || data.version !== 1 || typeof data.idea !== 'string' || data.idea.length > 280 ||
+        typeof data.title !== 'string' || data.title.length > 80 || !Array.isArray(data.scenes) ||
+        data.scenes.length > 12 || data.scenes.some(scene => !scene || typeof scene.text !== 'string' || scene.text.length > 280)) {
+      throw new Error('Не удалось прочитать черновик видео.');
+    }
+    const ids = new Set();
+    const scenes = data.scenes.map(scene => {
+      const id = typeof scene.id === 'string' && scene.id && !ids.has(scene.id) ? scene.id : C.id();
+      ids.add(id);
+      if (scene.durationSeconds != null && (!Number.isFinite(scene.durationSeconds) || scene.durationSeconds < .5 || scene.durationSeconds > 60)) throw new Error('Некорректная длительность сцены.');
+      return { id, text: scene.text, durationSeconds: scene.durationSeconds ?? null,
+        visual: scene.visual === 'image' ? 'image' : 'animated',
+        imageId: typeof scene.imageId === 'string' ? scene.imageId : null,
+        imageName: typeof scene.imageName === 'string' ? scene.imageName.slice(0, 200) : '',
+        camera: ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'static'].includes(scene.camera) ? scene.camera : 'zoom-in',
+        transition: ['crossfade', 'slide', 'zoom', 'none'].includes(scene.transition) ? scene.transition : 'crossfade' };
+    });
+    return {
+      version: 1, idea: data.idea, title: data.title,
+      scenes,
+      durationSeconds: [15, 18, 20, 30, 60].includes(data.durationSeconds) ? data.durationSeconds : 18,
+      theme: ['mystery', 'space', 'sunrise', 'neon'].includes(data.theme) ? data.theme : 'mystery',
+      caption: ['accent', 'classic', 'outline'].includes(data.caption) ? data.caption : 'accent',
+      volume: Number.isFinite(data.volume) ? Math.max(0, Math.min(1, data.volume)) : 0.7,
+      format: data.format === 'webm' ? 'webm' : 'auto', edited: data.edited === true,
+      timing: data.timing === 'manual' ? 'manual' : 'auto',
+      musicVolume: Number.isFinite(data.musicVolume) ? Math.max(0, Math.min(1, data.musicVolume)) : .25,
+      musicFadeIn: Number.isFinite(data.musicFadeIn) ? Math.max(0, Math.min(10, data.musicFadeIn)) : 1,
+      musicFadeOut: Number.isFinite(data.musicFadeOut) ? Math.max(0, Math.min(10, data.musicFadeOut)) : 1
+    };
+  }
+
+  function chunks(text, size = 6) {
+    const words = String(text).trim().split(/\s+/u).filter(Boolean);
+    const result = [];
+    for (let i = 0; i < words.length; i += size) result.push(words.slice(i, i + size));
+    return result;
+  }
+
+  function makePlan(draft) {
+    const manual = draft.timing === 'manual';
+    const scenes = draft.scenes.filter(scene => manual || C.countWords(scene.text) > 0 || scene.visual === 'image');
+    if (!scenes.length) throw new Error('Добавьте текст хотя бы в одну сцену.');
+    if (scenes.length > 12) throw new Error('В прототипе поддерживается не больше 12 сцен.');
+    if (manual && scenes.some(scene => !Number.isFinite(scene.durationSeconds) || scene.durationSeconds < .5 || scene.durationSeconds > 60)) throw new Error('Укажите длительность каждой сцены от 0,5 до 60 секунд.');
+    const durationMs = manual ? scenes.reduce((sum, scene) => sum + Math.round(scene.durationSeconds * 1000), 0) : Math.round(Number(draft.durationSeconds) * 1000);
+    if (!Number.isFinite(durationMs) || durationMs < 500 || durationMs > 60000) throw new Error('Общая длительность ролика должна быть от 0,5 до 60 секунд.');
+    const weights = scenes.map(scene => Math.max(4, C.countWords(scene.text)));
+    const sum = weights.reduce((a, b) => a + b, 0);
+    let weight = 0, manualEnd = 0;
+    const cues = [];
+    const timeline = scenes.map((scene, index) => {
+      const startMs = manual ? manualEnd : Math.round(durationMs * weight / sum);
+      weight += weights[index];
+      const endMs = manual ? startMs + Math.round(scene.durationSeconds * 1000) : Math.round(durationMs * weight / sum);
+      manualEnd = endMs;
+      const groups = chunks(scene.text);
+      const wordSum = groups.reduce((sum, group) => sum + group.length, 0);
+      let wordOffset = 0;
+      const sceneCues = groups.map(words => {
+        const start = startMs + Math.round((endMs - startMs) * wordOffset / wordSum);
+        wordOffset += words.length;
+        const cue = { startMs: start, endMs: startMs + Math.round((endMs - startMs) * wordOffset / wordSum), text: words.join(' '), words };
+        cues.push(cue);
+        return cue;
+      });
+      return { id: scene.id, text: scene.text, index, startMs, endMs, cues: sceneCues,
+        visual: scene.visual || 'animated', imageId: scene.imageId || null,
+        camera: scene.camera || 'zoom-in', transition: scene.transition || 'crossfade' };
+    });
+    return { title: draft.title, theme: draft.theme, caption: draft.caption, durationMs, timeline, cues };
+  }
+
+  function frameAt(plan, elapsedMs) {
+    const time = Math.max(0, Math.min(plan.durationMs - 1, Number(elapsedMs) || 0));
+    const scene = plan.timeline.find(scene => time < scene.endMs) || plan.timeline[plan.timeline.length - 1];
+    const cue = scene.cues.find(cue => time < cue.endMs) || scene.cues[scene.cues.length - 1] || null;
+    const activeWord = cue ? Math.min(cue.words.length - 1, Math.floor((time - cue.startMs) / (cue.endMs - cue.startMs) * cue.words.length)) : -1;
+    return { time, scene, cue, activeWord, localMs: time - scene.startMs };
+  }
+
+  function generateSrt(plan) {
+    return plan.cues.map((cue, index) => `${index + 1}\n${C.srtTime(cue.startMs)} --> ${C.srtTime(cue.endMs)}\n${C.wrapSubtitle(cue.text)}\n`).join('\n');
+  }
+
+  function supportedFormats(isSupported, hasAudio = false, preference = 'auto') {
+    const mp4 = hasAudio
+      ? ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4']
+      : ['video/mp4;codecs=avc1.42E01E', 'video/mp4'];
+    const webm = hasAudio
+      ? ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+      : ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    return (preference === 'webm' ? webm : [...mp4, ...webm]).filter(type => {
+      try { return Boolean(isSupported(type)); } catch (_) { return false; }
+    });
+  }
+
+  function extensionFor(type) {
+    const mime = String(type).split(';')[0].trim().toLowerCase();
+    if (mime === 'video/mp4') return 'mp4';
+    if (mime === 'video/webm') return 'webm';
+    throw new Error('Браузер вернул неизвестный формат видео.');
+  }
+
+  function cameraRect(imageWidth, imageHeight, progress, mode = 'zoom-in') {
+    if (!(imageWidth > 0 && imageHeight > 0)) throw new Error('Изображение не имеет размеров.');
+    const t = Math.max(0, Math.min(1, progress));
+    const smooth = t * t * (3 - 2 * t);
+    const zoom = mode === 'zoom-in' ? 1.02 + .16 * smooth : mode === 'zoom-out' ? 1.18 - .16 * smooth : mode === 'static' ? 1 : 1.15;
+    const scale = Math.max(WIDTH / imageWidth, HEIGHT / imageHeight) * zoom;
+    const width = imageWidth * scale, height = imageHeight * scale;
+    const pan = mode === 'pan-left' ? 1 - smooth : mode === 'pan-right' ? smooth : .5;
+    return { x: -(width - WIDTH) * pan, y: -(height - HEIGHT) / 2, width, height };
+  }
+
+  function musicEnvelope(seconds, endSeconds, fadeIn = 1, fadeOut = 1) {
+    if (seconds < 0 || seconds >= endSeconds) return 0;
+    return Math.max(0, Math.min(1, fadeIn > 0 ? seconds / fadeIn : 1, fadeOut > 0 ? (endSeconds - seconds) / fadeOut : 1));
+  }
+
+  // MediaRecorder's streaming WebM often omits Duration. Add it without re-encoding.
+  // Indexed files are only patched in place: shifting their cluster offsets would break seeking.
+  function patchWebmDuration(bytes, durationMs) {
+    if (!(bytes instanceof Uint8Array) || !Number.isFinite(durationMs) || durationMs <= 0) throw new Error('Некорректные данные длительности WebM.');
+    function element(offset, limit) {
+      const start = offset;
+      if (offset >= limit || !bytes[offset]) throw new Error('Повреждён заголовок WebM.');
+      let idWidth = 1;
+      while (idWidth <= 4 && !(bytes[offset] & (1 << (8 - idWidth)))) idWidth++;
+      if (idWidth > 4 || offset + idWidth >= limit) throw new Error('Повреждён идентификатор WebM.');
+      let id = 0;
+      for (let i = 0; i < idWidth; i++) id = id * 256 + bytes[offset++];
+      const sizeStart = offset;
+      if (!bytes[offset]) throw new Error('Повреждён размер WebM.');
+      let sizeWidth = 1;
+      while (sizeWidth <= 8 && !(bytes[offset] & (1 << (8 - sizeWidth)))) sizeWidth++;
+      if (sizeWidth > 8 || offset + sizeWidth > limit) throw new Error('Повреждён размер WebM.');
+      let size = bytes[offset] & ((1 << (8 - sizeWidth)) - 1);
+      let unknown = size === (1 << (8 - sizeWidth)) - 1;
+      offset++;
+      for (let i = 1; i < sizeWidth; i++) { unknown = unknown && bytes[offset] === 255; size = size * 256 + bytes[offset++]; }
+      if (!unknown && (!Number.isSafeInteger(size) || offset + size > limit)) throw new Error('WebM обрезан.');
+      return { id, start, sizeStart, sizeWidth, size, unknown, data: offset, end: unknown ? limit : offset + size };
+    }
+    function sizeBytes(value, minWidth) {
+      let width = minWidth;
+      while (value >= 2 ** (7 * width) - 1) width++;
+      if (width > 8) throw new Error('Слишком большой WebM.');
+      const result = new Uint8Array(width);
+      for (let i = width - 1; i >= 0; i--) { result[i] = value % 256; value = Math.floor(value / 256); }
+      result[0] |= 1 << (8 - width);
+      return result;
+    }
+    function concat(...parts) {
+      const result = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+      let offset = 0; for (const part of parts) { result.set(part, offset); offset += part.length; }
+      return result;
+    }
+    let segment;
+    for (let offset = 0; offset < bytes.length;) {
+      const part = element(offset, bytes.length);
+      if (part.id === 0x18538067) { segment = part; break; }
+      offset = part.end;
+    }
+    if (!segment) throw new Error('Не найден видеоконтейнер WebM.');
+    let info, indexed = false;
+    for (let offset = segment.data; offset < segment.end;) {
+      const part = element(offset, segment.end);
+      if (part.id === 0x1549a966) info = part;
+      if (part.id === 0x114d9b74 || part.id === 0x1c53bb6b) indexed = true;
+      offset = part.end;
+    }
+    if (!info || info.unknown) return bytes;
+    let scale = 1000000, duration;
+    for (let offset = info.data; offset < info.end;) {
+      const part = element(offset, info.end);
+      if (part.id === 0x2ad7b1) { scale = 0; for (let i = part.data; i < part.end; i++) scale = scale * 256 + bytes[i]; }
+      if (part.id === 0x4489) duration = part;
+      offset = part.end;
+    }
+    if (!Number.isFinite(scale) || scale <= 0) throw new Error('Некорректная шкала времени WebM.');
+    const value = durationMs * 1000000 / scale;
+    if (duration && [4, 8].includes(duration.size)) {
+      const result = bytes.slice();
+      const view = new DataView(result.buffer, duration.data, duration.size);
+      if (duration.size === 8) view.setFloat64(0, value, false); else view.setFloat32(0, value, false);
+      return result;
+    }
+    if (indexed || duration) return bytes;
+    const durationElement = new Uint8Array(11);
+    durationElement.set([0x44, 0x89, 0x88]); new DataView(durationElement.buffer).setFloat64(3, value, false);
+    const newInfo = concat(bytes.slice(info.start, info.sizeStart), sizeBytes(info.size + 11, info.sizeWidth), bytes.slice(info.data, info.end), durationElement);
+    const delta = newInfo.length - (info.end - info.start);
+    return concat(bytes.slice(0, segment.sizeStart),
+      segment.unknown ? bytes.slice(segment.sizeStart, segment.data) : sizeBytes(segment.size + delta, segment.sizeWidth),
+      bytes.slice(segment.data, info.start), newInfo, bytes.slice(info.end));
+  }
+
+  return { WIDTH, HEIGHT, FPS, DEMO_IDEA, demo, generateFromIdea, themeForIdea, parseDraft, chunks, makePlan, frameAt, generateSrt, supportedFormats, extensionFor, patchWebmDuration, cameraRect, musicEnvelope };
+});
+
+</script>
+<script>
 (function () {
   'use strict';
-  const KEY = 'shorts-studio.project.v1';
-  window.ShortsStorage = {
-    load() {
-      try {
-        const raw = localStorage.getItem(KEY);
-        if (raw === null) return { project: null, error: null };
+  const NAME = 'shorts-studio.projects';
+  const failure = (code, message) => Object.assign(new Error(message), { code });
+  function normalize(slot, value) {
+    if (slot === 'editor') return ShortsCore.parseProject(value);
+    if (slot !== 'video') throw failure('INVALID', 'Неизвестный раздел проекта.');
+    const result = ShortsVideoCore.parseDraft(value);
+    for (const role of ['voice', 'music']) {
+      const id = value[role + 'AssetId'];
+      if (id != null && (typeof id !== 'string' || !id || id.length > 200)) throw failure('INVALID', 'Повреждена ссылка на аудио.');
+      result[role + 'AssetId'] = id || null;
+      result[role + 'Name'] = typeof value[role + 'Name'] === 'string' ? value[role + 'Name'].slice(0, 200) : '';
+    }
+    return result;
+  }
+  function references(slot, state) {
+    if (slot === 'editor') return [];
+    return [...new Set([...state.scenes.map(scene => scene.imageId), state.voiceAssetId, state.musicAssetId].filter(Boolean))];
+  }
+  function createRepository(name = NAME) {
+    let connection, opening;
+    function open() {
+      if (connection) return Promise.resolve(connection);
+      if (opening) return opening;
+      opening = new Promise((resolve, reject) => {
+        let request, ended = false;
+        const finish = (error, db) => {
+          if (ended) { db?.close(); return; }
+          ended = true; clearTimeout(timer);
+          if (error) reject(error); else { connection = db; resolve(db); }
+        };
+        const timer = setTimeout(() => finish(failure('TIMEOUT', 'Хранилище не ответило. Закройте другие вкладки Shorts Studio и повторно откройте страницу.')), 8000);
         try {
-          return { project: ShortsCore.parseProject(raw), error: null };
-        } catch (error) {
-          // Preserve recoverable data before starting a fresh project.
-          let recovered = false;
-          try { localStorage.setItem(KEY + '.recovery', raw); recovered = true; } catch (_) { /* Saving can be unavailable. */ }
-          return { project: null, error: 'Сохранённый проект повреждён. ' + (recovered ? 'Создана резервная копия данных. ' : '') + 'Можно открыть скачанный файл проекта.' };
-        }
-      } catch (error) {
-        return { project: null, error: 'Автосохранение недоступно. Скачивайте проект, чтобы сохранить работу.' };
-      }
-    },
-    save(project) {
+          request = indexedDB.open(name, 1);
+          request.onupgradeneeded = () => {
+            for (const store of ['projects', 'assets', 'meta']) request.result.createObjectStore(store, { keyPath: 'id' });
+          };
+          request.onblocked = () => finish(failure('BLOCKED', 'Обновление хранилища заблокировано другой вкладкой. Закройте её и перезагрузите страницу.'));
+          request.onerror = () => finish(request.error || failure('UNAVAILABLE', 'IndexedDB недоступна.'));
+          request.onsuccess = () => {
+            const db = request.result;
+            db.onversionchange = () => { db.close(); connection = null; };
+            db.onclose = () => { if (connection === db) connection = null; };
+            finish(null, db);
+          };
+        } catch (error) { finish(error); }
+      }).finally(() => { opening = null; });
+      return opening;
+    }
+    async function transaction(stores, mode, run) {
+      const db = await open();
+      return new Promise((resolve, reject) => {
+        let tx, result, cause;
+        try { tx = db.transaction(stores, mode); } catch (error) { reject(error); return; }
+        const timer = setTimeout(() => { cause = failure('TIMEOUT', 'Сохранение не завершилось вовремя. Предыдущая версия сохранена.'); try { tx.abort(); } catch (_) {} }, 15000);
+        tx.oncomplete = () => { clearTimeout(timer); resolve(result); };
+        tx.onerror = event => { cause ||= event.target.error; };
+        tx.onabort = () => { clearTimeout(timer); reject(cause || tx.error || failure('ABORT', 'Операция хранилища прервана.')); };
+        const abort = error => { cause = error; try { tx.abort(); } catch (_) {} };
+        try { run(tx, value => { result = value; }, abort); } catch (error) { abort(error); }
+      });
+    }
+    const read = (store, id) => transaction([store], 'readonly', (tx, done) => {
+      const request = tx.objectStore(store).get(id); request.onsuccess = () => done(request.result || null);
+    });
+    async function save(slot, input, expectedRevision, files = []) {
+      const state = normalize(slot, input), ids = references(slot, state);
+      // All asynchronous preparation happens before the transaction (Safari).
+      const supplied = files.filter(file => ids.includes(file.id));
+      for (const file of supplied) if (!(file.blob instanceof Blob) || !file.blob.size) throw failure('INVALID', 'Медиафайл пуст или повреждён.');
+      return transaction(['projects', 'assets'], 'readwrite', (tx, done, abort) => {
+        const projects = tx.objectStore('projects'), assets = tx.objectStore('assets');
+        const request = projects.get(slot);
+        request.onsuccess = () => {
+          try {
+            const current = request.result;
+            if ((current?.revision || 0) !== expectedRevision) { abort(failure('CONFLICT', 'Проект изменён в другой вкладке. Ваши правки остаются в этой вкладке. Перезагрузите страницу после сохранения нужного текста или видео.')); return; }
+            for (const file of supplied) assets.put(file);
+            const missing = current?.missingAssets || [];
+            for (const id of ids) {
+              const check = assets.get(id);
+              check.onsuccess = () => { if (!check.result && !missing.includes(id)) abort(failure('MISSING', 'Не удалось сохранить один из медиафайлов. Предыдущая версия проекта не изменена.')); };
+            }
+            let previous = null;
+            if (current) {
+              try { previous = { state: normalize(slot, current.state), revision: current.revision, missingAssets: current.missingAssets || [] }; }
+              catch (_) { previous = current.previous; if (!previous) throw failure('CORRUPT', 'Сохранённый проект повреждён. Автоматическая замена отключена.'); }
+            }
+            const record = { id: slot, schemaVersion: 1, revision: expectedRevision + 1, state, previous, missingAssets: missing.filter(id => ids.includes(id)), updatedAt: new Date().toISOString() };
+            projects.put(record); done(record);
+            // Retain both current and previous snapshots; never touch the legacy DB.
+            const all = projects.getAll();
+            all.onsuccess = () => {
+              const used = new Set(all.result.flatMap(p => [...references(p.id, p.state), ...(p.previous ? references(p.id, p.previous.state) : [])]));
+              const cursor = assets.openCursor();
+              cursor.onsuccess = () => { const item = cursor.result; if (item) { if (!used.has(item.key)) item.delete(); item.continue(); } };
+            };
+          } catch (error) { abort(error); }
+        };
+      });
+    }
+    async function migrate(records, files, legacy) {
+      const prepared = records.map(record => ({ ...record, state: normalize(record.id, record.state) }));
+      return transaction(['projects', 'assets', 'meta'], 'readwrite', (tx, done, abort) => {
+        const meta = tx.objectStore('meta'), request = meta.get('legacy-v1');
+        request.onsuccess = () => {
+          if (request.result) { done(false); return; }
+          const existing = tx.objectStore('projects').count();
+          existing.onsuccess = () => {
+            try {
+            if (existing.result) { abort(failure('MIGRATION', 'В новой базе уже есть данные без отметки миграции. Автоматическая замена отключена.')); return; }
+            const fileIds = new Set(files.map(file => file.id));
+            for (const file of files) {
+              if (!(file.blob instanceof Blob) || !file.blob.size) { abort(failure('INVALID', 'Повреждён файл старого проекта.')); return; }
+              tx.objectStore('assets').put(file);
+            }
+            for (const record of prepared) tx.objectStore('projects').put({ id: record.id, schemaVersion: 1, revision: 1, state: record.state, previous: null, missingAssets: references(record.id, record.state).filter(id => !fileIds.has(id)), updatedAt: new Date().toISOString() });
+            meta.put({ id: 'legacy-v1', legacy, completedAt: new Date().toISOString() }); done(true);
+            } catch (error) { abort(error); }
+          };
+        };
+      });
+    }
+    return Object.freeze({ read: slot => read('projects', slot), asset: id => read('assets', id), migration: () => read('meta', 'legacy-v1'), save, migrate, close() { connection?.close(); connection = null; } });
+  }
+  window.ShortsProjectDB = Object.freeze({ createRepository, normalize, references });
+})();
+
+</script>
+<script>
+(function () {
+  'use strict';
+  document.body.inert = true;
+  const DB = window.ShortsProjectDB, repo = DB.createRepository();
+  const keys = { editor: 'shorts-studio.project.v1', video: 'shorts-studio.video.v1' };
+  const sessions = new Map(), pending = new Map(), legacy = {}, warnings = {};
+  let unavailable = null;
+  let channel;
+  try { channel = new BroadcastChannel('shorts-studio.projects'); } catch (_) {}
+  const writer = ShortsCore.id();
+  function message(error) {
+    if (error.name === 'QuotaExceededError') return 'Хранилище заполнено. Новые правки не сохранены; предыдущая версия доступна. Освободите место и повторите сохранение, не закрывая вкладку.';
+    if (['SecurityError', 'ReferenceError', 'TypeError'].includes(error.name)) return 'Браузер запретил доступ к IndexedDB. Изменения доступны только в этой вкладке.';
+    if (error.name === 'VersionError') return 'Хранилище создано более новой версией приложения. Обновите страницу; данные не заменены.';
+    return error.message || 'Хранилище недоступно. Новые правки доступны только в этой вкладке.';
+  }
+  function readLegacy() {
+    const records = [];
+    for (const slot of Object.keys(keys)) {
       try {
-        localStorage.setItem(KEY, JSON.stringify(project));
-        return { ok: true };
-      } catch (error) {
-        return { ok: false, error: 'Не удалось сохранить проект. Возможно, хранилище заполнено или недоступно.' };
+        const raw = localStorage.getItem(keys[slot]); legacy[slot] = raw;
+        if (raw !== null) {
+          try { records.push({ id: slot, state: DB.normalize(slot, JSON.parse(raw)) }); }
+          catch (_) { warnings[slot] = 'Старые данные повреждены. Исходник оставлен без изменений и скопирован в резерв миграции; открыт пример.'; }
+        }
+      } catch (_) { warnings[slot] = 'Старое хранилище localStorage недоступно.'; }
+    }
+    return records;
+  }
+  function legacyImages(ids) {
+    if (!ids.length) return Promise.resolve([]);
+    return new Promise((resolve, reject) => {
+      let db, tx, absent = false, ended = false;
+      const finish = (error, files) => { if (ended) return; ended = true; clearTimeout(timer); db?.close(); error ? reject(error) : resolve(files); };
+      const timer = setTimeout(() => { try { tx?.abort(); } catch (_) {} finish(new Error('Старое хранилище изображений не ответило. Миграция отложена; исходные данные не изменены.')); }, 8000);
+      try {
+        const request = indexedDB.open('shorts-studio.media.v1');
+        request.onupgradeneeded = () => { absent = true; request.transaction.abort(); };
+        request.onerror = () => finish(absent ? null : request.error, []);
+        request.onblocked = () => finish(new Error('Старая база изображений занята другой вкладкой. Закройте её и повторно откройте страницу.'));
+        request.onsuccess = () => {
+          db = request.result; if (ended) { db.close(); return; }
+          db.onversionchange = () => db.close();
+          if (!db.objectStoreNames.contains('images')) { finish(null, []); return; }
+          tx = db.transaction('images', 'readonly'); const files = [];
+          tx.oncomplete = () => finish(null, files);
+          tx.onerror = tx.onabort = () => finish(tx.error || new Error('Не удалось прочитать прежние изображения.'));
+          for (const id of ids) {
+            const get = tx.objectStore('images').get(id);
+            get.onsuccess = () => { const file = get.result; if (file?.file instanceof Blob && file.file.size) files.push({ id, blob: file.file, name: file.name || '', kind: 'image' }); };
+          }
+        };
+      } catch (error) { finish(error); }
+    });
+  }
+  const ready = (async () => {
+    try {
+      const migrated = await repo.migration();
+      if (migrated) {
+        for (const slot of Object.keys(keys)) {
+          try { if (localStorage.getItem(keys[slot]) !== migrated.legacy[slot] && migrated.legacy[slot] !== undefined) warnings[slot] = 'Данные старой версии изменены. Новая сохранённая версия не заменена; для переноса правок из старой вкладки используйте её файл проекта.'; } catch (_) {}
+        }
+        return;
       }
+      const records = readLegacy(), video = records.find(record => record.id === 'video');
+      if (Object.keys(keys).some(slot => legacy[slot] === undefined)) throw new Error('Не удалось проверить прежние данные localStorage. Миграция отложена; старые данные не изменены.');
+      const files = await legacyImages(video ? DB.references('video', video.state) : []);
+      await repo.migrate(records, files, legacy);
+    } catch (error) { unavailable = error; readLegacy(); }
+  })();
+  async function load(slot = 'editor') {
+    await ready;
+    const session = { revision: 0, queue: Promise.resolve(), conflict: false };
+    sessions.set(slot, session);
+    if (unavailable) {
+      let project = null;
+      try { if (legacy[slot]) project = DB.normalize(slot, JSON.parse(legacy[slot])); } catch (_) {}
+      return { project, error: message(unavailable) + ' Автосохранение отключено до повторного открытия страницы.' };
+    }
+    try {
+      const record = await repo.read(slot); session.revision = record?.revision || 0;
+      let project = null, recovery = '';
+      if (record) {
+        try { project = DB.normalize(slot, record.state); }
+        catch (error) {
+          if (!record.previous) throw error;
+          project = DB.normalize(slot, record.previous.state); recovery = 'Текущее сохранение повреждено. Восстановлена предыдущая корректная версия.';
+        }
+      }
+      return { project, error: recovery || warnings[slot] || null };
+    } catch (error) { unavailable = error; return { project: null, error: 'Не удалось открыть сохранённый проект. Автоматическая замена отключена. ' + message(error) }; }
+  }
+  function save(project, slot = 'editor') {
+    const session = sessions.get(slot), snapshot = structuredClone(project);
+    const files = DB.references(slot, snapshot).map(id => pending.get(id)).filter(Boolean);
+    const perform = async () => {
+      try {
+        if (unavailable) throw unavailable;
+        if (!session || session.conflict) throw Object.assign(new Error('Проект изменён в другой вкладке. Автосохранение остановлено; ваши правки остаются во вкладке. Перед перезагрузкой сохраните нужный текст или видео.'), { code: 'CONFLICT' });
+        const record = await repo.save(slot, snapshot, session.revision, files); session.revision = record.revision;
+        for (const file of files) if (pending.get(file.id) === file) pending.delete(file.id);
+        channel?.postMessage({ writer, slot, revision: record.revision });
+        return { ok: true };
+      } catch (error) { if (error.code === 'CONFLICT' && session) session.conflict = true; return { ok: false, error: message(error) }; }
+    };
+    if (!session) return perform();
+    session.queue = session.queue.then(perform, perform); return session.queue;
+  }
+  if (channel) channel.onmessage = event => {
+    const data = event.data, session = sessions.get(data?.slot);
+    if (session && data.writer !== writer && data.revision > session.revision) {
+      session.conflict = true;
+      window.dispatchEvent(new CustomEvent('shorts:storage-conflict', { detail: { slot: data.slot } }));
     }
   };
+  window.ShortsStorage = Object.freeze({ ready, load, save,
+    stage(id, blob, name, kind) { pending.set(id, { id, blob, name, kind }); },
+    async asset(id) { await ready; if (pending.has(id)) return pending.get(id); if (unavailable) throw unavailable; return repo.asset(id); },
+    discard(id) { pending.delete(id); },
+    pending: id => pending.has(id)
+  });
 })();
 
 </script>
@@ -437,14 +918,14 @@
 
 </script>
 <script>
-(function () {
+window.ShortsEditorReady = (async function () {
   'use strict';
   const C = window.ShortsCore;
   const $ = id => document.getElementById(id);
-  const loaded = window.ShortsStorage.load();
+  const loaded = await window.ShortsStorage.load();
   let project = loaded.project || C.createProject(true);
   let view = 'script';
-  let saveTimer;
+  let saveTimer, maxSaveTimer, saveEpoch = 0;
   let toastTimer;
   let playing = false;
   let animationFrame = 0;
@@ -482,19 +963,26 @@
     $('saveStatus').querySelector('use').setAttribute('href', error ? '#i-info' : '#i-check');
   }
 
-  function saveNow() {
-    clearTimeout(saveTimer);
-    const result = window.ShortsStorage.save(project);
-    updateSaveStatus(result.ok ? 'Сохранено на устройстве' : 'Не сохранено · скачайте проект', !result.ok);
-    $('storageWarning').hidden = result.ok;
+  async function saveNow() {
+    clearTimeout(saveTimer); clearTimeout(maxSaveTimer); maxSaveTimer = null;
+    const epoch = saveEpoch;
+    updateSaveStatus('Сохранение…');
+    const result = await window.ShortsStorage.save(project);
+    if (epoch === saveEpoch) {
+      updateSaveStatus(result.ok ? 'Сохранено на устройстве' : 'Ошибка сохранения', !result.ok);
+      $('storageWarning').hidden = result.ok;
+      if (!result.ok) $('storageWarning').textContent = result.error;
+    }
     return result.ok;
   }
 
   function changed() {
+    saveEpoch++;
     project.updatedAt = new Date().toISOString();
     updateSaveStatus('Сохранение…');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveNow, 300);
+    if (!maxSaveTimer) maxSaveTimer = setTimeout(saveNow, 2000);
   }
 
   function confirmAction(title, description, label, action) {
@@ -943,6 +1431,12 @@
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { pausePlayback(); saveNow(); }
   });
+  window.addEventListener('shorts:storage-conflict', event => {
+    if (event.detail.slot !== 'editor') return;
+    saveEpoch++; updateSaveStatus('Ошибка сохранения', true);
+    $('storageWarning').hidden = false;
+    $('storageWarning').textContent = 'Проект изменён в другой вкладке. Скачайте текущий текстовый проект перед перезагрузкой.';
+  });
   window.addEventListener('storage', event => {
     if (event.key === 'shorts-studio.project.v1') {
       toast('Проект изменён в другой вкладке. Скачайте текущую копию перед перезагрузкой, чтобы сохранить правки.');
@@ -971,266 +1465,9 @@
     $('storageWarning').hidden = false;
     updateSaveStatus('Проверьте сохранение проекта', true);
     toast(loaded.error);
-  } else if (!loaded.project) saveNow();
+  } else if (!loaded.project) await saveNow();
+  else updateSaveStatus('Сохранено на устройстве');
 })();
-
-</script>
-<script>
-(function (root, factory) {
-  'use strict';
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'));
-  else root.ShortsVideoCore = factory(root.ShortsCore);
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (C) {
-  'use strict';
-  const WIDTH = 720, HEIGHT = 1280, FPS = 24;
-  const DEMO_IDEA = 'Мистическая история про заброшенный дом';
-  const DEMO_SCENES = [
-    'Этот заброшенный дом помнил то, что я забыл.',
-    'Ночью в пустом окне вдруг зажёгся свет.',
-    'За дверью кто-то тихо назвал моё имя.',
-    'На полу лежала моя детская фотография.',
-    'Но я никогда здесь не был.',
-    'На обороте написано: «С возвращением домой». '
-  ];
-  const TEMPLATES = {
-    mystery: ['Ночью в пустом окне вдруг зажёгся свет.', 'За дверью кто-то тихо назвал моё имя.', 'На полу лежала моя детская фотография.', 'Но я никогда здесь не был.', 'На обороте написано: «С возвращением домой».'],
-    space: ['Подними голову и представь бесконечное ночное небо.', 'Свет далёких звёзд летел к нам годами.', 'За каждой светящейся точкой скрывается целая история.', 'А мы видим лишь маленькую часть Вселенной.', 'Какое открытие ждёт нас за следующим горизонтом?'],
-    sunrise: ['Большой путь начинается с одного маленького шага.', 'Не обязательно знать все ответы заранее.', 'Сегодня попробуй сделать то, что давно откладывал.', 'Даже небольшой результат уже меняет твою историю.', 'Какой первый шаг ты сделаешь прямо сейчас?'],
-    neon: ['В привычном мире всегда есть необычный ракурс.', 'Остановись на секунду и присмотрись к деталям.', 'Иногда одна случайная встреча меняет всё.', 'Так обычный день становится началом новой истории.', 'А что случится, если сделать следующий шаг?']
-  };
-
-  function themeForIdea(idea) {
-    if (/космос|зв[её]зд|планет|вселен|галактик/iu.test(idea)) return 'space';
-    if (/мист|страш|заброш|призрак|тайн|хоррор|дом|ночь|лес/iu.test(idea)) return 'mystery';
-    if (/мотивац|мечт|успех|путь|шаг|привычк|начать|путешеств/iu.test(idea)) return 'sunrise';
-    return 'neon';
-  }
-
-  function generateFromIdea(value) {
-    const idea = String(value || '').trim().replace(/\s+/gu, ' ');
-    if (idea.length < 3 || !C.countWords(idea)) throw new Error('Опишите идею хотя бы несколькими словами.');
-    if (idea.length > 280) throw new Error('Сократите идею до 280 символов.');
-    const theme = themeForIdea(idea);
-    let hook = idea.replace(/[.!?…]+/gu, ',').replace(/[,\s]+$/gu, '');
-    if (hook.length > 240) hook = hook.slice(0, 237).replace(/\s+\S*$/u, '') + '…';
-    const script = ['Представь: ' + hook + '.', ...TEMPLATES[theme]].join('\n');
-    return {
-      version: 1, idea, title: idea.slice(0, 80), theme, caption: 'accent',
-      durationSeconds: 18, volume: 0.7, format: 'auto', edited: false,
-      timing: 'auto', musicVolume: .25, musicFadeIn: 1, musicFadeOut: 1,
-      scenes: C.createScenes(script).slice(0, 12)
-    };
-  }
-
-  function demo() {
-    const draft = generateFromIdea(DEMO_IDEA);
-    draft.title = 'Дом, который помнит';
-    draft.scenes = DEMO_SCENES.map(text => ({ id: C.id(), text: text.trim() }));
-    return draft;
-  }
-
-  function parseDraft(value) {
-    const data = typeof value === 'string' ? JSON.parse(value) : value;
-    if (!data || data.version !== 1 || typeof data.idea !== 'string' || data.idea.length > 280 ||
-        typeof data.title !== 'string' || data.title.length > 80 || !Array.isArray(data.scenes) ||
-        data.scenes.length > 12 || data.scenes.some(scene => !scene || typeof scene.text !== 'string' || scene.text.length > 280)) {
-      throw new Error('Не удалось прочитать черновик видео.');
-    }
-    const ids = new Set();
-    const scenes = data.scenes.map(scene => {
-      const id = typeof scene.id === 'string' && scene.id && !ids.has(scene.id) ? scene.id : C.id();
-      ids.add(id);
-      if (scene.durationSeconds != null && (!Number.isFinite(scene.durationSeconds) || scene.durationSeconds < .5 || scene.durationSeconds > 60)) throw new Error('Некорректная длительность сцены.');
-      return { id, text: scene.text, durationSeconds: scene.durationSeconds ?? null,
-        visual: scene.visual === 'image' ? 'image' : 'animated',
-        imageId: typeof scene.imageId === 'string' ? scene.imageId : null,
-        imageName: typeof scene.imageName === 'string' ? scene.imageName.slice(0, 200) : '',
-        camera: ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'static'].includes(scene.camera) ? scene.camera : 'zoom-in',
-        transition: ['crossfade', 'slide', 'zoom', 'none'].includes(scene.transition) ? scene.transition : 'crossfade' };
-    });
-    return {
-      version: 1, idea: data.idea, title: data.title,
-      scenes,
-      durationSeconds: [15, 18, 20, 30, 60].includes(data.durationSeconds) ? data.durationSeconds : 18,
-      theme: ['mystery', 'space', 'sunrise', 'neon'].includes(data.theme) ? data.theme : 'mystery',
-      caption: ['accent', 'classic', 'outline'].includes(data.caption) ? data.caption : 'accent',
-      volume: Number.isFinite(data.volume) ? Math.max(0, Math.min(1, data.volume)) : 0.7,
-      format: data.format === 'webm' ? 'webm' : 'auto', edited: data.edited === true,
-      timing: data.timing === 'manual' ? 'manual' : 'auto',
-      musicVolume: Number.isFinite(data.musicVolume) ? Math.max(0, Math.min(1, data.musicVolume)) : .25,
-      musicFadeIn: Number.isFinite(data.musicFadeIn) ? Math.max(0, Math.min(10, data.musicFadeIn)) : 1,
-      musicFadeOut: Number.isFinite(data.musicFadeOut) ? Math.max(0, Math.min(10, data.musicFadeOut)) : 1
-    };
-  }
-
-  function chunks(text, size = 6) {
-    const words = String(text).trim().split(/\s+/u).filter(Boolean);
-    const result = [];
-    for (let i = 0; i < words.length; i += size) result.push(words.slice(i, i + size));
-    return result;
-  }
-
-  function makePlan(draft) {
-    const manual = draft.timing === 'manual';
-    const scenes = draft.scenes.filter(scene => manual || C.countWords(scene.text) > 0 || scene.visual === 'image');
-    if (!scenes.length) throw new Error('Добавьте текст хотя бы в одну сцену.');
-    if (scenes.length > 12) throw new Error('В прототипе поддерживается не больше 12 сцен.');
-    if (manual && scenes.some(scene => !Number.isFinite(scene.durationSeconds) || scene.durationSeconds < .5 || scene.durationSeconds > 60)) throw new Error('Укажите длительность каждой сцены от 0,5 до 60 секунд.');
-    const durationMs = manual ? scenes.reduce((sum, scene) => sum + Math.round(scene.durationSeconds * 1000), 0) : Math.round(Number(draft.durationSeconds) * 1000);
-    if (!Number.isFinite(durationMs) || durationMs < 500 || durationMs > 60000) throw new Error('Общая длительность ролика должна быть от 0,5 до 60 секунд.');
-    const weights = scenes.map(scene => Math.max(4, C.countWords(scene.text)));
-    const sum = weights.reduce((a, b) => a + b, 0);
-    let weight = 0, manualEnd = 0;
-    const cues = [];
-    const timeline = scenes.map((scene, index) => {
-      const startMs = manual ? manualEnd : Math.round(durationMs * weight / sum);
-      weight += weights[index];
-      const endMs = manual ? startMs + Math.round(scene.durationSeconds * 1000) : Math.round(durationMs * weight / sum);
-      manualEnd = endMs;
-      const groups = chunks(scene.text);
-      const wordSum = groups.reduce((sum, group) => sum + group.length, 0);
-      let wordOffset = 0;
-      const sceneCues = groups.map(words => {
-        const start = startMs + Math.round((endMs - startMs) * wordOffset / wordSum);
-        wordOffset += words.length;
-        const cue = { startMs: start, endMs: startMs + Math.round((endMs - startMs) * wordOffset / wordSum), text: words.join(' '), words };
-        cues.push(cue);
-        return cue;
-      });
-      return { id: scene.id, text: scene.text, index, startMs, endMs, cues: sceneCues,
-        visual: scene.visual || 'animated', imageId: scene.imageId || null,
-        camera: scene.camera || 'zoom-in', transition: scene.transition || 'crossfade' };
-    });
-    return { title: draft.title, theme: draft.theme, caption: draft.caption, durationMs, timeline, cues };
-  }
-
-  function frameAt(plan, elapsedMs) {
-    const time = Math.max(0, Math.min(plan.durationMs - 1, Number(elapsedMs) || 0));
-    const scene = plan.timeline.find(scene => time < scene.endMs) || plan.timeline[plan.timeline.length - 1];
-    const cue = scene.cues.find(cue => time < cue.endMs) || scene.cues[scene.cues.length - 1] || null;
-    const activeWord = cue ? Math.min(cue.words.length - 1, Math.floor((time - cue.startMs) / (cue.endMs - cue.startMs) * cue.words.length)) : -1;
-    return { time, scene, cue, activeWord, localMs: time - scene.startMs };
-  }
-
-  function generateSrt(plan) {
-    return plan.cues.map((cue, index) => `${index + 1}\n${C.srtTime(cue.startMs)} --> ${C.srtTime(cue.endMs)}\n${C.wrapSubtitle(cue.text)}\n`).join('\n');
-  }
-
-  function supportedFormats(isSupported, hasAudio = false, preference = 'auto') {
-    const mp4 = hasAudio
-      ? ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4']
-      : ['video/mp4;codecs=avc1.42E01E', 'video/mp4'];
-    const webm = hasAudio
-      ? ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
-      : ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
-    return (preference === 'webm' ? webm : [...mp4, ...webm]).filter(type => {
-      try { return Boolean(isSupported(type)); } catch (_) { return false; }
-    });
-  }
-
-  function extensionFor(type) {
-    const mime = String(type).split(';')[0].trim().toLowerCase();
-    if (mime === 'video/mp4') return 'mp4';
-    if (mime === 'video/webm') return 'webm';
-    throw new Error('Браузер вернул неизвестный формат видео.');
-  }
-
-  function cameraRect(imageWidth, imageHeight, progress, mode = 'zoom-in') {
-    if (!(imageWidth > 0 && imageHeight > 0)) throw new Error('Изображение не имеет размеров.');
-    const t = Math.max(0, Math.min(1, progress));
-    const smooth = t * t * (3 - 2 * t);
-    const zoom = mode === 'zoom-in' ? 1.02 + .16 * smooth : mode === 'zoom-out' ? 1.18 - .16 * smooth : mode === 'static' ? 1 : 1.15;
-    const scale = Math.max(WIDTH / imageWidth, HEIGHT / imageHeight) * zoom;
-    const width = imageWidth * scale, height = imageHeight * scale;
-    const pan = mode === 'pan-left' ? 1 - smooth : mode === 'pan-right' ? smooth : .5;
-    return { x: -(width - WIDTH) * pan, y: -(height - HEIGHT) / 2, width, height };
-  }
-
-  function musicEnvelope(seconds, endSeconds, fadeIn = 1, fadeOut = 1) {
-    if (seconds < 0 || seconds >= endSeconds) return 0;
-    return Math.max(0, Math.min(1, fadeIn > 0 ? seconds / fadeIn : 1, fadeOut > 0 ? (endSeconds - seconds) / fadeOut : 1));
-  }
-
-  // MediaRecorder's streaming WebM often omits Duration. Add it without re-encoding.
-  // Indexed files are only patched in place: shifting their cluster offsets would break seeking.
-  function patchWebmDuration(bytes, durationMs) {
-    if (!(bytes instanceof Uint8Array) || !Number.isFinite(durationMs) || durationMs <= 0) throw new Error('Некорректные данные длительности WebM.');
-    function element(offset, limit) {
-      const start = offset;
-      if (offset >= limit || !bytes[offset]) throw new Error('Повреждён заголовок WebM.');
-      let idWidth = 1;
-      while (idWidth <= 4 && !(bytes[offset] & (1 << (8 - idWidth)))) idWidth++;
-      if (idWidth > 4 || offset + idWidth >= limit) throw new Error('Повреждён идентификатор WebM.');
-      let id = 0;
-      for (let i = 0; i < idWidth; i++) id = id * 256 + bytes[offset++];
-      const sizeStart = offset;
-      if (!bytes[offset]) throw new Error('Повреждён размер WebM.');
-      let sizeWidth = 1;
-      while (sizeWidth <= 8 && !(bytes[offset] & (1 << (8 - sizeWidth)))) sizeWidth++;
-      if (sizeWidth > 8 || offset + sizeWidth > limit) throw new Error('Повреждён размер WebM.');
-      let size = bytes[offset] & ((1 << (8 - sizeWidth)) - 1);
-      let unknown = size === (1 << (8 - sizeWidth)) - 1;
-      offset++;
-      for (let i = 1; i < sizeWidth; i++) { unknown = unknown && bytes[offset] === 255; size = size * 256 + bytes[offset++]; }
-      if (!unknown && (!Number.isSafeInteger(size) || offset + size > limit)) throw new Error('WebM обрезан.');
-      return { id, start, sizeStart, sizeWidth, size, unknown, data: offset, end: unknown ? limit : offset + size };
-    }
-    function sizeBytes(value, minWidth) {
-      let width = minWidth;
-      while (value >= 2 ** (7 * width) - 1) width++;
-      if (width > 8) throw new Error('Слишком большой WebM.');
-      const result = new Uint8Array(width);
-      for (let i = width - 1; i >= 0; i--) { result[i] = value % 256; value = Math.floor(value / 256); }
-      result[0] |= 1 << (8 - width);
-      return result;
-    }
-    function concat(...parts) {
-      const result = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
-      let offset = 0; for (const part of parts) { result.set(part, offset); offset += part.length; }
-      return result;
-    }
-    let segment;
-    for (let offset = 0; offset < bytes.length;) {
-      const part = element(offset, bytes.length);
-      if (part.id === 0x18538067) { segment = part; break; }
-      offset = part.end;
-    }
-    if (!segment) throw new Error('Не найден видеоконтейнер WebM.');
-    let info, indexed = false;
-    for (let offset = segment.data; offset < segment.end;) {
-      const part = element(offset, segment.end);
-      if (part.id === 0x1549a966) info = part;
-      if (part.id === 0x114d9b74 || part.id === 0x1c53bb6b) indexed = true;
-      offset = part.end;
-    }
-    if (!info || info.unknown) return bytes;
-    let scale = 1000000, duration;
-    for (let offset = info.data; offset < info.end;) {
-      const part = element(offset, info.end);
-      if (part.id === 0x2ad7b1) { scale = 0; for (let i = part.data; i < part.end; i++) scale = scale * 256 + bytes[i]; }
-      if (part.id === 0x4489) duration = part;
-      offset = part.end;
-    }
-    if (!Number.isFinite(scale) || scale <= 0) throw new Error('Некорректная шкала времени WebM.');
-    const value = durationMs * 1000000 / scale;
-    if (duration && [4, 8].includes(duration.size)) {
-      const result = bytes.slice();
-      const view = new DataView(result.buffer, duration.data, duration.size);
-      if (duration.size === 8) view.setFloat64(0, value, false); else view.setFloat32(0, value, false);
-      return result;
-    }
-    if (indexed || duration) return bytes;
-    const durationElement = new Uint8Array(11);
-    durationElement.set([0x44, 0x89, 0x88]); new DataView(durationElement.buffer).setFloat64(3, value, false);
-    const newInfo = concat(bytes.slice(info.start, info.sizeStart), sizeBytes(info.size + 11, info.sizeWidth), bytes.slice(info.data, info.end), durationElement);
-    const delta = newInfo.length - (info.end - info.start);
-    return concat(bytes.slice(0, segment.sizeStart),
-      segment.unknown ? bytes.slice(segment.sizeStart, segment.data) : sizeBytes(segment.size + delta, segment.sizeWidth),
-      bytes.slice(segment.data, info.start), newInfo, bytes.slice(info.end));
-  }
-
-  return { WIDTH, HEIGHT, FPS, DEMO_IDEA, demo, generateFromIdea, themeForIdea, parseDraft, chunks, makePlan, frameAt, generateSrt, supportedFormats, extensionFor, patchWebmDuration, cameraRect, musicEnvelope };
-});
 
 </script>
 <script>
@@ -1696,30 +1933,6 @@
 <script>
 (function () {
   'use strict';
-  let database;
-  function open() {
-    if (database) return database;
-    database = new Promise((resolve, reject) => {
-      if (!window.indexedDB) { reject(new Error('Хранилище изображений недоступно.')); return; }
-      const request = indexedDB.open('shorts-studio.media.v1', 1);
-      let expired = false;
-      const timer = setTimeout(() => { expired = true; reject(new Error('Хранилище изображений не ответило.')); }, 3000);
-      request.onupgradeneeded = () => request.result.createObjectStore('images', { keyPath: 'id' });
-      request.onsuccess = () => { clearTimeout(timer); if (expired) request.result.close(); else resolve(request.result); };
-      request.onerror = () => { clearTimeout(timer); reject(new Error('Не удалось открыть хранилище изображений.')); };
-    });
-    database.catch(() => { database = null; });
-    return database;
-  }
-  async function operation(mode, action) {
-    const db = await open();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction('images', mode);
-      const request = action(transaction.objectStore('images'));
-      transaction.oncomplete = () => resolve(request.result);
-      transaction.onerror = transaction.onabort = () => reject(new Error('Изображение не сохранено: хранилище заполнено или недоступно.'));
-    });
-  }
   async function decodeImage(file) {
     if (!file || !file.size || file.size > 15 * 1024 * 1024) throw new Error('Выберите изображение PNG, JPG или WebP размером до 15 МБ.');
     const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
@@ -1747,36 +1960,29 @@
   }
   window.ShortsVideoMedia = {
     decodeImage,
-    put: (id, file, name) => operation('readwrite', store => store.put({ id, file, name })),
-    get: id => operation('readonly', store => store.get(id)),
-    remove: id => operation('readwrite', store => store.delete(id))
+    put: async (id, file, name) => window.ShortsStorage.stage(id, file, name, 'image'),
+    get: async id => { const asset = await window.ShortsStorage.asset(id); return asset ? { file: asset.blob, name: asset.name } : null; },
+    // Physical cleanup belongs to the atomic repository, including previous snapshots.
+    remove: async id => window.ShortsStorage.discard(id)
   };
 })();
 
 </script>
 <script>
-(function () {
+(async function () {
   'use strict';
   const C = window.ShortsCore, V = window.ShortsVideoCore, R = window.ShortsVideoRecorder;
   const M = window.ShortsVideoMedia;
   const $ = id => document.getElementById(id);
-  const KEY = 'shorts-studio.video.v1';
-  let draft = V.demo(), loadError = '';
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw !== null) {
-      try { draft = V.parseDraft(raw); }
-      catch (_) {
-        try { localStorage.setItem(KEY + '.recovery', raw); } catch (_) {}
-        loadError = 'Черновик видео повреждён. Открыт демонстрационный пример. Проект редактора сохранён отдельно.';
-      }
-    }
-  } catch (_) { loadError = 'Автосохранение видео недоступно. Работа возможна, но черновик может не сохраниться после перезагрузки.'; }
+  await window.ShortsEditorReady;
+  const loaded = await window.ShortsStorage.load('video');
+  let draft = loaded.project || V.demo(), loadError = loaded.error || '';
   let active = false, busy = false, decoding = false, manuallyEdited = draft.edited;
   let plan, audioBuffer = null, musicBuffer = null, resultUrl = '', recorderAbort = null;
   let previewing = false, previewStarting = false, previewFrame = 0, previewOffset = 0, previewEpoch = 0, previewAudio;
-  let audioEpoch = 0, musicEpoch = 0, saveTimer, lastRenderSecond = -1;
+  let audioEpoch = 0, musicEpoch = 0, saveTimer, maxSaveTimer, saveEpoch = 0, lastRenderSecond = -1;
   const assets = new Map();
+  const audioProblems = new Map();
   function releaseUnused(saved) {
     const used = new Set(draft.scenes.map(scene => scene.imageId));
     for (const [id, asset] of assets) if (!used.has(id)) {
@@ -1797,20 +2003,23 @@
   function error(message) { $('videoError').textContent = message; $('videoError').hidden = !message; }
   function clock(ms) { return C.clockTime(Math.floor(ms / 1000) * 1000); }
 
-  function saveNow() {
-    clearTimeout(saveTimer);
-    try {
-      localStorage.setItem(KEY, JSON.stringify({ ...draft, edited: manuallyEdited }));
-      $('videoDraftStatus').textContent = draft.scenes.some(scene => assets.get(scene.imageId)?.persisted === false) ? 'Текст сохранён; часть изображений только во вкладке' : 'Черновик сохранён на устройстве';
-      releaseUnused(true);
-    } catch (_) {
-      $('videoDraftStatus').textContent = 'Черновик не сохранён';
-      error('Браузер не смог сохранить черновик видео. Не закрывайте страницу до скачивания результата. Проект редактора хранится отдельно.');
+  async function saveNow() {
+    clearTimeout(saveTimer); clearTimeout(maxSaveTimer); saveTimer = maxSaveTimer = null;
+    const epoch = saveEpoch;
+    $('videoDraftStatus').textContent = 'Сохранение…';
+    const result = await window.ShortsStorage.save({ ...draft, edited: manuallyEdited }, 'video');
+    for (const [id, asset] of assets) asset.persisted = !window.ShortsStorage.pending(id);
+    if (epoch === saveEpoch) {
+      $('videoDraftStatus').textContent = result.ok ? 'Сохранено на устройстве' : 'Ошибка сохранения · новые файлы только во вкладке';
+      if (result.ok) releaseUnused(true); else error(result.error);
     }
+    return result.ok;
   }
   function saveSoon() {
-    $('videoDraftStatus').textContent = 'Сохранение черновика…';
+    saveEpoch++;
+    $('videoDraftStatus').textContent = 'Сохранение…';
     clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 300);
+    if (!maxSaveTimer) maxSaveTimer = setTimeout(saveNow, 2000);
   }
   function setMode(open) {
     if (!open) {
@@ -1895,6 +2104,9 @@
   function rebuild() {
     let problem = '';
     try {
+      for (const role of ['voice', 'music']) {
+        if (draft[role + 'AssetId'] && !(role === 'voice' ? audioBuffer : musicBuffer)) throw new Error(audioProblems.get(role) || 'Восстанавливаем аудио…');
+      }
       plan = V.makePlan(draft);
       plan.images = new Map([...assets].map(([id, asset]) => [id, asset.image]));
       if (plan.timeline.some(scene => scene.visual === 'image' && !plan.images.has(scene.imageId))) throw new Error('Для сцен с изображениями выберите файлы заново или переключите их на анимированный фон.');
@@ -1968,8 +2180,8 @@
           decoded = await M.decodeImage(selected);
           const id = C.id(); let stored = true;
           try { await M.put(id, selected, selected.name); } catch (_) { stored = false; }
-          decoded.persisted = stored; assets.set(id, decoded); decoded = null; scene.imageId = id; scene.imageName = selected.name; scene.visual = 'image';
-          manuallyEdited = true; renderScenes(); changed();
+          decoded.persisted = false; assets.set(id, decoded); decoded = null; scene.imageId = id; scene.imageName = selected.name; scene.visual = 'image';
+          manuallyEdited = true; renderScenes(); changed(); await saveNow();
           if (!stored) error('Изображение доступно для предпросмотра и экспорта, но браузер не сохранил его. После перезагрузки выберите файл заново.');
         } catch (cause) { decoded?.dispose(); error(cause.message); }
         finally { decoding = false; lockControls(); }
@@ -1998,7 +2210,7 @@
     rebuild(); renderScenes(); redraw(); lockControls();
   }
   function replaceDraft(next) {
-    stopPreview(); draft = next; manuallyEdited = false; previewOffset = 0;
+    stopPreview(); draft = { ...next, voiceAssetId: draft.voiceAssetId, voiceName: draft.voiceName, musicAssetId: draft.musicAssetId, musicName: draft.musicName }; manuallyEdited = false; previewOffset = 0;
     error(''); invalidateResult(); renderForm(); changed();
   }
   function replaceWithConfirmation(next) {
@@ -2091,13 +2303,27 @@
     draft.timing = 'manual'; $('videoTiming').value = 'manual';
   }
 
-  async function restoreImages() {
+  async function restoreMedia() {
     const ids = [...new Set(draft.scenes.map(scene => scene.imageId).filter(Boolean))];
-    if (!ids.length) return;
     decoding = true; lockControls();
     try {
       for (const id of ids) {
-        try { const stored = await M.get(id); if (stored?.file) { const asset = await M.decodeImage(stored.file); asset.persisted = true; assets.set(id, asset); } } catch (_) { /* Missing files are reported by rebuild. */ }
+        try { const stored = await M.get(id); if (stored?.file) { const asset = await M.decodeImage(stored.file); asset.persisted = true; assets.set(id, asset); } }
+        catch (_) { /* Missing images block export in rebuild. */ }
+      }
+      for (const [role, info, remove] of [['voice', 'videoAudioInfo', 'removeVideoAudio'], ['music', 'videoMusicInfo', 'removeVideoMusic']]) {
+        const id = draft[role + 'AssetId']; if (!id) continue;
+        $(remove).hidden = false; $(info).textContent = 'Восстановление аудио…';
+        try {
+          const stored = await window.ShortsStorage.asset(id);
+          if (!stored?.blob) throw new Error('Файл отсутствует в хранилище.');
+          const decoded = await R.decodeAudio(stored.blob);
+          if (role === 'voice') audioBuffer = decoded; else musicBuffer = decoded;
+          $(info).textContent = (stored.name || draft[role + 'Name']) + ' · ' + decoded.duration.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' сек';
+        } catch (cause) {
+          const message = (role === 'voice' ? 'Голос' : 'Музыка') + ': ' + cause.message + ' Выберите файл повторно или явно уберите дорожку.';
+          audioProblems.set(role, message); $(info).textContent = message;
+        }
       }
     } finally { decoding = false; renderForm(); }
   }
@@ -2140,7 +2366,8 @@
   });
   $('videoAudio').addEventListener('change', async event => {
     const file = event.target.files[0]; event.target.value = '';
-    if (!file || busy) return;
+    if (!file || busy || decoding) return;
+    const previous = audioBuffer;
     const epoch = ++audioEpoch;
     stopPreview(); invalidateResult(); error(''); decoding = true; audioBuffer = null;
     $('removeVideoAudio').hidden = true; $('videoAudioInfo').textContent = 'Читаем аудиофайл…'; lockControls();
@@ -2148,17 +2375,21 @@
       const decoded = await R.decodeAudio(file);
       if (epoch !== audioEpoch) return;
       audioBuffer = decoded;
+      const id = C.id(); window.ShortsStorage.stage(id, file, file.name, 'voice');
+      draft.voiceAssetId = id; draft.voiceName = file.name; audioProblems.delete('voice');
+      changed(); await saveNow();
       $('videoAudioInfo').textContent = file.name + ' · ' + decoded.duration.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' сек';
       $('removeVideoAudio').hidden = false;
-    } catch (cause) { if (epoch === audioEpoch) { $('videoAudioInfo').textContent = 'Без аудиодорожки'; error(cause.message); } }
-    finally { if (epoch === audioEpoch) { decoding = false; lockControls(); } }
+    } catch (cause) { if (epoch === audioEpoch) { audioBuffer = previous; $('videoAudioInfo').textContent = draft.voiceName || 'Без аудиодорожки'; error(cause.message); } }
+    finally { if (epoch === audioEpoch) { decoding = false; rebuild(); lockControls(); } }
   });
   $('removeVideoAudio').addEventListener('click', () => {
-    audioEpoch++; decoding = false; audioBuffer = null; $('videoAudioInfo').textContent = 'Без аудиодорожки'; $('removeVideoAudio').hidden = true; changed();
+    audioEpoch++; decoding = false; audioBuffer = null; draft.voiceAssetId = null; draft.voiceName = ''; audioProblems.delete('voice'); $('videoAudioInfo').textContent = 'Без аудиодорожки'; $('removeVideoAudio').hidden = true; changed();
   });
   $('videoMusic').addEventListener('change', async event => {
     const file = event.target.files[0]; event.target.value = '';
     if (!file || busy || decoding) return;
+    const previous = musicBuffer;
     const epoch = ++musicEpoch;
     stopPreview(); invalidateResult(); error(''); decoding = true; musicBuffer = null;
     $('removeVideoMusic').hidden = true; $('videoMusicInfo').textContent = 'Читаем аудиофайл…'; lockControls();
@@ -2166,13 +2397,16 @@
       const decoded = await R.decodeAudio(file);
       if (epoch !== musicEpoch) return;
       musicBuffer = decoded;
+      const id = C.id(); window.ShortsStorage.stage(id, file, file.name, 'music');
+      draft.musicAssetId = id; draft.musicName = file.name; audioProblems.delete('music');
+      changed(); await saveNow();
       $('videoMusicInfo').textContent = file.name + ' · ' + decoded.duration.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' сек';
       $('removeVideoMusic').hidden = false;
-    } catch (cause) { if (epoch === musicEpoch) { $('videoMusicInfo').textContent = 'Без музыки'; error(cause.message); } }
-    finally { if (epoch === musicEpoch) { decoding = false; lockControls(); } }
+    } catch (cause) { if (epoch === musicEpoch) { musicBuffer = previous; $('videoMusicInfo').textContent = draft.musicName || 'Без музыки'; error(cause.message); } }
+    finally { if (epoch === musicEpoch) { decoding = false; rebuild(); lockControls(); } }
   });
   $('removeVideoMusic').addEventListener('click', () => {
-    musicEpoch++; musicBuffer = null; $('videoMusicInfo').textContent = 'Без музыки'; $('removeVideoMusic').hidden = true; changed();
+    musicEpoch++; musicBuffer = null; draft.musicAssetId = null; draft.musicName = ''; audioProblems.delete('music'); $('videoMusicInfo').textContent = 'Без музыки'; $('removeVideoMusic').hidden = true; changed();
   });
   $('playGeneratedPreview').addEventListener('click', playPreview);
   $('videoSeek').addEventListener('input', () => { stopPreview(); previewOffset = Number($('videoSeek').value); redraw(); });
@@ -2184,8 +2418,17 @@
   $('videoToEditor').addEventListener('click', () => { stopPreview(); window.ShortsEditor.useScript({ title: draft.title, scenes: draft.scenes }); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { stopPreview(); if (saveTimer) saveNow(); } });
   window.addEventListener('pagehide', () => { stopPreview(); recorderAbort?.abort(new DOMException('Страница закрыта.', 'AbortError')); if (saveTimer) saveNow(); invalidateResult(); });
+  window.addEventListener('shorts:storage-conflict', event => {
+    if (event.detail.slot !== 'video') return;
+    saveEpoch++; $('videoDraftStatus').textContent = 'Ошибка сохранения';
+    error('Проект изменён в другой вкладке. Автосохранение остановлено; ваши правки остаются здесь. Перед перезагрузкой скачайте нужное видео или скопируйте текст.');
+  });
   renderForm();
-  restoreImages();
+  document.body.inert = false;
+  await restoreMedia();
+  if (!loaded.project && !loadError) await saveNow();
+  else if (!loadError) $('videoDraftStatus').textContent = 'Сохранено на устройстве';
+  window.ShortsVideoRestored = true;
   if (loadError) error(loadError);
 })();
 

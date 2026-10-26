@@ -1,29 +1,5 @@
 (function () {
   'use strict';
-  let database;
-  function open() {
-    if (database) return database;
-    database = new Promise((resolve, reject) => {
-      if (!window.indexedDB) { reject(new Error('Хранилище изображений недоступно.')); return; }
-      const request = indexedDB.open('shorts-studio.media.v1', 1);
-      let expired = false;
-      const timer = setTimeout(() => { expired = true; reject(new Error('Хранилище изображений не ответило.')); }, 3000);
-      request.onupgradeneeded = () => request.result.createObjectStore('images', { keyPath: 'id' });
-      request.onsuccess = () => { clearTimeout(timer); if (expired) request.result.close(); else resolve(request.result); };
-      request.onerror = () => { clearTimeout(timer); reject(new Error('Не удалось открыть хранилище изображений.')); };
-    });
-    database.catch(() => { database = null; });
-    return database;
-  }
-  async function operation(mode, action) {
-    const db = await open();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction('images', mode);
-      const request = action(transaction.objectStore('images'));
-      transaction.oncomplete = () => resolve(request.result);
-      transaction.onerror = transaction.onabort = () => reject(new Error('Изображение не сохранено: хранилище заполнено или недоступно.'));
-    });
-  }
   async function decodeImage(file) {
     if (!file || !file.size || file.size > 15 * 1024 * 1024) throw new Error('Выберите изображение PNG, JPG или WebP размером до 15 МБ.');
     const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
@@ -51,8 +27,9 @@
   }
   window.ShortsVideoMedia = {
     decodeImage,
-    put: (id, file, name) => operation('readwrite', store => store.put({ id, file, name })),
-    get: id => operation('readonly', store => store.get(id)),
-    remove: id => operation('readwrite', store => store.delete(id))
+    put: async (id, file, name) => window.ShortsStorage.stage(id, file, name, 'image'),
+    get: async id => { const asset = await window.ShortsStorage.asset(id); return asset ? { file: asset.blob, name: asset.name } : null; },
+    // Physical cleanup belongs to the atomic repository, including previous snapshots.
+    remove: async id => window.ShortsStorage.discard(id)
   };
 })();
