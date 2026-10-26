@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import traceback
 import urllib.error
 import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -202,6 +203,6 @@ def run():
 if __name__=='__main__':
     try: run()
     except Exception as error:
-        message=str(error).replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+        message=(type(error).__name__+': '+str(error)+'\n'+traceback.format_exc(limit=4)).replace('%','%25').replace('\r','%0D').replace('\n','%0A')
         print('::error title=Native Safari smoke check::'+message,flush=True)
         raise

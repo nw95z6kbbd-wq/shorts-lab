@@ -697,11 +697,20 @@
     const read = (store, id) => transaction([store], 'readonly', (tx, done) => {
       const request = tx.objectStore(store).get(id); request.onsuccess = () => done(request.result || null);
     });
+    async function prepare(files) {
+      const result = [];
+      for (const file of files) {
+        if (!(file.blob instanceof Blob) || !file.blob.size) throw failure('INVALID', 'Медиафайл пуст или повреждён.');
+        // ArrayBuffer avoids WebKit's temporary Blob-file preparation failures.
+        // Original bytes and MIME are preserved; no base64 or transcoding.
+        result.push({ id: file.id, name: file.name || '', kind: file.kind, type: file.blob.type, size: file.blob.size, bytes: await file.blob.arrayBuffer() });
+      }
+      return result;
+    }
     async function save(slot, input, expectedRevision, files = []) {
       const state = normalize(slot, input), ids = references(slot, state);
       // All asynchronous preparation happens before the transaction (Safari).
-      const supplied = files.filter(file => ids.includes(file.id));
-      for (const file of supplied) if (!(file.blob instanceof Blob) || !file.blob.size) throw failure('INVALID', 'Медиафайл пуст или повреждён.');
+      const supplied = await prepare(files.filter(file => ids.includes(file.id)));
       return transaction(['projects', 'assets'], 'readwrite', (tx, done, abort) => {
         const projects = tx.objectStore('projects'), assets = tx.objectStore('assets');
         const request = projects.get(slot);
@@ -735,6 +744,7 @@
     }
     async function migrate(records, files, legacy) {
       const prepared = records.map(record => ({ ...record, state: normalize(record.id, record.state) }));
+      const media = await prepare(files);
       return transaction(['projects', 'assets', 'meta'], 'readwrite', (tx, done, abort) => {
         const meta = tx.objectStore('meta'), request = meta.get('legacy-v1');
         request.onsuccess = () => {
@@ -743,9 +753,8 @@
           existing.onsuccess = () => {
             try {
             if (existing.result) { abort(failure('MIGRATION', 'В новой базе уже есть данные без отметки миграции. Автоматическая замена отключена.')); return; }
-            const fileIds = new Set(files.map(file => file.id));
-            for (const file of files) {
-              if (!(file.blob instanceof Blob) || !file.blob.size) { abort(failure('INVALID', 'Повреждён файл старого проекта.')); return; }
+            const fileIds = new Set(media.map(file => file.id));
+            for (const file of media) {
               tx.objectStore('assets').put(file);
             }
             for (const record of prepared) tx.objectStore('projects').put({ id: record.id, schemaVersion: 1, revision: 1, state: record.state, previous: null, missingAssets: references(record.id, record.state).filter(id => !fileIds.has(id)), updatedAt: new Date().toISOString() });
@@ -755,7 +764,11 @@
         };
       });
     }
-    return Object.freeze({ read: slot => read('projects', slot), asset: id => read('assets', id), migration: () => read('meta', 'legacy-v1'), save, migrate, close() { connection?.close(); connection = null; } });
+    return Object.freeze({ read: slot => read('projects', slot), async asset(id) {
+      const asset = await read('assets', id);
+      if (asset?.bytes) return { ...asset, blob: new Blob([asset.bytes], { type: asset.type || '' }) };
+      return asset;
+    }, migration: () => read('meta', 'legacy-v1'), save, migrate, close() { connection?.close(); connection = null; } });
   }
   window.ShortsProjectDB = Object.freeze({ createRepository, normalize, references });
 })();

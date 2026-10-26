@@ -73,6 +73,7 @@ def run():
                 page.locator('#videoMusicFadeIn').fill('0.4');page.locator('#videoMusicFadeIn').dispatch_event('change')
                 page.locator('#videoMusicFadeOut').fill('0.7');page.locator('#videoMusicFadeOut').dispatch_event('change')
                 page.locator('#videoCaption').select_option('outline')
+                page.locator('#videoFormat').select_option('webm' if engine=='chromium' else 'auto')
                 expect(page.locator('#videoDraftStatus')).to_contain_text('Сохранено')
                 saved=page.evaluate('async()=>await ShortsProjectDB.createRepository().read("video")')
                 original_hashes=page.evaluate('''async()=>{const db=ShortsProjectDB.createRepository(),r=await db.read('video');const out={};for(const id of ShortsProjectDB.references('video',r.state)){const a=await db.asset(id);const bytes=new Uint8Array(await a.blob.arrayBuffer());let value='';for(const b of bytes)value+=String.fromCharCode(b);out[id]=btoa(value);}db.close();return out;}''')
@@ -94,7 +95,7 @@ def run():
                 with page.expect_download() as item:page.locator('#videoSrt').click()
                 item.value.save_as(folder/'restored.srt')
                 srt=(folder/'restored.srt').read_text();assert '00:00:02,000' in srt and '00:00:05,000' in srt
-                if page.evaluate('ShortsVideoRecorder.capabilities(true).supported'):
+                if page.evaluate('ShortsVideoRecorder.capabilities(true,document.getElementById("videoFormat").value).supported'):
                     recording=media.record(page,folder,'restored',5)
                     voice,music=media.spectrum(recording,1)
                     assert voice>.015 and music>.01,(voice,music)

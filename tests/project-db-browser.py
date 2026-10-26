@@ -2,15 +2,16 @@
 import os
 from pathlib import Path
 import shutil
+import tempfile
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def run():
-    with sync_playwright() as p:
+    with tempfile.TemporaryDirectory(prefix='shorts-db-profile-') as profile, sync_playwright() as p:
         engine = os.environ.get('PERSISTENCE_BROWSER', 'chromium')
-        browser = p.webkit.launch() if engine == 'webkit' else p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'), args=['--no-sandbox'])
+        browser = p.webkit.launch_persistent_context(profile) if engine == 'webkit' else p.chromium.launch_persistent_context(profile, executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'), args=['--no-sandbox'])
         try:
             page = browser.new_page()
             # A real origin with an empty document; no editor, legacy saver or UI.
