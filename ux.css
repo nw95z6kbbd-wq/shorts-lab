@@ -1,7 +1,7 @@
 /* Shared chrome stays in document flow and reserves its own space. */
 :root{--studio-header-height:62px}
 html{scroll-padding-top:calc(var(--studio-header-height) + 16px)}
-input,textarea,select,button,a{scroll-margin-top:calc(var(--studio-header-height) + 16px)}
+.workspace :is(input,textarea,select,button,a){scroll-margin-top:calc(var(--studio-header-height) + 16px)}
 .topbar{position:sticky;top:0;z-index:25;height:62px;background:#111114f5;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 6px 20px #0002}
 .topbar .breadcrumb{flex:1;min-width:0}.topbar .breadcrumb input{min-width:0;max-width:100%}
 #saveStatus{flex-shrink:0;opacity:1;gap:7px;padding:7px 10px;border:1px solid #42354f;border-radius:8px;background:#211a2b;font-size:11px;color:#cbb5e3;line-height:1.4;white-space:nowrap}
