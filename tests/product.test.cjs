@@ -25,7 +25,7 @@ test('changelog exactly matches the authoritative release data and real PR refer
 });
 
 test('runtime files contain no hardcoded copies of release version numbers', () => {
-  const files = ['index.html', 'styles.css', 'video.css', 'product.css', ...fs.readdirSync(path.join(root, 'js')).filter(name => name.endsWith('.js') && name !== 'product.js').map(name => 'js/' + name)];
+  const files = ['index.html', 'styles.css', 'video.css', 'product.css', 'ux.css', ...fs.readdirSync(path.join(root, 'js')).filter(name => name.endsWith('.js') && name !== 'product.js').map(name => 'js/' + name)];
   for (const file of files) {
     const text = fs.readFileSync(path.join(root, file), 'utf8');
     for (const entry of P.releases) assert.ok(!text.includes(entry.version), `Version duplicated in ${file}`);

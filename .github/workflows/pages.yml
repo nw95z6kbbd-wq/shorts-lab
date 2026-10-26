@@ -66,7 +66,9 @@ jobs:
       - name: Check product information and standalone version
         run: |
           python tests/check-errors.py tests/product-browser.py
+          python tests/check-errors.py tests/ux-browser.py
           PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
+          UX_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/ux-browser.py
           PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
       - name: Check deployment under repository path
         run: python tests/pages.py
@@ -123,7 +125,9 @@ jobs:
         run: |
           python scripts/prepare-site.py
           PRODUCT_BROWSER=webkit python tests/check-errors.py tests/product-browser.py
+          UX_BROWSER=webkit python tests/check-errors.py tests/ux-browser.py
           PRODUCT_BROWSER=webkit PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
+          UX_BROWSER=webkit UX_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/ux-browser.py
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-db-browser.py
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-migration-browser.py
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-browser.py

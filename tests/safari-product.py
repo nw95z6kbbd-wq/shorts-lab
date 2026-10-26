@@ -79,18 +79,18 @@ def run():
             command('POST','/timeouts',{'script':30000,'pageLoad':30000,'implicit':0})
             command('POST','/window/rect',{'width':1000,'height':900})
             command('POST','/url',{'url':f'http://127.0.0.1:{server.server_port}/index.html'})
-            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
+            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert && document.getElementById("saveStatus").dataset.state',seconds=30)
             version=script('return ShortsProduct.version;'); assert version==product['version']
             assert script('return Array.from(document.querySelectorAll("[data-product-version]")).every(e=>e.textContent=== "v"+ShortsProduct.version);')
             before=script('return [localStorage.getItem("shorts-studio.project.v1"),localStorage.getItem("shorts-studio.video.v1")];')
-            click('.product-toolbar [data-product-open="updates"]')
+            click('.product-nav [data-product-open="updates"]')
             wait_for('document.getElementById("productDialog").open')
             assert script('return document.querySelectorAll(".release-item").length;')==len(product['releases'])
             assert script('return Array.from(document.querySelectorAll(".release-heading time")).map(e=>e.dateTime);')==[release['date'] for release in product['releases']]
             click('#productClose');command('POST','/refresh',{})
-            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
+            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert && document.getElementById("saveStatus").dataset.state',seconds=30)
             assert script('return document.getElementById("productUpdateNotice").hidden;')
-            click('.product-toolbar [data-product-open="about"]')
+            click('.product-nav [data-product-open="about"]')
             assert script('return document.getElementById("productRepository").href;')==product['repository']
             assert script('return document.getElementById("productOwner").value;')==product['rights']['owner']
             script('document.getElementById("productOwner").value="Проверка Safari";')
@@ -98,18 +98,22 @@ def run():
             wait_for('document.getElementById("productProfileStatus").textContent.includes("Сохранено только")')
             assert 'Сохранено только' in script('return document.getElementById("productProfileStatus").textContent;')
             click('#productClose');command('POST','/refresh',{})
-            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
-            click('.product-toolbar [data-product-open="about"]')
+            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert && document.getElementById("saveStatus").dataset.state',seconds=30)
+            click('.product-nav [data-product-open="about"]')
             assert script('return document.getElementById("productOwner").value;')=='Проверка Safari'
             click('#productResetProfile');click('#productClose')
             assert before==script('return [localStorage.getItem("shorts-studio.project.v1"),localStorage.getItem("shorts-studio.video.v1")];')
             print('PASS [native Safari]: version, dated release history, notice dismissal and local profile; project data unchanged',flush=True)
             command('POST','/window/rect',{'width':390,'height':844})
             assert script('return document.documentElement.scrollWidth <= innerWidth;')
-            click('.product-toolbar [data-product-open="about"]')
+            click('.product-nav [data-product-open="about"]')
             assert script('const d=document.getElementById("productDialog");return d.scrollWidth<=d.clientWidth;')
             click('#productClose')
             print('PASS [native Safari]: narrow desktop window layout; actual viewport width:',script('return innerWidth;'),flush=True)
+            script('window.scrollTo(0,document.documentElement.scrollHeight);')
+            status_rect=script('const r=document.getElementById("saveStatus").getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight,state:document.getElementById("saveStatus").dataset.state};')
+            assert status_rect['top']>=0 and status_rect['bottom']<=status_rect['height'],status_rect
+            print('PASS [native Safari]: single sticky save status remains visible at the end of the page',flush=True)
             command('POST','/window/rect',{'width':1000,'height':900})
             def prepare_canvas():
                 click('#createVideoMode')
@@ -151,6 +155,8 @@ def run():
                 metadata=script('const v=document.getElementById("generatedVideo");return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:document.getElementById("videoFileInfo").textContent};')
                 assert metadata['width']==720 and metadata['height']==1280 and 5<metadata['duration']<7.5,metadata
                 assert 'голос + музыка' in metadata['info'],metadata
+                group=script('const p=document.querySelector(".video-download-panel"),i=document.getElementById("videoFileInfo"),d=document.getElementById("downloadVideo");return {infoBeforeDownload:Boolean(i.compareDocumentPosition(d)&Node.DOCUMENT_POSITION_FOLLOWING),noScroll:p.scrollHeight<=p.clientHeight+1};')
+                assert group['infoBeforeDownload'] and group['noScroll'],group
                 print('::notice title=Native Safari project restoration verified::Original PNG and two WAV hashes match after reload; actual post-restore UI export: '+json.dumps(metadata),flush=True)
             else:
                 assert script('return document.getElementById("recordVideo").disabled;')

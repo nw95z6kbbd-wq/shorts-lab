@@ -47,6 +47,42 @@
 .product-dialog[open]{display:flex;flex-direction:column}.product-dialog-header,.product-tabs{flex-shrink:0}.product-dialog-scroll{flex:1;min-height:0}
 
 </style>
+  <style>
+/* Shared chrome stays in document flow and reserves its own space. */
+:root{--studio-header-height:62px}
+html{scroll-padding-top:calc(var(--studio-header-height) + 16px)}
+input,textarea,select,button,a{scroll-margin-top:calc(var(--studio-header-height) + 16px)}
+.topbar{position:sticky;top:0;z-index:25;height:62px;background:#111114f5;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 6px 20px #0002}
+.topbar .breadcrumb{flex:1;min-width:0}.topbar .breadcrumb input{min-width:0;max-width:100%}
+#saveStatus{flex-shrink:0;opacity:1;gap:7px;padding:7px 10px;border:1px solid #42354f;border-radius:8px;background:#211a2b;font-size:11px;color:#cbb5e3;line-height:1.4;white-space:nowrap}
+#saveStatus span{max-width:none;white-space:nowrap;line-height:1.4}#saveStatus svg{width:14px;height:14px;flex-shrink:0}
+#saveStatus[data-state=saved]{border-color:#304b40;background:#16251f;color:#a9cfb8}
+#saveStatus[data-state=error],#saveStatus[data-state=warning]{border-color:#765044;background:#33221e;color:#f1bfa7}
+#saveStatus[data-state=pending] svg{animation:save-pulse 1.4s ease-in-out infinite}
+.workspace[data-mode=video] #saveStatus{opacity:1}
+.sidebar{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#44334f transparent}
+.sidebar>*{flex-shrink:0}.product-nav{display:grid;gap:5px;margin-top:18px;padding-top:15px;border-top:1px solid #2b2332}
+.product-nav .nav-item{color:#b6a3c9}.product-nav .nav-item:hover{background:#272030;color:#e0c6f5}.product-nav-label{font-size:11px}
+.product-mobile-version{display:none}.sidebar-bottom{padding-top:22px}.product-sidebar-version{cursor:default}
+.preview-column,.video-preview-column{top:calc(var(--studio-header-height) + 14px)}
+.video-preview-column.preview-overflow{position:static}
+.video-canvas-wrap{display:flex;justify-content:center}
+.video-canvas-wrap>canvas,.video-canvas-wrap>video{width:auto;max-width:100%;height:auto;max-height:max(120px,calc(100vh - 390px));max-height:max(120px,calc(100dvh - 390px))}
+.video-download-panel{display:none;padding:12px;border:1px solid #5a4170;background:linear-gradient(120deg,#2b2038,#1b1524);border-radius:9px;gap:10px}
+.has-video-result .video-download-panel{display:grid}
+.video-download-panel #videoFileInfo{margin:0;font-size:11px;line-height:1.7;color:#d6c1e7;overflow-wrap:anywhere}
+.video-download-panel #downloadVideo{margin:0;min-height:40px;font-size:12px}
+.has-video-result #videoProgress,.has-video-result #videoRenderStatus{display:none}
+.has-video-result #recordVideo{background:#251d2e;color:#c6aedb;border-color:#554060;box-shadow:none;min-height:34px;font-size:10px}
+@media(max-width:1050px){.topbar{height:58px}.product-nav{width:100%;margin-top:20px;padding-top:16px}.product-nav-label{display:none}.product-mobile-version{display:inline-block;justify-self:center;margin-top:5px}.product-nav .nav-item{width:100%;padding:12px}.product-nav .nav-item svg{width:19px;height:19px}}
+@media(max-width:760px){.sidebar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 8px;overflow:visible;padding-block:12px}.sidebar>.brand{grid-column:1;min-width:0}.sidebar>.nav-list{grid-column:2;gap:2px}.sidebar>.nav-list .nav-item{padding:8px;min-height:36px}.product-nav{grid-column:1/-1;display:flex;align-items:center;gap:7px;margin:0;padding:9px 0 0}.product-nav .nav-item{width:auto;min-height:40px;padding:7px 10px;gap:7px;border:1px solid #372b40;border-radius:7px;background:#19141f}.product-nav-label{display:inline;font-size:11px}.product-nav .nav-item svg{display:none}.product-mobile-version{display:inline-block;margin-left:auto;margin-top:0;flex-shrink:0}.topbar{height:56px}.topbar .breadcrumb{gap:7px}.topbar .breadcrumb>span:first-child,.topbar .breadcrumb-divider{display:none}#saveStatus{font-size:10px;padding:7px 8px;gap:5px}#saveStatus svg{width:13px;height:13px}.video-preview-column{position:static}}
+@media(max-width:360px){.sidebar{padding-inline:14px}.sidebar>.nav-list .nav-item{padding:7px;width:34px}.sidebar>.brand>span:last-child{font-size:16px}.sidebar>.brand{gap:6px}.product-nav{gap:5px}.product-nav .nav-item{padding-inline:8px}.product-nav-label{font-size:10px}.product-mobile-version{font-size:9px}#saveStatus{padding-inline:7px;font-size:9px}}
+@media(max-height:540px) and (min-width:761px){.sidebar{padding-top:16px}.sidebar .local-card,.sidebar .workspace-label,.sidebar .project-card{display:none}.sidebar .nav-list{margin-top:15px}.sidebar-bottom{padding-top:14px}.product-nav{margin-top:10px;padding-top:10px}.video-canvas-wrap>canvas,.video-canvas-wrap>video{max-height:max(80px,calc(100dvh - 300px))}.has-video-result .video-render-controls{padding-block:12px;gap:8px}}
+@media(prefers-reduced-motion:reduce){#saveStatus[data-state=pending] svg{animation:none}}
+@keyframes save-pulse{50%{opacity:.35}}
+@media(max-width:600px){.video-canvas-wrap>canvas,.video-canvas-wrap>video{width:100%;height:auto;max-height:none}}
+
+</style>
 </head>
 <body>
   <svg class="icon-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -82,12 +118,13 @@
       <button class="nav-item video-nav" id="openVideoMode" title="Создать видео по идее" aria-label="Создать видео по идее" aria-controls="videoStudio" aria-expanded="false"><svg><use href="#i-sparkles"/></svg>Видео по идее<span class="video-new">НОВОЕ</span></button>
     </nav>
     <div class="sidebar-files"><div class="nav-label">ПРОЕКТ</div><button class="nav-item" id="saveProject"><svg><use href="#i-download"/></svg>Скачать проект</button><button class="nav-item" id="openProject"><svg><use href="#i-upload"/></svg>Открыть проект</button><input id="projectFile" type="file" accept=".json,application/json" hidden></div>
-    <div class="sidebar-bottom"><div class="local-card"><span class="local-icon"><svg><use href="#i-monitor"/></svg></span><strong>Ваше творчество — у вас</strong><p>Работает в браузере.<br>Без регистрации и облака.</p><span class="local-status"><span></span>Локальный режим</span></div><div class="sidebar-version">SHORTS STUDIO <button class="product-sidebar-version" data-product-open="updates" aria-label="Версия и история обновлений"><span data-product-version>—</span></button></div></div>
+    <nav class="product-nav" aria-label="Сведения о Shorts Studio"><button class="nav-item" data-product-open="updates" aria-label="Что нового" title="Что нового"><svg><use href="#i-sparkles"/></svg><span class="product-nav-label">Что нового</span></button><button class="nav-item" data-product-open="about" aria-label="О Shorts Studio" title="О Shorts Studio"><svg><use href="#i-info"/></svg><span class="product-nav-label">О Shorts Studio</span></button><span class="product-version-pill product-mobile-version" data-product-version>—</span></nav>
+    <div class="sidebar-bottom"><div class="local-card"><span class="local-icon"><svg><use href="#i-monitor"/></svg></span><strong>Ваше творчество — у вас</strong><p>Работает в браузере.<br>Без регистрации и облака.</p><span class="local-status"><span></span>Локальный режим</span></div><div class="sidebar-version">SHORTS STUDIO <span class="product-sidebar-version" data-product-version>—</span></div></div>
   </aside>
 
   <div class="workspace">
-    <header class="topbar"><div class="breadcrumb"><span>Студия</span><span class="breadcrumb-divider">/</span><span id="videoBreadcrumb" hidden>Видео по идее</span><label for="projectName" class="sr-only">Название проекта</label><input id="projectName" maxlength="80" value="Мой Short" autocomplete="off"></div><span class="save-status" id="saveStatus" role="status"><svg><use href="#i-check"/></svg><span>Восстановление…</span></span></header>
-    <div class="product-toolbar" aria-label="Сведения о продукте"><span class="product-version-label"><span>SHORTS STUDIO</span><span class="product-version-pill" data-product-version>—</span></span><div class="product-toolbar-actions"><button data-product-open="updates">Что нового</button><button data-product-open="about" aria-label="О Shorts Studio">О проекте</button></div></div>
+    <header class="topbar"><div class="breadcrumb"><span>Студия</span><span class="breadcrumb-divider">/</span><span id="videoBreadcrumb" hidden>Видео по идее</span><label for="projectName" class="sr-only">Название проекта</label><input id="projectName" maxlength="80" value="Мой Short" autocomplete="off"></div><span class="save-status" id="saveStatus" role="status"><svg><use href="#i-check"/></svg><span id="saveStatusText">Восстановление…</span></span><span id="editorSaveState" hidden>Восстановление…</span></header>
+
     <div class="mobile-filebar" aria-label="Файлы проекта"><span>ФАЙЛ ПРОЕКТА</span><button class="text-button" id="saveProjectMobile"><svg><use href="#i-download"/></svg>Скачать проект</button><button class="text-button" id="openProjectMobile"><svg><use href="#i-upload"/></svg>Открыть проект</button></div>
     <main id="mainContent">
       <aside class="product-update-notice" id="productUpdateNotice" aria-label="Доступна история обновлений" hidden><span class="update-spark" aria-hidden="true">✦</span><div class="notice-message"><strong>Shorts Studio <span data-product-version>—</span> — ваша студия растёт</strong><p>Узнайте, какие возможности уже доступны.</p></div><button class="text-button" data-product-open="updates">Посмотреть изменения</button><button id="productDismissNotice" class="product-notice-close" aria-label="Закрыть уведомление об обновлении">×</button></aside>
@@ -101,7 +138,7 @@
 
       <div id="storageWarning" class="notice warning" role="alert" hidden>Браузер не позволяет сохранить проект на устройстве. Скачайте файл проекта, чтобы не потерять работу.</div>
       <section id="videoStudio" hidden aria-label="Создать видео по идее">
-        <div class="video-intro"><span class="video-beta">БЕСПЛАТНЫЙ ПРОТОТИП</span><span>Идея <b>→</b> сценарий <b>→</b> анимация <b>→</b> видео</span><span id="videoDraftStatus" role="status">Локальный черновик</span></div>
+        <div class="video-intro"><span class="video-beta">БЕСПЛАТНЫЙ ПРОТОТИП</span><span>Идея <b>→</b> сценарий <b>→</b> анимация <b>→</b> видео</span><span id="videoDraftStatus" hidden>Локальный черновик</span></div>
         <div id="videoError" class="notice warning" role="alert" hidden></div>
         <div id="videoSupport" class="notice" role="status" hidden></div>
         <div id="videoPlanError" class="notice warning" role="alert" hidden></div>
@@ -113,7 +150,7 @@
             <section class="panel video-audio"><div class="video-section-heading"><div><h2>Фоновая музыка</h2><p>Независимая дорожка с плавными краями.</p></div><svg><use href="#i-upload"/></svg></div><div class="video-audio-controls"><label class="button button-secondary audio-upload" for="videoMusic">Выбрать музыку<input id="videoMusic" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm"></label><span id="videoMusicInfo">Без музыки</span><button class="text-button" id="removeVideoMusic" hidden>Убрать</button></div><div class="video-volume"><label for="videoMusicVolume">Громкость музыки</label><input id="videoMusicVolume" type="range" min="0" max="100" value="25"><output id="videoMusicVolumeValue" for="videoMusicVolume">25%</output></div><div class="music-fades"><label>Появление, сек<input id="videoMusicFadeIn" type="number" min="0" max="10" step="0.1" value="1"></label><label>Затухание, сек<input id="videoMusicFadeOut" type="number" min="0" max="10" step="0.1" value="1"></label></div><p class="video-hint">Голос и музыка звучат одновременно. Короткая музыка затухает перед своим окончанием. Музыка восстанавливается вместе с проектом; она не распознаётся и не выравнивает субтитры автоматически.</p></section>
             <section class="video-storyboard" aria-labelledby="videoScenesHeading"><div class="section-heading"><div><h2 id="videoScenesHeading">Сцены ролика <span id="videoSceneCount">0</span></h2><p>Редактируйте текст — анимация подстроится.</p></div><button class="text-button" id="addVideoScene"><svg><use href="#i-plus"/></svg>Добавить</button></div><div id="videoScenes" class="scene-list"></div><div class="video-scene-actions"><button class="text-button" id="videoToEditor">Открыть сценарий в редакторе</button><button class="text-button" id="videoSrt"><svg><use href="#i-download"/></svg>Субтитры SRT</button></div><p class="video-hint">Черновик этого режима хранится отдельно. Перенос в редактор потребует подтверждения замены текущего проекта.</p></section>
           </div>
-          <aside class="video-preview-column"><section class="panel video-preview-panel"><div class="preview-heading"><h2><svg><use href="#i-play"/></svg><span id="videoPreviewHeading">Анимация ролика</span></h2><span class="format-badge">9:16</span></div><div class="video-output-tabs" id="videoOutputTabs" hidden><button class="active" id="showVideoCanvas" aria-pressed="true">Анимация</button><button id="showVideoFile" aria-pressed="false">Готовый файл</button></div><div class="video-canvas-wrap"><canvas id="videoCanvas" width="720" height="1280" aria-label="Анимированный предпросмотр ролика 9:16">Браузер не поддерживает Canvas.</canvas><video id="generatedVideo" controls playsinline preload="metadata" hidden aria-label="Готовый видеоролик"></video></div><div class="video-preview-controls"><button class="button button-secondary" id="playGeneratedPreview"><svg><use href="#i-play"/></svg><span>Смотреть</span></button><span id="videoPreviewTime">0:00 / 0:18</span></div><label class="sr-only" for="videoSeek">Позиция предпросмотра</label><input id="videoSeek" class="video-seek" type="range" min="0" max="18000" value="0" step="50"><div class="video-render-controls"><button class="button button-primary" id="recordVideo"><svg><use href="#i-sparkles"/></svg>Собрать видео</button><button class="button button-secondary" id="cancelVideo" hidden>Отменить запись</button><progress id="videoProgress" max="100" value="0" aria-label="Прогресс записи видео" hidden></progress><p id="videoRenderStatus" role="status">Запись займёт 18 секунд. Оставьте вкладку открытой.</p><a class="button button-primary" id="downloadVideo" hidden><svg><use href="#i-download"/></svg>Скачать видео</a><p id="videoFileInfo" class="video-hint" hidden></p></div></section><div class="video-local-note"><svg><use href="#i-monitor"/></svg><p>Всё создаётся в вашем браузере.<br>Без сервера, ключей и платных сервисов.</p></div></aside>
+          <aside class="video-preview-column"><section class="panel video-preview-panel"><div class="preview-heading"><h2><svg><use href="#i-play"/></svg><span id="videoPreviewHeading">Анимация ролика</span></h2><span class="format-badge">9:16</span></div><div class="video-output-tabs" id="videoOutputTabs" hidden><button class="active" id="showVideoCanvas" aria-pressed="true">Анимация</button><button id="showVideoFile" aria-pressed="false">Готовый файл</button></div><div class="video-canvas-wrap"><canvas id="videoCanvas" width="720" height="1280" aria-label="Анимированный предпросмотр ролика 9:16">Браузер не поддерживает Canvas.</canvas><video id="generatedVideo" controls playsinline preload="metadata" hidden aria-label="Готовый видеоролик"></video></div><div class="video-preview-controls"><button class="button button-secondary" id="playGeneratedPreview"><svg><use href="#i-play"/></svg><span>Смотреть</span></button><span id="videoPreviewTime">0:00 / 0:18</span></div><label class="sr-only" for="videoSeek">Позиция предпросмотра</label><input id="videoSeek" class="video-seek" type="range" min="0" max="18000" value="0" step="50"><div class="video-render-controls"><div class="video-download-panel" aria-label="Готовый видеофайл"><p id="videoFileInfo" class="video-hint" role="status" hidden></p><a class="button button-primary" id="downloadVideo" hidden><svg><use href="#i-download"/></svg>Скачать видео</a></div><button class="button button-primary" id="recordVideo"><svg><use href="#i-sparkles"/></svg>Собрать видео</button><button class="button button-secondary" id="cancelVideo" hidden>Отменить запись</button><progress id="videoProgress" max="100" value="0" aria-label="Прогресс записи видео" hidden></progress><p id="videoRenderStatus" role="status">Запись займёт 18 секунд. Оставьте вкладку открытой.</p></div></section><div class="video-local-note"><svg><use href="#i-monitor"/></svg><p>Всё создаётся в вашем браузере.<br>Без сервера, ключей и платных сервисов.</p></div></aside>
         </div>
       </section>
       <div class="studio-grid" id="scriptStudio">
@@ -317,6 +354,18 @@
   // Add future releases at the beginning; CHANGELOG.md is generated from this file.
   const releases = [
     {
+      version: '1.3.0', date: '2026-10-26', title: 'Сохранённые проекты и удобная студия',
+      pullRequests: [5, 6], commit: '0708696c94b943c6ecc5c97e9e7816b35ebfa7d4',
+      changes: [
+        'Надёжное локальное сохранение независимых текстового и видеопроекта в IndexedDB: состояние и новые материалы записываются одной транзакцией.',
+        'Восстановление изображений, исходных голоса и музыки, сценариев, громкостей, переходов, длительностей и настроек экспорта.',
+        'Постоянно видимый компактный индикатор сохранения, завершения и ошибки в активном режиме.',
+        'Сведения о готовом видео собраны над кнопкой скачивания; панель адаптируется к высоте окна.',
+        'Разделы «Что нового» и «О Shorts Studio» перенесены в боковую навигацию и доступны на мобильных экранах.',
+        'Локальные данные зависят от браузера: очистка данных сайта и завершение приватного сеанса могут удалить проекты. Перед закрытием дождитесь сохранения.'
+      ]
+    },
+    {
       version: '1.2.0', date: '2026-10-26', title: 'Медиаматериалы и оформление продукта',
       pullRequests: [3], commit: '37b94ab1cd57abd40b24e725c6cf6519acfbb0f6',
       changes: [
@@ -357,12 +406,12 @@
   return Object.freeze({
     name: 'Shorts Studio', version: releases[0].version, releases: Object.freeze(releases),
     repository: 'https://github.com/nw95z6kbbd-wq/shorts-lab',
-    historyNote: 'Версии оформлены по истории Git и PR. Даты соответствуют объединению функциональных изменений в main (Asia/Yekaterinburg).',
+    historyNote: 'История составлена по Git и PR. Даты предыдущих выпусков соответствуют объединению функциональных изменений; текущая запись подготовлена к выпуску. Часовой пояс — Asia/Yekaterinburg.',
     // Fill these fields only when the actual rights holder and contact are known.
     rights: Object.freeze({ owner: '', contact: '' }),
     licenseNote: 'Свободная лицензия проекта не установлена. Сведения о правообладателе и условиях использования заполняются отдельно.',
     capabilities: Object.freeze([
-      'Сценарии, сцены, субтитры SRT и сохранение проектов.',
+      'Сценарии, сцены, субтитры SRT и локальное сохранение проектов в IndexedDB.',
       'Локальные сценарные шаблоны по идее и анимация без платных API.',
       'Изображения сцен, движение камеры, переходы и ручной таймлайн.',
       'Голос и музыка с отдельной громкостью и плавными краями музыки.',
@@ -975,7 +1024,7 @@ window.ShortsEditorReady = (async function () {
 
   function updateSaveStatus(text, error = false) {
     $('saveStatus').classList.toggle('error', error);
-    $('saveStatus').querySelector('span').textContent = text;
+    $('editorSaveState').textContent = text;
     $('saveStatus').querySelector('use').setAttribute('href', error ? '#i-info' : '#i-check');
   }
 
@@ -2056,7 +2105,7 @@ window.ShortsEditorReady = (async function () {
     document.querySelector('.workspace').dataset.mode = open ? 'video' : 'editor';
     $('videoStudio').hidden = !open; $('scriptStudio').hidden = open;
     $('backToEditor').hidden = !open; $('projectName').disabled = open;
-    $('projectName').hidden = open; $('videoBreadcrumb').hidden = !open; $('saveStatus').hidden = open;
+    $('projectName').hidden = open; $('videoBreadcrumb').hidden = !open;
     $('openVideoMode').setAttribute('aria-expanded', String(open));
     $('openVideoMode').classList.toggle('active', open);
     if (open) $('openVideoMode').setAttribute('aria-current', 'page');
@@ -2509,8 +2558,8 @@ window.ShortsEditorReady = (async function () {
   document.querySelectorAll('[data-product-open]').forEach(button => button.addEventListener('click', event => open(button.dataset.productOpen, event.currentTarget)));
   $('productClose').addEventListener('click', () => $('productDialog').close());
   $('productDialog').addEventListener('close', () => {
-    const target = lastOpener?.getClientRects().length ? lastOpener : document.querySelector('.product-toolbar [data-product-open="updates"]');
-    target?.focus({ preventScroll: true });
+    const target = lastOpener?.getClientRects().length ? lastOpener : document.querySelector('.product-nav [data-product-open="updates"]');
+    target?.focus();
   });
   $('productDismissNotice').addEventListener('click', dismiss);
   for (const tab of ['updates', 'about']) $('productTab-' + tab).addEventListener('click', () => setTab(tab, true));
@@ -2566,6 +2615,60 @@ window.ShortsEditorReady = (async function () {
   if (storageWorks()) {
     try { $('productUpdateNotice').hidden = localStorage.getItem(SEEN) === P.version; } catch (_) {}
   }
+})();
+
+</script>
+<script>
+(function () {
+  'use strict';
+  // Presentation only: consume the existing controller messages after their
+  // transaction-completion checks. No storage, timers or recorder callbacks.
+  const workspace = document.querySelector('.workspace');
+  const indicator = document.getElementById('saveStatus');
+  const editor = document.getElementById('editorSaveState');
+  const video = document.getElementById('videoDraftStatus');
+  const header = document.querySelector('.topbar');
+  const preview = document.querySelector('.video-preview-column');
+  const panel = document.querySelector('.video-preview-panel');
+  const download = document.getElementById('downloadVideo');
+  function showSaveState() {
+    const classify = source => {
+      const text = source.textContent.trim();
+      return text.startsWith('Сохранено') ? 'saved' : text.startsWith('Ошибка') ? 'error' : text.startsWith('Проверьте') ? 'warning' : 'pending';
+    };
+    const priority = { saved: 0, pending: 1, warning: 2, error: 3 };
+    let source = workspace.dataset.mode === 'video' ? video : editor;
+    for (const candidate of [editor, video]) if (priority[classify(candidate)] > priority[classify(source)]) source = candidate;
+    const text = source.textContent.trim(), state = classify(source);
+    const label = { saved: 'Сохранено', error: 'Ошибка сохранения', warning: 'Проверьте сохранение', pending: text.startsWith('Восстановление') ? 'Восстановление…' : 'Сохранение…' }[state];
+    indicator.dataset.state = state;
+    indicator.classList.toggle('error', state === 'error');
+    document.getElementById('saveStatusText').textContent = label;
+    indicator.querySelector('use').setAttribute('href', state === 'saved' ? '#i-check' : state === 'pending' ? '#i-clock' : '#i-info');
+    const detail = state === 'error' ? document.getElementById(source === video ? 'videoError' : 'storageWarning').textContent.trim() : text;
+    indicator.title = (source === video ? 'Видеопроект. ' : 'Текстовый проект. ') + (detail || text);
+    indicator.setAttribute('aria-label', (source === video ? 'Видеопроект. ' : 'Текстовый проект. ') + text);
+  }
+  function fitPreview() {
+    const height = header.getBoundingClientRect().height;
+    document.documentElement.style.setProperty('--studio-header-height', height + 'px');
+    // A panel taller than the viewport must scroll with the document: a sticky
+    // oversized panel would trap the download controls below the visible area.
+    preview.classList.toggle('preview-overflow', preview.offsetHeight > innerHeight - height - 24);
+  }
+  function showResult() {
+    panel.classList.toggle('has-video-result', !download.hidden);
+    fitPreview();
+  }
+  const saveObserver = new MutationObserver(showSaveState);
+  for (const source of [editor, video]) saveObserver.observe(source, { childList: true, subtree: true, characterData: true });
+  new MutationObserver(() => { showSaveState(); fitPreview(); }).observe(workspace, { attributes: true, attributeFilter: ['data-mode'] });
+  new MutationObserver(showResult).observe(download, { attributes: true, attributeFilter: ['hidden'] });
+  if (typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(fitPreview); observer.observe(header); observer.observe(preview);
+  }
+  window.addEventListener('resize', fitPreview);
+  showSaveState(); showResult();
 })();
 
 </script>
