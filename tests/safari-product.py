@@ -152,10 +152,10 @@ def run():
                 else:
                     assert result['size']>0 and (result['width'],result['height'])==(720,1280),result
                     assert isinstance(result['duration'],(int,float)) and 2<result['duration']<4.5,result
-                    print('PASS [native Safari]: real Canvas recording decoded by Safari:',json.dumps(result),flush=True)
+                    print('::notice title=Native Safari export verified::Safari '+str(capabilities.get('browserVersion'))+'; real Canvas recording decoded: '+json.dumps(result),flush=True)
             else:
                 assert script('return document.getElementById("recordVideo").disabled && !document.getElementById("videoSupport").hidden;')
-                print('LIMITATION [native Safari]: recording APIs unavailable; explanatory message verified:',json.dumps(support),flush=True)
+                print('::warning title=Native Safari recording unavailable::Safari '+str(capabilities.get('browserVersion'))+'; explanatory message verified; export NOT verified: '+json.dumps(support),flush=True)
             click('#backToEditor')
             assert script('return !document.getElementById("scriptStudio").hidden;')
     finally:
