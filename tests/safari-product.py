@@ -78,7 +78,7 @@ def run():
             command('POST','/timeouts',{'script':30000,'pageLoad':30000,'implicit':0})
             command('POST','/window/rect',{'width':1280,'height':900})
             command('POST','/url',{'url':f'http://127.0.0.1:{server.server_port}/index.html'})
-            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRecorder')
+            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
             version=script('return ShortsProduct.version;'); assert version==product['version']
             assert script('return Array.from(document.querySelectorAll("[data-product-version]")).every(e=>e.textContent=== "v"+ShortsProduct.version);')
             before=script('return [localStorage.getItem("shorts-studio.project.v1"),localStorage.getItem("shorts-studio.video.v1")];')
@@ -87,7 +87,7 @@ def run():
             assert script('return document.querySelectorAll(".release-item").length;')==len(product['releases'])
             assert script('return Array.from(document.querySelectorAll(".release-heading time")).map(e=>e.dateTime);')==[release['date'] for release in product['releases']]
             click('#productClose');command('POST','/refresh',{})
-            wait_for('window.ShortsProduct && window.ShortsEditor')
+            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
             assert script('return document.getElementById("productUpdateNotice").hidden;')
             click('.product-toolbar [data-product-open="about"]')
             assert script('return document.getElementById("productRepository").href;')==product['repository']
@@ -96,7 +96,7 @@ def run():
             click('#productProfileForm button[type="submit"]')
             assert 'Сохранено только' in script('return document.getElementById("productProfileStatus").textContent;')
             click('#productClose');command('POST','/refresh',{})
-            wait_for('window.ShortsProduct && window.ShortsEditor')
+            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
             click('.product-toolbar [data-product-open="about"]')
             assert script('return document.getElementById("productOwner").value;')=='Проверка Safari'
             click('#productResetProfile');click('#productClose')

@@ -34,7 +34,7 @@ def run():
                 return p.chromium.launch_persistent_context(str(profile), executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'), args=['--no-sandbox'], **options)
             def page_for(context):
                 page = context.new_page(); page.on('pageerror', lambda e: errors.append(str(e))); return page
-            context = launch(); page = page_for(context)
+            context = launch(); page = page_for(context); stage = 'legacy migration'
             try:
                 page.route(base+'seed.html', lambda r:r.fulfill(body='<html></html>',content_type='text/html'))
                 page.goto(base+'seed.html')
@@ -63,6 +63,7 @@ def run():
                 page.locator('#video-scene-image-1').set_input_files({'name':'blue.png','mimeType':'image/png','buffer':base64.b64decode(blue)})
                 expect(page.locator('#videoDraftStatus')).to_contain_text('Сохранено')
                 for role,frequency,input_id in [('voice',440,'videoAudio'),('music',880,'videoMusic')]:
+                    stage = 'upload ' + role
                     path=folder/(role+'.wav');media.tone(path,frequency)
                     page.locator('#'+input_id).set_input_files(str(path))
                     expect(page.locator('#'+('videoAudioInfo' if role=='voice' else 'videoMusicInfo'))).to_contain_text(path.name)
@@ -77,6 +78,7 @@ def run():
                 expect(page.locator('#videoDraftStatus')).to_contain_text('Сохранено')
                 saved=page.evaluate('async()=>await ShortsProjectDB.createRepository().read("video")')
                 original_hashes=page.evaluate('''async()=>{const db=ShortsProjectDB.createRepository(),r=await db.read('video');const out={};for(const id of ShortsProjectDB.references('video',r.state)){const a=await db.asset(id);const bytes=new Uint8Array(await a.blob.arrayBuffer());let value='';for(const b of bytes)value+=String.fromCharCode(b);out[id]=btoa(value);}db.close();return out;}''')
+                stage = 'full browser restart'
                 context.close()  # Terminates the actual browser process, not just a page.
                 context=launch();page=page_for(context);page.goto(url);page.wait_for_function('window.ShortsVideoRestored')
                 expect(page.locator('#projectName')).to_have_value('Отдельный текстовый проект')
@@ -126,6 +128,11 @@ def run():
                 expect(page.locator('#recordVideo')).to_be_disabled();expect(page.locator('#videoPlanError')).to_contain_text('Голос')
                 assert not errors,errors
                 print(f'PASS [{engine}]: missing restored audio explicitly blocks export; no JavaScript errors',flush=True)
+            except Exception as error:
+                try:
+                    details=page.evaluate('''async()=>({error:document.getElementById('videoError')?.textContent,status:document.getElementById('videoDraftStatus')?.textContent,state:(await ShortsProjectDB.createRepository().read('video'))?.state})''')
+                except Exception:details={}
+                raise AssertionError(f'{stage}; browser state: {details}; {error}') from error
             finally:context.close()
     finally:server.shutdown();server.server_close()
 
