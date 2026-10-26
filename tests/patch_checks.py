@@ -66,7 +66,7 @@ def check_patch_ux(page, engine):
         page.set_viewport_size({'width':width,'height':height})
         for view in ('script','scenes','subtitles'):
             button=page.locator(f'.manual-nav [data-view="{view}"]')
-            button.focus();page.keyboard.press('Enter')
+            button.focus();expect(button).to_be_focused();button.press('Enter')
             expect(page.locator('#scriptStudio')).to_be_visible()
             expect(button).to_have_attribute('aria-current','page')
             assert page.locator('#openVideoMode').get_attribute('aria-current') is None
@@ -83,6 +83,8 @@ def check_patch_ux(page, engine):
             expect(page.locator('.release-item').first.locator('.release-pending')).to_have_text('Ещё не опубликовано')
         else:expect(page.locator('.release-item').first.locator('time')).to_have_attribute('datetime',current['date'])
         page.keyboard.press('Escape')
+        expect(page.locator('#productDialog')).to_be_hidden()
+        expect(page.locator('.product-nav [data-product-open="updates"]')).to_be_focused()
     # The existing toast/sticky invariance suite remains separate and unchanged.
     page.set_viewport_size({'width':1440,'height':900})
     page.locator('#backToEditor').click()

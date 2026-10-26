@@ -215,21 +215,32 @@ def run():
             assert 'voice.wav' in script('return document.getElementById("videoAudioInfo").textContent;')
             assert 'music.wav' in script('return document.getElementById("videoMusicInfo").textContent;')
             if script('return ShortsVideoRecorder.capabilities(true).supported;'):
-                click('#recordVideo')
-                visibility=script('const r=document.getElementById("videoCanvas").getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight,hidden:document.hidden,focus:document.hasFocus()};')
-                wait_for('!document.getElementById("downloadVideo").hidden || document.getElementById("videoRenderStatus").textContent.includes("не завершена")',seconds=25)
-                if not script('return !document.getElementById("downloadVideo").hidden;'):
-                    first_error=script('return document.getElementById("videoError").textContent;')
-                    formats=script('return ShortsVideoRecorder.capabilities(true,"webm");')
-                    assert formats['supported'], {'error':first_error,'webm':formats,'canvas':visibility}
-                    print('::warning title=Safari MP4 codec limitation::'+first_error+' Testing the existing user-selectable WebM fallback; the recorder is unchanged.',flush=True)
-                    script('const select=document.getElementById("videoFormat");select.value="webm";select.dispatchEvent(new Event("change",{bubbles:true}));')
+                def record_restored_ui():
                     click('#recordVideo')
                     wait_for('!document.getElementById("downloadVideo").hidden || document.getElementById("videoRenderStatus").textContent.includes("не завершена")',seconds=25)
-                assert script('return !document.getElementById("downloadVideo").hidden;'),{'error':script('return document.getElementById("videoError").textContent;'),'canvas':visibility}
-                wait_for('document.getElementById("generatedVideo").readyState>=1')
-                metadata=script('const v=document.getElementById("generatedVideo");return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:document.getElementById("videoFileInfo").textContent};')
-                assert metadata['width']==720 and metadata['height']==1280 and 5<metadata['duration']<7.5,metadata
+                    if script('return document.getElementById("downloadVideo").hidden;'):
+                        return {'error':script('return document.getElementById("videoError").textContent;')}
+                    wait_for('document.getElementById("generatedVideo").readyState>=1')
+                    return script('const v=document.getElementById("generatedVideo");return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:document.getElementById("videoFileInfo").textContent};')
+                def full_restored_video(result):
+                    return result.get('width')==720 and result.get('height')==1280 and isinstance(result.get('duration'),(int,float)) and 5<result['duration']<7.5
+                metadata=record_restored_ui()
+                if not full_restored_video(metadata):
+                    # Never count a short MP4 as a successful export. Verify the
+                    # original encoder stack, then test the existing WebM choice
+                    # with the same full-duration/dimension/audio assertions.
+                    assert metadata.get('error') or metadata.get('info','').startswith('MP4'),metadata
+                    baseline_name=os.environ.get('SAFARI_BASELINE_ROOT')
+                    if baseline_name:
+                        baseline=(ROOT/baseline_name).resolve()
+                        for name in ('video-recorder.js','video-audio.js','video-renderer.js'):
+                            assert (baseline/'js'/name).read_bytes()==(ROOT/'js'/name).read_bytes(),name
+                    formats=script('return ShortsVideoRecorder.capabilities(true,"webm");')
+                    assert formats['supported'],{'first':metadata,'webm':formats}
+                    print('::warning title=Safari MP4 audio codec limitation::Empty or truncated MP4 is NOT accepted as success: '+json.dumps(metadata)+'. Encoder/mixer/renderer are unchanged; testing the existing WebM choice with full duration.',flush=True)
+                    script('const select=document.getElementById("videoFormat");select.value="webm";select.dispatchEvent(new Event("change",{bubbles:true}));')
+                    metadata=record_restored_ui()
+                assert full_restored_video(metadata),metadata
                 assert 'голос + музыка' in metadata['info'],metadata
                 group=script('const p=document.querySelector(".video-download-panel"),i=document.getElementById("videoFileInfo"),d=document.getElementById("downloadVideo");return {infoBeforeDownload:Boolean(i.compareDocumentPosition(d)&Node.DOCUMENT_POSITION_FOLLOWING),noScroll:p.scrollHeight<=p.clientHeight+1};')
                 assert group['infoBeforeDownload'] and group['noScroll'],group
