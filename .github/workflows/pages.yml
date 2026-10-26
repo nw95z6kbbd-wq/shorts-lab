@@ -52,15 +52,19 @@ jobs:
           python tests/check-errors.py tests/project-db-browser.py
           python tests/check-errors.py tests/project-migration-browser.py
           python tests/check-errors.py tests/browser.py
-      - name: Check real browser video and audio recording
+      - name: Ensure FFmpeg is available
         run: |
           if ! command -v ffprobe >/dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y ffmpeg
+            printf '%s\n' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' 'Acquire::Retries "1";' | sudo tee /etc/apt/apt.conf.d/99-shortsstudio-ci-timeouts >/dev/null
+            timeout 3m sudo apt-get update
+            timeout 3m sudo apt-get install -y ffmpeg
           fi
-          python tests/check-errors.py tests/video-browser.py
-          python tests/check-errors.py tests/media-browser.py
-          python tests/check-errors.py tests/project-browser.py
+      - name: Check real browser video and audio recording
+        run: python tests/check-errors.py tests/video-browser.py
+      - name: Check images and two-track video export
+        run: python tests/check-errors.py tests/media-browser.py
+      - name: Check project restart and restored video export
+        run: python tests/check-errors.py tests/project-browser.py
       - name: Prepare Pages files and downloads
         run: python scripts/prepare-site.py
       - name: Check product information and standalone version
