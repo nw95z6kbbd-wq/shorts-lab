@@ -48,21 +48,26 @@ jobs:
             python -m playwright install --with-deps chromium
           fi
       - name: Check editor functionality
-        run: python tests/browser.py
+        run: |
+          python tests/check-errors.py tests/project-db-browser.py
+          python tests/check-errors.py tests/project-migration-browser.py
+          python tests/check-errors.py tests/browser.py
       - name: Check real browser video and audio recording
         run: |
           if ! command -v ffprobe >/dev/null; then
             sudo apt-get update
             sudo apt-get install -y ffmpeg
           fi
-          python tests/video-browser.py
-          python tests/media-browser.py
+          python tests/check-errors.py tests/video-browser.py
+          python tests/check-errors.py tests/media-browser.py
+          python tests/check-errors.py tests/project-browser.py
       - name: Prepare Pages files and downloads
         run: python scripts/prepare-site.py
       - name: Check product information and standalone version
         run: |
-          python tests/product-browser.py
-          PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/product-browser.py
+          python tests/check-errors.py tests/product-browser.py
+          PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
+          PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
       - name: Check deployment under repository path
         run: python tests/pages.py
       - name: Upload static site
@@ -103,20 +108,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install WebKit test browser
+      - name: Install Python browser test tools
         run: |
-          python -m pip install -r requirements-dev.txt
-          python -m playwright install --with-deps webkit
+          python -m pip install --timeout 30 --retries 2 -r requirements-dev.txt
+      - name: Install WebKit system dependencies
+        run: |
+          printf '%s\n' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' 'Acquire::Retries "1";' | sudo tee /etc/apt/apt.conf.d/99-shortsstudio-ci-timeouts >/dev/null
+          timeout 5m python -m playwright install-deps webkit
+      - name: Download WebKit test browser
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '60000'
+        run: timeout 5m python -m playwright install webkit
       - name: Check source and standalone product UI in WebKit
         run: |
           python scripts/prepare-site.py
-          PRODUCT_BROWSER=webkit python tests/product-browser.py
-          PRODUCT_BROWSER=webkit PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/product-browser.py
+          PRODUCT_BROWSER=webkit python tests/check-errors.py tests/product-browser.py
+          PRODUCT_BROWSER=webkit PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
+          PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-db-browser.py
+          PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-migration-browser.py
+          PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-browser.py
+          PERSISTENCE_BROWSER=webkit PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
 
   safari:
     name: Native Safari on macOS
-    runs-on: macos-15
-    timeout-minutes: 8
+    runs-on: macos-15-intel
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:

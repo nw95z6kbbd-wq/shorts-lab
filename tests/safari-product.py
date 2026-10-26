@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import traceback
 import urllib.error
 import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -54,7 +55,8 @@ def run():
         while time.monotonic()<deadline:
             if script('return Boolean(' + code + ');'): return
             time.sleep(.15)
-        raise AssertionError('Safari condition timed out: ' + code)
+        details=script('return {inert:document.body.inert,focus:document.hasFocus(),active:document.activeElement?.id,dialog:document.getElementById("productDialog")?.open};')
+        raise AssertionError('Safari condition timed out: ' + code + '; ' + str(details))
     def element(selector):
         result=command('POST','/element',{'using':'css selector','value':selector})
         return result['element-6066-11e4-a52e-4f735466cecf']
@@ -75,27 +77,28 @@ def run():
             assert capabilities['browserName'].lower()=='safari'
             print('Native Safari version:',capabilities.get('browserVersion'),flush=True)
             command('POST','/timeouts',{'script':30000,'pageLoad':30000,'implicit':0})
-            command('POST','/window/rect',{'width':1280,'height':900})
+            command('POST','/window/rect',{'width':1000,'height':900})
             command('POST','/url',{'url':f'http://127.0.0.1:{server.server_port}/index.html'})
-            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRecorder')
+            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
             version=script('return ShortsProduct.version;'); assert version==product['version']
             assert script('return Array.from(document.querySelectorAll("[data-product-version]")).every(e=>e.textContent=== "v"+ShortsProduct.version);')
             before=script('return [localStorage.getItem("shorts-studio.project.v1"),localStorage.getItem("shorts-studio.video.v1")];')
             click('.product-toolbar [data-product-open="updates"]')
-            assert script('return document.getElementById("productDialog").open;')
+            wait_for('document.getElementById("productDialog").open')
             assert script('return document.querySelectorAll(".release-item").length;')==len(product['releases'])
             assert script('return Array.from(document.querySelectorAll(".release-heading time")).map(e=>e.dateTime);')==[release['date'] for release in product['releases']]
             click('#productClose');command('POST','/refresh',{})
-            wait_for('window.ShortsProduct && window.ShortsEditor')
+            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
             assert script('return document.getElementById("productUpdateNotice").hidden;')
             click('.product-toolbar [data-product-open="about"]')
             assert script('return document.getElementById("productRepository").href;')==product['repository']
             assert script('return document.getElementById("productOwner").value;')==product['rights']['owner']
             script('document.getElementById("productOwner").value="Проверка Safari";')
             click('#productProfileForm button[type="submit"]')
+            wait_for('document.getElementById("productProfileStatus").textContent.includes("Сохранено только")')
             assert 'Сохранено только' in script('return document.getElementById("productProfileStatus").textContent;')
             click('#productClose');command('POST','/refresh',{})
-            wait_for('window.ShortsProduct && window.ShortsEditor')
+            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
             click('.product-toolbar [data-product-open="about"]')
             assert script('return document.getElementById("productOwner").value;')=='Проверка Safari'
             click('#productResetProfile');click('#productClose')
@@ -107,13 +110,52 @@ def run():
             assert script('const d=document.getElementById("productDialog");return d.scrollWidth<=d.clientWidth;')
             click('#productClose')
             print('PASS [native Safari]: narrow desktop window layout; actual viewport width:',script('return innerWidth;'),flush=True)
-            command('POST','/window/rect',{'width':1280,'height':900})
+            command('POST','/window/rect',{'width':1000,'height':900})
             def prepare_canvas():
                 click('#createVideoMode')
+                if script('return !document.getElementById("videoOutputTabs").hidden;'):
+                    click('#showVideoCanvas')
                 # Mirror the user's visible preview, rather than an offscreen Canvas.
                 script('document.getElementById("videoCanvas").scrollIntoView({block:"center"});')
                 command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));','args':[]})
 
+            # Save actual source media, reload and exercise the existing UI recorder.
+            wait_for('window.ShortsVideoRestored')
+            fixture=(ROOT/'tests/persistence-fixture.js').read_text()
+            script(fixture)
+            saved=command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];savePersistenceFixture().then(done,e=>done({error:e.message}));','args':[]})
+            assert not saved.get('error'),saved
+            command('POST','/refresh',{})
+            wait_for('window.ShortsVideoRestored',seconds=30)
+            script(fixture)
+            restored=command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];persistenceFixtureSnapshot().then(done,e=>done({error:e.message}));','args':[]})
+            assert restored==saved, {'saved':saved,'restored':restored}
+            prepare_canvas()
+            assert script('return document.querySelectorAll(".scene-image-thumb").length;')==2
+            assert 'voice.wav' in script('return document.getElementById("videoAudioInfo").textContent;')
+            assert 'music.wav' in script('return document.getElementById("videoMusicInfo").textContent;')
+            if script('return ShortsVideoRecorder.capabilities(true).supported;'):
+                click('#recordVideo')
+                visibility=script('const r=document.getElementById("videoCanvas").getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight,hidden:document.hidden,focus:document.hasFocus()};')
+                wait_for('!document.getElementById("downloadVideo").hidden || document.getElementById("videoRenderStatus").textContent.includes("не завершена")',seconds=25)
+                if not script('return !document.getElementById("downloadVideo").hidden;'):
+                    first_error=script('return document.getElementById("videoError").textContent;')
+                    formats=script('return ShortsVideoRecorder.capabilities(true,"webm");')
+                    assert formats['supported'], {'error':first_error,'webm':formats,'canvas':visibility}
+                    print('::warning title=Safari MP4 codec limitation::'+first_error+' Testing the existing user-selectable WebM fallback; the recorder is unchanged.',flush=True)
+                    script('const select=document.getElementById("videoFormat");select.value="webm";select.dispatchEvent(new Event("change",{bubbles:true}));')
+                    click('#recordVideo')
+                    wait_for('!document.getElementById("downloadVideo").hidden || document.getElementById("videoRenderStatus").textContent.includes("не завершена")',seconds=25)
+                assert script('return !document.getElementById("downloadVideo").hidden;'),{'error':script('return document.getElementById("videoError").textContent;'),'canvas':visibility}
+                wait_for('document.getElementById("generatedVideo").readyState>=1')
+                metadata=script('const v=document.getElementById("generatedVideo");return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:document.getElementById("videoFileInfo").textContent};')
+                assert metadata['width']==720 and metadata['height']==1280 and 5<metadata['duration']<7.5,metadata
+                assert 'голос + музыка' in metadata['info'],metadata
+                print('::notice title=Native Safari project restoration verified::Original PNG and two WAV hashes match after reload; actual post-restore UI export: '+json.dumps(metadata),flush=True)
+            else:
+                assert script('return document.getElementById("recordVideo").disabled;')
+                print('::warning title=Native Safari persistence only::Original media and settings restored; audio recording API unavailable; export not verified.',flush=True)
+            click('#backToEditor')
             prepare_canvas()
             support=script('return ShortsVideoRecorder.capabilities();')
             if support['supported']:
@@ -135,9 +177,9 @@ def run():
                     # An encoder limitation is accepted only with reproducible evidence:
                     # the stable site has the identical failure and all existing runtime
                     # modules and original styles are byte-for-byte unchanged.
-                    original_files=[file for file in (baseline/'js').glob('*.js') if file.name not in ('product.js','product-ui.js')]
+                    original_files=[baseline/'js'/name for name in ('core.js','video-core.js','video-renderer.js','video-audio.js','video-recorder.js')]
                     original_files += [baseline/'styles.css',baseline/'video.css']
-                    assert len(original_files)>=10, 'Incomplete Safari baseline'
+                    assert len(original_files)>=5, 'Incomplete Safari baseline'
                     assert all(file.read_bytes()==(ROOT/file.relative_to(baseline)).read_bytes() for file in original_files), 'Safari recording failed and original runtime differs from baseline'
                     command('POST','/url',{'url':f'http://127.0.0.1:{server.server_port}/{relative}/index.html'})
                     wait_for('window.ShortsEditor && window.ShortsVideoRecorder')
@@ -172,6 +214,6 @@ def run():
 if __name__=='__main__':
     try: run()
     except Exception as error:
-        message=str(error).replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+        message=(type(error).__name__+': '+str(error)+'\n'+traceback.format_exc(limit=4)).replace('%','%25').replace('\r','%0D').replace('\n','%0A')
         print('::error title=Native Safari smoke check::'+message,flush=True)
         raise

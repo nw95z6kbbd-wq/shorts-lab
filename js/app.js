@@ -1,11 +1,11 @@
-(function () {
+window.ShortsEditorReady = (async function () {
   'use strict';
   const C = window.ShortsCore;
   const $ = id => document.getElementById(id);
-  const loaded = window.ShortsStorage.load();
+  const loaded = await window.ShortsStorage.load();
   let project = loaded.project || C.createProject(true);
   let view = 'script';
-  let saveTimer;
+  let saveTimer, maxSaveTimer, saveEpoch = 0;
   let toastTimer;
   let playing = false;
   let animationFrame = 0;
@@ -43,19 +43,26 @@
     $('saveStatus').querySelector('use').setAttribute('href', error ? '#i-info' : '#i-check');
   }
 
-  function saveNow() {
-    clearTimeout(saveTimer);
-    const result = window.ShortsStorage.save(project);
-    updateSaveStatus(result.ok ? 'Сохранено на устройстве' : 'Не сохранено · скачайте проект', !result.ok);
-    $('storageWarning').hidden = result.ok;
+  async function saveNow() {
+    clearTimeout(saveTimer); clearTimeout(maxSaveTimer); maxSaveTimer = null;
+    const epoch = saveEpoch;
+    updateSaveStatus('Сохранение…');
+    const result = await window.ShortsStorage.save(project);
+    if (epoch === saveEpoch) {
+      updateSaveStatus(result.ok ? 'Сохранено на устройстве' : 'Ошибка сохранения', !result.ok);
+      $('storageWarning').hidden = result.ok;
+      if (!result.ok) $('storageWarning').textContent = result.error;
+    }
     return result.ok;
   }
 
   function changed() {
+    saveEpoch++;
     project.updatedAt = new Date().toISOString();
     updateSaveStatus('Сохранение…');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveNow, 300);
+    if (!maxSaveTimer) maxSaveTimer = setTimeout(saveNow, 2000);
   }
 
   function confirmAction(title, description, label, action) {
@@ -504,6 +511,12 @@
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { pausePlayback(); saveNow(); }
   });
+  window.addEventListener('shorts:storage-conflict', event => {
+    if (event.detail.slot !== 'editor') return;
+    saveEpoch++; updateSaveStatus('Ошибка сохранения', true);
+    $('storageWarning').hidden = false;
+    $('storageWarning').textContent = 'Проект изменён в другой вкладке. Скачайте текущий текстовый проект перед перезагрузкой.';
+  });
   window.addEventListener('storage', event => {
     if (event.key === 'shorts-studio.project.v1') {
       toast('Проект изменён в другой вкладке. Скачайте текущую копию перед перезагрузкой, чтобы сохранить правки.');
@@ -530,7 +543,9 @@
   renderAll();
   if (loaded.error) {
     $('storageWarning').hidden = false;
-    updateSaveStatus('Проверьте сохранение проекта', true);
+    $('storageWarning').textContent = loaded.error;
+    updateSaveStatus(loaded.writable ? 'Проверьте сохранение проекта' : 'Ошибка сохранения', true);
     toast(loaded.error);
-  } else if (!loaded.project) saveNow();
+  } else if (!loaded.project) await saveNow();
+  else updateSaveStatus('Сохранено на устройстве');
 })();

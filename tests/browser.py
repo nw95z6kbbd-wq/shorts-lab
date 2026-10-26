@@ -168,13 +168,13 @@ def run():
             print("PASS: 7 viewport widths (320–1440px), no horizontal overflow, 9:16 and mobile file controls")
 
             failure_context = browser.new_context()
-            failure_context.add_init_script("Object.defineProperty(Storage.prototype, 'setItem', { value() { throw new DOMException('full', 'QuotaExceededError'); } });")
+            failure_context.add_init_script("IDBObjectStore.prototype.put = function() { throw new DOMException('full', 'QuotaExceededError'); };")
             failure_page = failure_context.new_page()
             failure_page.on("pageerror", lambda error: errors.append(str(error)))
             failure_page.goto(url)
             expect(failure_page.locator("#storageWarning")).to_be_visible()
             failure_page.locator("#scriptText").fill("Проект всё ещё можно редактировать.")
-            expect(failure_page.locator("#saveStatus")).to_contain_text("Не сохранено")
+            expect(failure_page.locator("#saveStatus")).to_contain_text("Ошибка сохранения")
             with failure_page.expect_download():
                 failure_page.locator("#saveProject").click()
             failure_context.close()
@@ -184,8 +184,10 @@ def run():
             recovery_context.add_init_script(f"localStorage.setItem('{KEY}', '{{broken');")
             recovery_page = recovery_context.new_page()
             recovery_page.goto(url)
-            assert recovery_page.evaluate(f"localStorage.getItem('{KEY}.recovery')") == "{broken"
-            expect(recovery_page.locator("#toast")).to_contain_text("повреждён")
+            recovery_page.wait_for_function("window.ShortsVideoRestored")
+            assert recovery_page.evaluate(f"localStorage.getItem('{KEY}')") == "{broken"
+            assert recovery_page.evaluate("async () => (await ShortsProjectDB.createRepository().migration()).legacy.editor") == "{broken"
+            expect(recovery_page.locator("#toast")).to_contain_text("повреждены")
             recovery_context.close()
             print("PASS: corrupt local data is preserved for recovery")
 

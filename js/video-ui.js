@@ -1,25 +1,17 @@
-(function () {
+(async function () {
   'use strict';
   const C = window.ShortsCore, V = window.ShortsVideoCore, R = window.ShortsVideoRecorder;
   const M = window.ShortsVideoMedia;
   const $ = id => document.getElementById(id);
-  const KEY = 'shorts-studio.video.v1';
-  let draft = V.demo(), loadError = '';
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw !== null) {
-      try { draft = V.parseDraft(raw); }
-      catch (_) {
-        try { localStorage.setItem(KEY + '.recovery', raw); } catch (_) {}
-        loadError = 'Черновик видео повреждён. Открыт демонстрационный пример. Проект редактора сохранён отдельно.';
-      }
-    }
-  } catch (_) { loadError = 'Автосохранение видео недоступно. Работа возможна, но черновик может не сохраниться после перезагрузки.'; }
+  await window.ShortsEditorReady;
+  const loaded = await window.ShortsStorage.load('video');
+  let draft = loaded.project || V.demo(), loadError = loaded.error || '';
   let active = false, busy = false, decoding = false, manuallyEdited = draft.edited;
   let plan, audioBuffer = null, musicBuffer = null, resultUrl = '', recorderAbort = null;
   let previewing = false, previewStarting = false, previewFrame = 0, previewOffset = 0, previewEpoch = 0, previewAudio;
-  let audioEpoch = 0, musicEpoch = 0, saveTimer, lastRenderSecond = -1;
+  let audioEpoch = 0, musicEpoch = 0, saveTimer, maxSaveTimer, saveEpoch = 0, lastRenderSecond = -1;
   const assets = new Map();
+  const audioProblems = new Map();
   function releaseUnused(saved) {
     const used = new Set(draft.scenes.map(scene => scene.imageId));
     for (const [id, asset] of assets) if (!used.has(id)) {
@@ -40,20 +32,32 @@
   function error(message) { $('videoError').textContent = message; $('videoError').hidden = !message; }
   function clock(ms) { return C.clockTime(Math.floor(ms / 1000) * 1000); }
 
-  function saveNow() {
-    clearTimeout(saveTimer);
-    try {
-      localStorage.setItem(KEY, JSON.stringify({ ...draft, edited: manuallyEdited }));
-      $('videoDraftStatus').textContent = draft.scenes.some(scene => assets.get(scene.imageId)?.persisted === false) ? 'Текст сохранён; часть изображений только во вкладке' : 'Черновик сохранён на устройстве';
-      releaseUnused(true);
-    } catch (_) {
-      $('videoDraftStatus').textContent = 'Черновик не сохранён';
-      error('Браузер не смог сохранить черновик видео. Не закрывайте страницу до скачивания результата. Проект редактора хранится отдельно.');
+  async function saveNow() {
+    clearTimeout(saveTimer); clearTimeout(maxSaveTimer); saveTimer = maxSaveTimer = null;
+    const epoch = saveEpoch;
+    $('videoDraftStatus').textContent = 'Сохранение…';
+    const result = await window.ShortsStorage.save({ ...draft, edited: manuallyEdited }, 'video');
+    for (const [id, asset] of assets) asset.persisted = !window.ShortsStorage.pending(id);
+    for (const scene of draft.scenes) {
+      const label = sceneNodes.get(scene.id)?.card.querySelector('.scene-image-name');
+      if (label) label.textContent = (scene.imageName || 'Изображение сцены') + (assets.get(scene.imageId)?.persisted === false ? ' · только в этой вкладке' : '');
     }
+    if (epoch === saveEpoch) {
+      $('videoDraftStatus').textContent = result.ok ? 'Сохранено на устройстве' : 'Ошибка сохранения · новые файлы только во вкладке';
+      if (result.ok) releaseUnused(true); else error(result.error);
+    }
+    return result.ok;
   }
   function saveSoon() {
-    $('videoDraftStatus').textContent = 'Сохранение черновика…';
+    saveEpoch++;
+    $('videoDraftStatus').textContent = 'Сохранение…';
     clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 300);
+    if (!maxSaveTimer) maxSaveTimer = setTimeout(saveNow, 2000);
+  }
+  function mediaLoading() {
+    clearTimeout(saveTimer); clearTimeout(maxSaveTimer); saveTimer = maxSaveTimer = null;
+    saveEpoch++;
+    $('videoDraftStatus').textContent = 'Сохранение…';
   }
   function setMode(open) {
     if (!open) {
@@ -138,6 +142,9 @@
   function rebuild() {
     let problem = '';
     try {
+      for (const role of ['voice', 'music']) {
+        if (draft[role + 'AssetId'] && !(role === 'voice' ? audioBuffer : musicBuffer)) throw new Error(audioProblems.get(role) || 'Восстанавливаем аудио…');
+      }
       plan = V.makePlan(draft);
       plan.images = new Map([...assets].map(([id, asset]) => [id, asset.image]));
       if (plan.timeline.some(scene => scene.visual === 'image' && !plan.images.has(scene.imageId))) throw new Error('Для сцен с изображениями выберите файлы заново или переключите их на анимированный фон.');
@@ -205,16 +212,16 @@
       const file = node('input'); file.type = 'file'; file.accept = 'image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp'; file.id = 'video-scene-image-' + index;
       file.addEventListener('change', async () => {
         const selected = file.files[0]; file.value = ''; if (!selected || busy || decoding) return;
-        stopPreview(); invalidateResult(); error(''); decoding = true; lockControls();
+        stopPreview(); invalidateResult(); error(''); decoding = true; mediaLoading(); lockControls();
         let decoded;
         try {
           decoded = await M.decodeImage(selected);
           const id = C.id(); let stored = true;
           try { await M.put(id, selected, selected.name); } catch (_) { stored = false; }
-          decoded.persisted = stored; assets.set(id, decoded); decoded = null; scene.imageId = id; scene.imageName = selected.name; scene.visual = 'image';
-          manuallyEdited = true; renderScenes(); changed();
+          decoded.persisted = false; assets.set(id, decoded); decoded = null; scene.imageId = id; scene.imageName = selected.name; scene.visual = 'image';
+          manuallyEdited = true; renderScenes(); changed(); await saveNow();
           if (!stored) error('Изображение доступно для предпросмотра и экспорта, но браузер не сохранил его. После перезагрузки выберите файл заново.');
-        } catch (cause) { decoded?.dispose(); error(cause.message); }
+        } catch (cause) { decoded?.dispose(); error(cause.message); saveSoon(); }
         finally { decoding = false; lockControls(); }
       });
       upload.append(file); imageRow.append(upload);
@@ -241,7 +248,7 @@
     rebuild(); renderScenes(); redraw(); lockControls();
   }
   function replaceDraft(next) {
-    stopPreview(); draft = next; manuallyEdited = false; previewOffset = 0;
+    stopPreview(); draft = { ...next, voiceAssetId: draft.voiceAssetId, voiceName: draft.voiceName, musicAssetId: draft.musicAssetId, musicName: draft.musicName }; manuallyEdited = false; previewOffset = 0;
     error(''); invalidateResult(); renderForm(); changed();
   }
   function replaceWithConfirmation(next) {
@@ -334,13 +341,27 @@
     draft.timing = 'manual'; $('videoTiming').value = 'manual';
   }
 
-  async function restoreImages() {
+  async function restoreMedia() {
     const ids = [...new Set(draft.scenes.map(scene => scene.imageId).filter(Boolean))];
-    if (!ids.length) return;
     decoding = true; lockControls();
     try {
       for (const id of ids) {
-        try { const stored = await M.get(id); if (stored?.file) { const asset = await M.decodeImage(stored.file); asset.persisted = true; assets.set(id, asset); } } catch (_) { /* Missing files are reported by rebuild. */ }
+        try { const stored = await M.get(id); if (stored?.file) { const asset = await M.decodeImage(stored.file); asset.persisted = true; assets.set(id, asset); } }
+        catch (_) { /* Missing images block export in rebuild. */ }
+      }
+      for (const [role, info, remove] of [['voice', 'videoAudioInfo', 'removeVideoAudio'], ['music', 'videoMusicInfo', 'removeVideoMusic']]) {
+        const id = draft[role + 'AssetId']; if (!id) continue;
+        $(remove).hidden = false; $(info).textContent = 'Восстановление аудио…';
+        try {
+          const stored = await window.ShortsStorage.asset(id);
+          if (!stored?.blob) throw new Error('Файл отсутствует в хранилище.');
+          const decoded = await R.decodeAudio(stored.blob);
+          if (role === 'voice') audioBuffer = decoded; else musicBuffer = decoded;
+          $(info).textContent = (stored.name || draft[role + 'Name']) + ' · ' + decoded.duration.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' сек';
+        } catch (cause) {
+          const message = (role === 'voice' ? 'Голос' : 'Музыка') + ': ' + cause.message + ' Выберите файл повторно или явно уберите дорожку.';
+          audioProblems.set(role, message); $(info).textContent = message;
+        }
       }
     } finally { decoding = false; renderForm(); }
   }
@@ -383,39 +404,47 @@
   });
   $('videoAudio').addEventListener('change', async event => {
     const file = event.target.files[0]; event.target.value = '';
-    if (!file || busy) return;
+    if (!file || busy || decoding) return;
+    const previous = audioBuffer;
     const epoch = ++audioEpoch;
-    stopPreview(); invalidateResult(); error(''); decoding = true; audioBuffer = null;
+    stopPreview(); invalidateResult(); error(''); decoding = true; mediaLoading(); audioBuffer = null;
     $('removeVideoAudio').hidden = true; $('videoAudioInfo').textContent = 'Читаем аудиофайл…'; lockControls();
     try {
       const decoded = await R.decodeAudio(file);
       if (epoch !== audioEpoch) return;
       audioBuffer = decoded;
+      const id = C.id(); window.ShortsStorage.stage(id, file, file.name, 'voice');
+      draft.voiceAssetId = id; draft.voiceName = file.name; audioProblems.delete('voice');
+      changed(); await saveNow();
       $('videoAudioInfo').textContent = file.name + ' · ' + decoded.duration.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' сек';
       $('removeVideoAudio').hidden = false;
-    } catch (cause) { if (epoch === audioEpoch) { $('videoAudioInfo').textContent = 'Без аудиодорожки'; error(cause.message); } }
-    finally { if (epoch === audioEpoch) { decoding = false; lockControls(); } }
+    } catch (cause) { if (epoch === audioEpoch) { audioBuffer = previous; $('videoAudioInfo').textContent = draft.voiceName || 'Без аудиодорожки'; $('removeVideoAudio').hidden = !previous && !draft.voiceAssetId; error(cause.message); saveSoon(); } }
+    finally { if (epoch === audioEpoch) { decoding = false; rebuild(); lockControls(); } }
   });
   $('removeVideoAudio').addEventListener('click', () => {
-    audioEpoch++; decoding = false; audioBuffer = null; $('videoAudioInfo').textContent = 'Без аудиодорожки'; $('removeVideoAudio').hidden = true; changed();
+    audioEpoch++; decoding = false; audioBuffer = null; draft.voiceAssetId = null; draft.voiceName = ''; audioProblems.delete('voice'); $('videoAudioInfo').textContent = 'Без аудиодорожки'; $('removeVideoAudio').hidden = true; changed();
   });
   $('videoMusic').addEventListener('change', async event => {
     const file = event.target.files[0]; event.target.value = '';
     if (!file || busy || decoding) return;
+    const previous = musicBuffer;
     const epoch = ++musicEpoch;
-    stopPreview(); invalidateResult(); error(''); decoding = true; musicBuffer = null;
+    stopPreview(); invalidateResult(); error(''); decoding = true; mediaLoading(); musicBuffer = null;
     $('removeVideoMusic').hidden = true; $('videoMusicInfo').textContent = 'Читаем аудиофайл…'; lockControls();
     try {
       const decoded = await R.decodeAudio(file);
       if (epoch !== musicEpoch) return;
       musicBuffer = decoded;
+      const id = C.id(); window.ShortsStorage.stage(id, file, file.name, 'music');
+      draft.musicAssetId = id; draft.musicName = file.name; audioProblems.delete('music');
+      changed(); await saveNow();
       $('videoMusicInfo').textContent = file.name + ' · ' + decoded.duration.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' сек';
       $('removeVideoMusic').hidden = false;
-    } catch (cause) { if (epoch === musicEpoch) { $('videoMusicInfo').textContent = 'Без музыки'; error(cause.message); } }
-    finally { if (epoch === musicEpoch) { decoding = false; lockControls(); } }
+    } catch (cause) { if (epoch === musicEpoch) { musicBuffer = previous; $('videoMusicInfo').textContent = draft.musicName || 'Без музыки'; $('removeVideoMusic').hidden = !previous && !draft.musicAssetId; error(cause.message); saveSoon(); } }
+    finally { if (epoch === musicEpoch) { decoding = false; rebuild(); lockControls(); } }
   });
   $('removeVideoMusic').addEventListener('click', () => {
-    musicEpoch++; musicBuffer = null; $('videoMusicInfo').textContent = 'Без музыки'; $('removeVideoMusic').hidden = true; changed();
+    musicEpoch++; musicBuffer = null; draft.musicAssetId = null; draft.musicName = ''; audioProblems.delete('music'); $('videoMusicInfo').textContent = 'Без музыки'; $('removeVideoMusic').hidden = true; changed();
   });
   $('playGeneratedPreview').addEventListener('click', playPreview);
   $('videoSeek').addEventListener('input', () => { stopPreview(); previewOffset = Number($('videoSeek').value); redraw(); });
@@ -427,7 +456,19 @@
   $('videoToEditor').addEventListener('click', () => { stopPreview(); window.ShortsEditor.useScript({ title: draft.title, scenes: draft.scenes }); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { stopPreview(); if (saveTimer) saveNow(); } });
   window.addEventListener('pagehide', () => { stopPreview(); recorderAbort?.abort(new DOMException('Страница закрыта.', 'AbortError')); if (saveTimer) saveNow(); invalidateResult(); });
+  window.addEventListener('shorts:storage-conflict', event => {
+    if (event.detail.slot !== 'video') return;
+    saveEpoch++; $('videoDraftStatus').textContent = 'Ошибка сохранения';
+    error('Проект изменён в другой вкладке. Автосохранение остановлено; ваши правки остаются здесь. Перед перезагрузкой скачайте нужное видео или скопируйте текст.');
+  });
   renderForm();
-  restoreImages();
-  if (loadError) error(loadError);
+  document.body.inert = false;
+  await restoreMedia();
+  if (!loaded.project && !loadError) await saveNow();
+  else if (!loadError) $('videoDraftStatus').textContent = 'Сохранено на устройстве';
+  window.ShortsVideoRestored = true;
+  if (loadError) {
+    $('videoDraftStatus').textContent = loaded.writable ? 'Проверьте сохранённые данные' : 'Ошибка сохранения';
+    error(loadError);
+  }
 })();
