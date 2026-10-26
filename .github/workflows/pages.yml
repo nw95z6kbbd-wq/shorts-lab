@@ -49,24 +49,25 @@ jobs:
           fi
       - name: Check editor functionality
         run: |
-          python tests/project-db-browser.py
-          python tests/browser.py
+          python tests/check-errors.py tests/project-db-browser.py
+          python tests/check-errors.py tests/project-migration-browser.py
+          python tests/check-errors.py tests/browser.py
       - name: Check real browser video and audio recording
         run: |
           if ! command -v ffprobe >/dev/null; then
             sudo apt-get update
             sudo apt-get install -y ffmpeg
           fi
-          python tests/video-browser.py
-          python tests/media-browser.py
-          python tests/project-browser.py
+          python tests/check-errors.py tests/video-browser.py
+          python tests/check-errors.py tests/media-browser.py
+          python tests/check-errors.py tests/project-browser.py
       - name: Prepare Pages files and downloads
         run: python scripts/prepare-site.py
       - name: Check product information and standalone version
         run: |
-          python tests/product-browser.py
-          PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/product-browser.py
-          PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/project-browser.py
+          python tests/check-errors.py tests/product-browser.py
+          PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
+          PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
       - name: Check deployment under repository path
         run: python tests/pages.py
       - name: Upload static site
@@ -114,11 +115,12 @@ jobs:
       - name: Check source and standalone product UI in WebKit
         run: |
           python scripts/prepare-site.py
-          PRODUCT_BROWSER=webkit python tests/product-browser.py
-          PRODUCT_BROWSER=webkit PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/product-browser.py
-          PERSISTENCE_BROWSER=webkit python tests/project-db-browser.py
-          PERSISTENCE_BROWSER=webkit python tests/project-browser.py
-          PERSISTENCE_BROWSER=webkit PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/project-browser.py
+          PRODUCT_BROWSER=webkit python tests/check-errors.py tests/product-browser.py
+          PRODUCT_BROWSER=webkit PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
+          PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-db-browser.py
+          PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-migration-browser.py
+          PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-browser.py
+          PERSISTENCE_BROWSER=webkit PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
 
   safari:
     name: Native Safari on macOS
@@ -141,7 +143,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Enable Safari WebDriver
-        run: sudo /usr/bin/safaridriver --enable
+        run: |
+          sudo /usr/bin/safaridriver --enable
+          open -a Safari
       - name: Check product UI and video smoke test in real Safari
         env:
           SAFARI_BASELINE_ROOT: .safari-baseline
