@@ -100,11 +100,18 @@ def run():
             wait_for('document.getElementById("productDialog").open')
             assert script('return document.querySelectorAll(".release-item").length;')==len(product['releases'])
             assert script('return Array.from(document.querySelectorAll(".release-heading time")).map(e=>e.dateTime);')==[release['date'] for release in product['releases'] if release['status']=='published']
+            if product['releases'][0]['status']=='published':
+                assert script('return document.querySelector(".release-item").dataset.status;')=='published'
+                assert script('return document.querySelector(".release-item .release-badge").textContent;')=='ТЕКУЩАЯ'
+                assert script('return !document.querySelector(".release-item .release-pending");')
             click('#productClose');command('POST','/refresh',{})
             wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert && document.getElementById("saveStatus").dataset.state',seconds=30)
             assert script('return document.getElementById("productUpdateNotice").hidden;')
             click('.product-nav [data-product-open="about"]')
             assert script('return document.getElementById("productRepository").href;')==product['repository']
+            assert script('return document.querySelector(".product-about-version [data-product-version]").textContent;')=='v'+product['version']
+            if product['releases'][0]['status']=='published':
+                assert script('return !document.getElementById("productPane-about").textContent.includes("Ещё не опубликовано");')
             assert script('return document.getElementById("productOwner").value;')==product['rights']['owner']
             script('document.getElementById("productOwner").value="Проверка Safari";')
             click('#productProfileForm button[type="submit"]')
@@ -149,7 +156,7 @@ def run():
             else:
                 assert script('return document.querySelector(".release-item time").dateTime;')==product['releases'][0]['date']
             click('#productClose');click('#backToEditor')
-            print('PASS [native Safari patch UX]: grouped navigation, Unicode counter, untrimmed overflow, preserved manual/video inputs and three release significance levels with pending patch',flush=True)
+            print('PASS [native Safari patch UX]: grouped navigation, Unicode counter, untrimmed overflow, preserved manual/video inputs and three release significance levels and metadata-driven publication status',flush=True)
 
             command('POST','/window/rect',{'width':390,'height':844})
             assert script('return document.documentElement.scrollWidth <= innerWidth;')
