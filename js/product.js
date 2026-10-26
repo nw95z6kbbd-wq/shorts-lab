@@ -1,0 +1,63 @@
+(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.ShortsProduct = factory();
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+  // The release list is the only editable source of version numbers and release notes.
+  // Add future releases at the beginning; CHANGELOG.md is generated from this file.
+  const releases = [
+    {
+      version: '1.2.0', date: '2026-10-26', title: 'Медиаматериалы и оформление продукта',
+      pullRequests: [3], commit: '37b94ab1cd57abd40b24e725c6cf6519acfbb0f6',
+      changes: [
+        'Свои PNG, JPG и WebP для каждой сцены, приближение, отдаление и панорамирование.',
+        'Растворение, сдвиг и мягкий зум между сценами; анимированные фоны сохранены.',
+        'Независимые голос и музыка с отдельной громкостью и плавным появлением и затуханием музыки.',
+        'Ручные длительности сцен и субтитры по точным границам монтажа.',
+        'Локальное хранение изображений и проверки реального экспорта с изображениями и двумя аудиодорожками.',
+        'Единая версия продукта, история обновлений, раздел «О Shorts Studio» и подготовка следующих выпусков.'
+      ]
+    },
+    {
+      version: '1.1.0', date: '2026-10-26', title: 'От идеи до настоящего видео',
+      pullRequests: [2], commit: 'de80c3159ff11fc00b51ddc4f6bff723c019198a',
+      changes: [
+        'Отдельный режим «Создать видео по идее» с локальными сценарными шаблонами.',
+        'Процедурные анимированные фоны, переходы и субтитры с подсветкой слов.',
+        'Запись вертикального видео 720 × 1280 в браузере: MP4 при поддержке кодека, иначе WebM.',
+        'Загрузка аудио, прогресс и отмена записи, демонстрационный ролик на 18 секунд.',
+        'Автономный HTML и автоматическая проверка настоящих видеофайлов.'
+      ]
+    },
+    {
+      version: '1.0.0', date: '2026-10-25', title: 'Первая история начинается здесь',
+      pullRequests: [1], commit: 'c16586c5a886731dca04454ed0c6598e4aa9e6ee',
+      changes: [
+        'Русскоязычный редактор сценария, подсчёт слов и оценка длительности озвучки.',
+        'Разбивка на редактируемые сцены и вертикальный текстовый предпросмотр 9:16.',
+        'Настройки субтитров и скачивание SRT с таймкодами.',
+        'Автосохранение, создание проекта и импорт и экспорт JSON.',
+        'Тёмный адаптивный интерфейс, демосценарий, автономный HTML и подготовка GitHub Pages.'
+      ]
+    }
+  ];
+  for (const release of releases) {
+    Object.freeze(release.changes); Object.freeze(release.pullRequests); Object.freeze(release);
+  }
+  return Object.freeze({
+    name: 'Shorts Studio', version: releases[0].version, releases: Object.freeze(releases),
+    repository: 'https://github.com/nw95z6kbbd-wq/shorts-lab',
+    historyNote: 'Версии оформлены по истории Git и PR. Даты соответствуют объединению функциональных изменений в main (Asia/Yekaterinburg).',
+    // Fill these fields only when the actual rights holder and contact are known.
+    rights: Object.freeze({ owner: '', contact: '' }),
+    licenseNote: 'Свободная лицензия проекта не установлена. Сведения о правообладателе и условиях использования заполняются отдельно.',
+    capabilities: Object.freeze([
+      'Сценарии, сцены, субтитры SRT и сохранение проектов.',
+      'Локальные сценарные шаблоны по идее и анимация без платных API.',
+      'Изображения сцен, движение камеры, переходы и ручной таймлайн.',
+      'Голос и музыка с отдельной громкостью и плавными краями музыки.',
+      'Настоящий вертикальный MP4 или WebM прямо в браузере.'
+    ])
+  });
+});

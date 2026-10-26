@@ -36,6 +36,7 @@ jobs:
         run: |
           for file in js/*.js; do node --check "$file"; done
           node --test tests/*.test.cjs
+          node scripts/release.cjs check
       - name: Install browser test dependencies
         run: python -m pip install -r requirements-dev.txt
       - name: Select browser available on runner
@@ -58,6 +59,10 @@ jobs:
           python tests/media-browser.py
       - name: Prepare Pages files and downloads
         run: python scripts/prepare-site.py
+      - name: Check product information and standalone version
+        run: |
+          python tests/product-browser.py
+          PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/product-browser.py
       - name: Check deployment under repository path
         run: python tests/pages.py
       - name: Upload static site
@@ -69,7 +74,7 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: check
+    needs: [check, webkit, safari]
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -83,3 +88,54 @@ jobs:
       - name: Publish site
         id: deployment
         uses: actions/deploy-pages@v4
+
+  webkit:
+    name: Product UI in WebKit and mobile emulation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install WebKit test browser
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m playwright install --with-deps webkit
+      - name: Check source and standalone product UI in WebKit
+        run: |
+          python scripts/prepare-site.py
+          PRODUCT_BROWSER=webkit python tests/product-browser.py
+          PRODUCT_BROWSER=webkit PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/product-browser.py
+
+  safari:
+    name: Native Safari on macOS
+    runs-on: macos-15
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out stable baseline for Safari export comparison
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: .safari-baseline
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Enable Safari WebDriver
+        run: sudo /usr/bin/safaridriver --enable
+      - name: Check product UI and video smoke test in real Safari
+        env:
+          SAFARI_BASELINE_ROOT: .safari-baseline
+        run: python tests/safari-product.py
