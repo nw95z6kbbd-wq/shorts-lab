@@ -67,7 +67,12 @@ def run():
         try:
             command('POST','/element/'+element(selector)+'/click',{})
         except RuntimeError as error:
-            details=script('const e=document.querySelector(arguments[0]),r=e.getBoundingClientRect(),d=document.getElementById("productDialog");return {selector:arguments[0],rect:{x:r.x,y:r.y,width:r.width,height:r.height},display:getComputedStyle(e).display,dialog:d.open,aboutHidden:document.getElementById("productPane-about").hidden,active:document.activeElement?.id,scroll:document.querySelector(".product-dialog-scroll").scrollTop};',[selector])
+            details=script('const e=document.querySelector(arguments[0]),r=e.getBoundingClientRect(),d=document.getElementById("productDialog"),x=Math.round(r.x+r.width/2),y=Math.round(r.y+r.height/2),hit=document.elementFromPoint(x,y);return {selector:arguments[0],rect:{x:r.x,y:r.y,width:r.width,height:r.height},x,y,clickable:!e.matches(":disabled")&&r.width>0&&r.height>0&&(hit===e||e.contains(hit)),hit:hit?.tagName+"#"+hit?.id,display:getComputedStyle(e).display,dialog:d.open,aboutHidden:document.getElementById("productPane-about").hidden,active:document.activeElement?.id,scroll:document.querySelector(".product-dialog-scroll").scrollTop};',[selector])
+            if 'element not interactable' in str(error) and details['clickable']:
+                # A real trusted pointer click bypasses safaridriver's broken
+                # nested-scroll element-click path; obscured controls still fail.
+                command('POST','/actions',{'actions':[{'type':'pointer','id':'safari-pointer','parameters':{'pointerType':'mouse'},'actions':[{'type':'pointerMove','duration':0,'origin':'viewport','x':details['x'],'y':details['y']},{'type':'pointerDown','button':0},{'type':'pointerUp','button':0}]}]})
+                return
             raise RuntimeError(str(details)+'; '+str(error)) from error
 
     try:
