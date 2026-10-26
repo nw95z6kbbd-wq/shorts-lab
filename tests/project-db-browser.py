@@ -54,6 +54,11 @@ def run():
               assert(await (await reopened.asset('voice')).blob.text()==='voice original','Blob survives connection reopen');
               const race=await Promise.allSettled([reopened.save('video',{...state,title:'tab A'},2),reopened.save('video',{...state,title:'tab B'},2)]);
               assert(race.filter(r=>r.status==='fulfilled').length===1 && race.filter(r=>r.status==='rejected'&&r.reason.code==='CONFLICT').length===1,'concurrent CAS serializes writers');
+              let head=await reopened.read('video');
+              head=await reopened.save('video',{...head.state,voiceAssetId:null,voiceName:''},head.revision);
+              assert(await reopened.asset('voice'),'previous snapshot retains removed media');
+              head=await reopened.save('video',{...head.state,title:'Another saved revision'},head.revision);
+              assert(!await reopened.asset('voice') && await reopened.asset('legacy-image'),'key-only cleanup removes only globally unreferenced media');
               reopened.close();
               const fresh=ShortsProjectDB.createRepository('migration-abort-test');
               IDBObjectStore.prototype.put=function(value){if(this.name==='meta')throw new DOMException('full','QuotaExceededError');return put.call(this,value);};

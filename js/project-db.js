@@ -88,7 +88,7 @@
             for (const file of supplied) assets.put(file);
             const missing = current?.missingAssets || [];
             for (const id of ids) {
-              const check = assets.get(id);
+              const check = assets.getKey(id);
               check.onsuccess = () => { if (!check.result && !missing.includes(id)) abort(failure('MISSING', 'Не удалось сохранить один из медиафайлов. Предыдущая версия проекта не изменена.')); };
             }
             let previous = null;
@@ -102,8 +102,8 @@
             const all = projects.getAll();
             all.onsuccess = () => {
               const used = new Set(all.result.flatMap(p => [...references(p.id, p.state), ...(p.previous ? references(p.id, p.previous.state) : [])]));
-              const cursor = assets.openCursor();
-              cursor.onsuccess = () => { const item = cursor.result; if (item) { if (!used.has(item.key)) item.delete(); item.continue(); } };
+              const cursor = assets.openKeyCursor();
+              cursor.onsuccess = () => { const item = cursor.result; if (item) { if (!used.has(item.key)) assets.delete(item.key); item.continue(); } };
             };
           } catch (error) { abort(error); }
         };
