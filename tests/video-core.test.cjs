@@ -135,3 +135,22 @@ test('WebM files with existing indexes are not shifted when Duration is missing'
   const bytes = new Uint8Array([0x18, 0x53, 0x80, 0x67, 0xff, 0x11, 0x4d, 0x9b, 0x74, 0x80, 0x15, 0x49, 0xa9, 0x66, 0x80]);
   assert.equal(V.patchWebmDuration(bytes, 18000), bytes);
 });
+
+
+test('idea limit remains compatible with old UTF-16 drafts including supplementary Unicode', () => {
+  assert.equal(V.IDEA_LIMIT, 280);
+  const old = V.demo();
+  old.idea = '🌌'.repeat(V.IDEA_LIMIT / 2);
+  assert.equal(V.parseDraft(old).idea, old.idea);
+  assert.equal(V.generateFromIdea('я'.repeat(V.IDEA_LIMIT)).idea.length, V.IDEA_LIMIT);
+  old.idea += 'я';
+  assert.throws(() => V.parseDraft(old));
+  assert.throws(() => V.generateFromIdea('я'.repeat(V.IDEA_LIMIT + 1)), /Сократите/);
+});
+
+
+test('stable product projects retain their schema and values through current parsers', () => {
+  const previous = require('./fixtures/stable-projects.json');
+  assert.deepEqual(C.parseProject(previous.editor), previous.editor);
+  assert.deepEqual(V.parseDraft(previous.video), previous.video);
+});

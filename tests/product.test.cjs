@@ -18,9 +18,9 @@ test('changelog exactly matches the authoritative release data and real PR refer
   assert.equal(fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8'), release.changelog());
   assert.deepEqual(P.releases.slice(-3).map(entry => entry.pullRequests), [[3], [2], [1]]);
   for (const entry of P.releases) {
-    assert.match(entry.commit, /^[a-f0-9]{40}$/);
+    if (entry.status === 'published') assert.match(entry.commit, /^[a-f0-9]{40}$/);
     assert.ok(entry.changes.length > 0);
-    assert.ok(release.changelog().includes(P.repository + '/commit/' + entry.commit));
+    if (entry.commit) assert.ok(release.changelog().includes(P.repository + '/commit/' + entry.commit));
   }
 });
 
@@ -38,4 +38,19 @@ test('owner and contact remain configurable strings without imposing an applicat
   assert.equal(P.repository, 'https://github.com/nw95z6kbbd-wq/shorts-lab');
   assert.ok(P.licenseNote.includes('не установлена'));
   assert.ok(!fs.existsSync(path.join(root, 'LICENSE')));
+});
+
+
+test('published release facts are preserved and significance is explicit, independent of version numbers', () => {
+  const history = require('./fixtures/published-releases.json');
+  for (const previous of history) {
+    const entry = P.releases.find(item => item.version === previous.version);
+    for (const key of Object.keys(previous)) assert.deepEqual(entry[key], previous[key]);
+    assert.equal(entry.status, 'published');
+  }
+  assert.deepEqual(new Set(P.releases.map(entry => entry.importance)), new Set(['highlight', 'standard', 'patch']));
+  assert.equal(P.releases[0].status, 'unreleased');
+  assert.equal(P.releases[0].date, null);
+  assert.equal(P.releases[0].commit, null);
+  assert.match(release.changelog(), /Ещё не опубликовано/);
 });

@@ -99,7 +99,7 @@ def run():
             click('.product-nav [data-product-open="updates"]')
             wait_for('document.getElementById("productDialog").open')
             assert script('return document.querySelectorAll(".release-item").length;')==len(product['releases'])
-            assert script('return Array.from(document.querySelectorAll(".release-heading time")).map(e=>e.dateTime);')==[release['date'] for release in product['releases']]
+            assert script('return Array.from(document.querySelectorAll(".release-heading time")).map(e=>e.dateTime);')==[release['date'] for release in product['releases'] if release['status']=='published']
             click('#productClose');command('POST','/refresh',{})
             wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert && document.getElementById("saveStatus").dataset.state',seconds=30)
             assert script('return document.getElementById("productUpdateNotice").hidden;')
@@ -117,6 +117,37 @@ def run():
             click('#productResetProfile');click('#productClose')
             assert before==script('return [localStorage.getItem("shorts-studio.project.v1"),localStorage.getItem("shorts-studio.video.v1")];')
             print('PASS [native Safari]: version, dated release history, notice dismissal and local profile; project data unchanged',flush=True)
+            assert script('return document.querySelectorAll(".studio-navigation .nav-group").length;')==2
+            assert script('return document.querySelectorAll(".manual-nav [data-view]").length;')==3
+            assert script('return document.querySelectorAll(".ai-nav button").length;')==1
+            click('.manual-nav [data-view="script"]')
+            script('const e=document.getElementById("projectName");e.value="Ручной Safari";e.dispatchEvent(new Event("input",{bubbles:true}));')
+            click('#openVideoMode')
+            assert script('return document.querySelectorAll(".manual-nav [aria-current]").length;')==0
+            for text in ['Привет', 'Привет 🌌', 'Ёж e\u0301 👨‍👩‍👧‍👦']:
+                script('const e=document.getElementById("videoIdea");e.value=arguments[0];e.dispatchEvent(new InputEvent("input",{bubbles:true,inputType:"insertFromPaste",data:arguments[0]}));',[text])
+                expected=str(len(text.encode('utf-16-le'))//2)+' / '+str(script('return ShortsVideoCore.IDEA_LIMIT;'))+' символов'
+                assert script('return document.getElementById("videoIdeaCounter").textContent;')==expected
+            wait_for('document.getElementById("videoDraftStatus").textContent==="Сохранено на устройстве"')
+            limit=script('return ShortsVideoCore.IDEA_LIMIT;')
+            old_scenes=script('return document.getElementById("videoScenes").textContent;')
+            script('const e=document.getElementById("videoIdea");e.value="я".repeat(ShortsVideoCore.IDEA_LIMIT+1);e.dispatchEvent(new Event("input",{bubbles:true}));')
+            assert script('return document.getElementById("videoIdea").value.length;')==limit+1
+            assert script('return document.getElementById("videoIdea").getAttribute("aria-invalid");')=='true'
+            click('#generateIdea')
+            assert script('return document.getElementById("videoScenes").textContent;')==old_scenes
+            click('.manual-nav [data-view="scenes"]')
+            assert script('return document.getElementById("projectName").value;')=='Ручной Safari'
+            click('#openVideoMode')
+            assert script('return document.getElementById("videoIdea").value.length;')==limit+1
+            script('const e=document.getElementById("videoIdea");e.value="Исправленная идея Safari 🌌";e.dispatchEvent(new Event("input",{bubbles:true}));')
+            wait_for('document.getElementById("videoDraftStatus").textContent==="Сохранено на устройстве"')
+            click('.product-nav [data-product-open="updates"]')
+            assert script('return Array.from(document.querySelectorAll(".release-item")).some(e=>e.dataset.importance==="highlight") && document.querySelectorAll(".release-standard").length>0 && document.querySelectorAll(".release-patch").length===1;')
+            assert script('return document.querySelector(".release-patch .release-pending").textContent;')=='Ещё не опубликовано'
+            click('#productClose');click('#backToEditor')
+            print('PASS [native Safari patch UX]: grouped navigation, Unicode counter, untrimmed overflow, preserved manual/video inputs and three release significance levels with pending patch',flush=True)
+
             command('POST','/window/rect',{'width':390,'height':844})
             assert script('return document.documentElement.scrollWidth <= innerWidth;')
             click('.product-nav [data-product-open="about"]')

@@ -45,6 +45,16 @@
 @media(max-width:600px){.product-toolbar{padding:8px 20px;gap:10px;flex-wrap:wrap}.product-version-label{font-size:8px;gap:5px}.product-version-pill{font-size:9px;padding:2px 5px}.product-toolbar-actions{gap:13px}.product-toolbar-actions button{font-size:10px}.product-update-notice{padding:12px;gap:9px;flex-wrap:wrap;margin-bottom:21px}.product-update-notice strong{font-size:11px}.product-update-notice p{font-size:9px}.product-update-notice .text-button{font-size:10px}.product-update-notice .update-spark{width:27px;height:29px}.product-notice-close{margin-left:auto;padding:7px}.product-dialog{width:calc(100vw - 20px);max-height:92vh;max-height:92dvh;border-radius:13px}.product-dialog-header{padding:20px 18px 14px}.product-dialog-header h2{font-size:23px}.product-tabs{padding-inline:18px;gap:20px}.product-tab{font-size:11px;padding-block:13px}.product-dialog-scroll{padding:17px 16px 20px;max-height:calc(92vh - 174px);max-height:calc(92dvh - 174px)}.release-item{padding:15px 13px}.release-heading{gap:7px}.release-heading h3{font-size:15px}.release-heading time{width:100%;margin-left:0;font-size:10px;margin-top:2px}.release-item li,.product-capabilities li{font-size:12px}.product-profile{padding:16px 13px}.product-profile input{font-size:16px}.product-toolbar .product-version-label>span:first-child{display:none}.product-update-notice .notice-message{flex:1;min-width:190px}}
 @media(prefers-reduced-motion:reduce){.product-dialog,.product-update-notice{animation:none;transition:none}}
 .product-dialog[open]{display:flex;flex-direction:column}.product-dialog-header,.product-tabs{flex-shrink:0}.product-dialog-scroll{flex:1;min-height:0}
+/* Editorial significance is explicit metadata, independent of SemVer. */
+.release-item{position:relative}.release-kind{font-size:9px;color:#a793b6;letter-spacing:.2px}
+.release-pending{font-size:10px;color:#c2a5d7;margin-left:auto}.release-summary{font-size:12px!important;line-height:1.8!important;color:#beabcd!important;margin-top:9px!important}
+.release-highlight{padding:23px 22px;border-color:#6a4884;background:radial-gradient(ellipse at top right,#6a3d9024,transparent 70%),#1b1425;box-shadow:inset 3px 0 #9262bb}
+.release-highlight h4{font-size:17px;letter-spacing:-.3px;margin-top:14px;color:#e3cdee}.release-highlight .release-kind{color:#c19be0}
+.release-standard{background:#15101c;border-color:#382c42}.release-standard h4{font-size:13px}
+.release-patch{padding:13px 15px;background:#140f19;border:1px solid #302637;box-shadow:none}
+.release-patch .release-heading h3{font-size:13px}.release-patch h4{font-size:11px;margin:8px 0}.release-patch ul{gap:3px;margin-top:7px}.release-patch li{font-size:11px;line-height:1.6}.release-patch .release-sources{margin-top:9px}.release-patch .release-kind{font-size:8px}
+.release-current.release-patch{border-color:#59436b;background:#1b1424}.release-current.release-patch .release-badge{font-size:7px}
+@media(max-width:480px){.release-highlight{padding:18px 15px}.release-highlight h4{font-size:16px}.release-patch{padding:12px}.release-heading time,.release-pending{margin-left:0;width:100%}.release-heading{gap:6px 8px}.release-kind{font-size:8px}}
 
 </style>
   <style>
@@ -83,6 +93,21 @@ body{overflow:hidden}
 @media(prefers-reduced-motion:reduce){#saveStatus{transition:none}#saveStatus[data-state=pending] svg{animation:none}}
 @keyframes save-pulse{50%{opacity:.35}}
 @media(max-width:600px){.video-canvas-wrap>canvas,.video-canvas-wrap>video{width:100%;height:auto;max-height:none}}
+/* Navigation groups extend independently; there are no future placeholder tools. */
+.studio-navigation{width:100%;display:grid;gap:20px;margin-top:26px}
+.nav-group{min-width:0}.nav-group-heading{margin:0 10px 9px;color:#82738f;font-size:9px;font-weight:600;letter-spacing:1.1px;text-transform:uppercase}
+.studio-navigation .nav-list{margin:0;width:100%;gap:5px}.studio-navigation .nav-text{min-width:0}
+.ai-nav{border-top:1px solid #302638;padding-top:17px}.ai-nav .nav-group-heading{color:#ac8dc8}
+.nav-mode-hint{display:block;margin-top:4px;font-size:9px;line-height:1.4;font-weight:400;color:#8e7d9d}
+.sidebar[data-studio-mode=video] .manual-nav .nav-item.active{background:transparent;color:#91909d}
+.sidebar[data-studio-mode=video] .manual-nav .nav-active-dot{visibility:hidden}
+.idea-feedback{margin:10px 21px 0;font-size:10px;color:#8e7f9b;line-height:1.6}
+#videoIdeaCounter{display:block;text-align:right;font-variant-numeric:tabular-nums;color:#b09cc0}
+#videoIdeaCounter[data-state=near]{color:#dfbb86}#videoIdeaCounter[data-state=error],#videoIdeaWarning{color:#edb39b}
+#videoIdeaHint{margin-top:4px;font-size:9px}#videoIdeaWarning{min-height:32px;margin-top:4px;overflow-wrap:anywhere}
+@media(min-width:761px) and (max-width:1050px){.studio-navigation{margin-top:25px;gap:16px}.nav-group-heading{margin-inline:0;text-align:center;font-size:7px;line-height:1.7;letter-spacing:0}.studio-navigation .nav-text{display:none}.ai-nav .nav-text{display:block;font-size:0}.ai-nav .nav-item{flex-direction:column;gap:4px}.ai-nav .nav-mode-hint{font-size:7px;text-align:center}.studio-navigation .nav-item{padding:12px}.ai-nav{padding-top:13px}.studio-navigation .nav-list{gap:6px}}
+@media(max-width:760px){.sidebar{grid-template-columns:minmax(0,1fr);gap:13px}.sidebar>.brand{grid-column:1}.studio-navigation{grid-column:1;grid-row:2;margin:0;gap:12px}.nav-group-heading{display:block;margin:0 0 7px;font-size:8px;letter-spacing:.8px}.studio-navigation .nav-list{display:flex;gap:6px;flex-wrap:wrap}.studio-navigation .nav-item{width:auto;flex:1;padding:9px 8px;min-height:40px;gap:6px;justify-content:center;font-size:11px;border:1px solid #322939;background:#17131d}.studio-navigation .nav-item.active{background:#2b203a;border-color:#634580}.studio-navigation .nav-item svg{width:14px;height:14px}.studio-navigation .nav-count,.studio-navigation .nav-active-dot{display:none}.ai-nav{padding-top:11px}.ai-nav .nav-item{flex:0 1 auto;padding-inline:13px;text-align:left;justify-content:flex-start;gap:9px}.nav-mode-hint{font-size:9px;margin-top:2px}.sidebar>.product-nav{grid-row:3;grid-column:1}.idea-feedback{margin-inline:18px}.sidebar[data-studio-mode=video] .manual-nav .nav-item.active{background:#17131d;border-color:#322939}}
+@media(max-height:540px) and (min-width:761px){.studio-navigation{margin-top:15px;gap:12px}.studio-navigation .nav-list{margin:0;gap:3px}.ai-nav{padding-top:10px}}
 
 </style>
 </head>
@@ -113,13 +138,22 @@ body{overflow:hidden}
     <a class="brand" href="#" aria-label="Shorts Studio — главная"><span class="brand-mark"><svg><use href="#i-logo"/></svg></span><span>shorts<span class="brand-light">studio</span><span class="brand-dot">.</span></span></a>
     <div class="workspace-label">ЛИЧНОЕ ПРОСТРАНСТВО</div>
     <div class="project-card"><span class="project-icon"><svg><use href="#i-file"/></svg></span><div><strong id="sidebarProjectName">Мой Short</strong><span>Локальный проект</span></div><span class="tiny-dot"></span></div>
-    <div class="nav-label">СТУДИЯ</div>
-    <nav class="nav-list" aria-label="Разделы проекта">
-      <button class="nav-item active" data-view="script" aria-current="page"><svg><use href="#i-pen"/></svg>Сценарий<span class="nav-active-dot"></span></button>
-      <button class="nav-item" data-view="scenes"><svg><use href="#i-scenes"/></svg>Сцены<span class="nav-count" id="navSceneCount">0</span></button>
-      <button class="nav-item" data-view="subtitles"><svg><use href="#i-captions"/></svg>Субтитры</button>
-      <button class="nav-item video-nav" id="openVideoMode" title="Создать видео по идее" aria-label="Создать видео по идее" aria-controls="videoStudio" aria-expanded="false"><svg><use href="#i-sparkles"/></svg>Видео по идее<span class="video-new">НОВОЕ</span></button>
-    </nav>
+    <div class="studio-navigation">
+      <section class="nav-group manual-nav" aria-labelledby="studioNavHeading">
+        <h2 id="studioNavHeading" class="nav-group-heading">Студия</h2>
+        <nav class="nav-list" aria-label="Студия — ручное редактирование">
+          <button class="nav-item active" data-view="script" aria-current="page" aria-label="Сценарий" title="Сценарий"><svg><use href="#i-pen"/></svg><span class="nav-text">Сценарий</span><span class="nav-active-dot"></span></button>
+          <button class="nav-item" data-view="scenes" aria-label="Сцены" title="Сцены"><svg><use href="#i-scenes"/></svg><span class="nav-text">Сцены</span><span class="nav-count" id="navSceneCount">0</span></button>
+          <button class="nav-item" data-view="subtitles" aria-label="Субтитры" title="Субтитры"><svg><use href="#i-captions"/></svg><span class="nav-text">Субтитры</span></button>
+        </nav>
+      </section>
+      <section class="nav-group ai-nav" aria-labelledby="aiNavHeading">
+        <h2 id="aiNavHeading" class="nav-group-heading">Создание с ИИ</h2>
+        <nav class="nav-list" aria-label="Создание с ИИ — пока на шаблонах">
+          <button class="nav-item video-nav" id="openVideoMode" title="Видео по идее — шаблонный режим, ИИ пока не подключён" aria-label="Видео по идее — шаблонный режим" aria-describedby="ideaModeNote" aria-controls="videoStudio" aria-expanded="false"><svg><use href="#i-sparkles"/></svg><span class="nav-text">Видео по идее<small id="ideaModeNote" class="nav-mode-hint">Шаблонный режим</small></span></button>
+        </nav>
+      </section>
+    </div>
     <div class="sidebar-files"><div class="nav-label">ПРОЕКТ</div><button class="nav-item" id="saveProject"><svg><use href="#i-download"/></svg>Скачать проект</button><button class="nav-item" id="openProject"><svg><use href="#i-upload"/></svg>Открыть проект</button><input id="projectFile" type="file" accept=".json,application/json" hidden></div>
     <nav class="product-nav" aria-label="Сведения о Shorts Studio"><button class="nav-item" data-product-open="updates" aria-label="Что нового" title="Что нового"><svg><use href="#i-sparkles"/></svg><span class="product-nav-label">Что нового</span></button><button class="nav-item" data-product-open="about" aria-label="О Shorts Studio" title="О Shorts Studio"><svg><use href="#i-info"/></svg><span class="product-nav-label">О Shorts Studio</span></button><span class="product-version-pill product-mobile-version" data-product-version>—</span></nav>
     <div class="sidebar-bottom"><div class="local-card"><span class="local-icon"><svg><use href="#i-monitor"/></svg></span><strong>Ваше творчество — у вас</strong><p>Работает в браузере.<br>Без регистрации и облака.</p><span class="local-status"><span></span>Локальный режим</span></div><div class="sidebar-version">SHORTS STUDIO <span class="product-sidebar-version" data-product-version>—</span></div></div>
@@ -147,7 +181,7 @@ body{overflow:hidden}
         <div id="videoPlanError" class="notice warning" role="alert" hidden></div>
         <div class="video-grid">
           <div class="video-editor">
-            <section class="panel idea-panel"><div class="video-section-heading"><div><h2>Какую историю расскажем?</h2><p>Опишите идею. Мы подготовим основу для вашего ролика.</p></div><button class="text-button" id="videoDemo">Демо · 18 сек</button></div><label for="videoIdea" class="sr-only">Идея ролика</label><textarea id="videoIdea" maxlength="280" rows="3" placeholder="Например: мистическая история про заброшенный дом"></textarea><div class="idea-actions"><span>Локальные шаблоны · без API и нейросетей</span><button class="button button-primary" id="generateIdea"><svg><use href="#i-sparkles"/></svg>Создать сценарий</button></div></section>
+            <section class="panel idea-panel"><div class="video-section-heading"><div><h2>Какую историю расскажем?</h2><p>Опишите идею. Мы подготовим основу для вашего ролика.</p></div><button class="text-button" id="videoDemo">Демо · 18 сек</button></div><label for="videoIdea" class="sr-only">Идея ролика</label><textarea id="videoIdea" aria-describedby="videoIdeaCounter videoIdeaHint videoIdeaWarning" rows="3" placeholder="Например: мистическая история про заброшенный дом"></textarea><div class="idea-feedback"><output id="videoIdeaCounter" for="videoIdea" aria-live="polite" aria-atomic="true"></output><p id="videoIdeaHint">Эмодзи и составные знаки могут занимать несколько позиций лимита.</p><p id="videoIdeaWarning" role="status" aria-live="polite"></p></div><div class="idea-actions"><span>Локальные шаблоны · без API и нейросетей</span><button class="button button-primary" id="generateIdea"><svg><use href="#i-sparkles"/></svg>Создать сценарий</button></div></section>
             <section class="panel video-settings"><div class="video-section-heading"><div><h2>Ваш ролик</h2><p>Анимация и субтитры уже включены.</p></div><span class="format-badge">720 × 1280 · 24 кадра/с</span></div><div class="video-settings-grid"><label>Название<input id="videoTitle" maxlength="80" placeholder="Название ролика"></label><label>Расчёт времени<select id="videoTiming"><option value="auto">Автоматически</option><option value="manual">Вручную по сценам</option></select></label><label>Длительность в авто<select id="videoDuration"><option value="15">15 секунд</option><option value="18" selected>18 секунд</option><option value="20">20 секунд</option><option value="30">30 секунд</option><option value="60">60 секунд</option></select></label><label>Атмосфера<select id="videoTheme"><option value="mystery">Туманный дом</option><option value="space">Космос</option><option value="sunrise">Рассвет</option><option value="neon">Неон</option></select></label><label>Субтитры<select id="videoCaption"><option value="accent">Акцент на словах</option><option value="classic">Классика</option><option value="outline">Контур</option></select></label><label class="video-format-setting">Формат записи<select id="videoFormat"><option value="auto">Авто: MP4, иначе WebM</option><option value="webm">WebM</option></select></label></div><p class="video-hint" id="videoTotalTime"></p><p class="video-hint" id="videoFormatHint"></p></section>
             <section class="panel video-audio"><div class="video-section-heading"><div><h2>Голос и озвучка</h2><p>Отдельная дорожка для речи.</p></div><svg><use href="#i-upload"/></svg></div><div class="video-audio-controls"><label class="button button-secondary audio-upload" for="videoAudio">Выбрать аудио<input id="videoAudio" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm"></label><span id="videoAudioInfo">Без аудиодорожки</span><button class="text-button" id="removeVideoAudio" hidden>Убрать</button></div><div class="video-volume"><label for="videoVolume">Громкость</label><input id="videoVolume" type="range" min="0" max="100" value="70"><output id="videoVolumeValue" for="videoVolume">70%</output></div><p class="video-hint">Аудио обрезается по длине ролика; если оно короче, в конце будет тишина. Файл остаётся на устройстве; исходный файл сохраняется вместе с проектом, если хранилище доступно.</p></section>
             <section class="panel video-audio"><div class="video-section-heading"><div><h2>Фоновая музыка</h2><p>Независимая дорожка с плавными краями.</p></div><svg><use href="#i-upload"/></svg></div><div class="video-audio-controls"><label class="button button-secondary audio-upload" for="videoMusic">Выбрать музыку<input id="videoMusic" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm"></label><span id="videoMusicInfo">Без музыки</span><button class="text-button" id="removeVideoMusic" hidden>Убрать</button></div><div class="video-volume"><label for="videoMusicVolume">Громкость музыки</label><input id="videoMusicVolume" type="range" min="0" max="100" value="25"><output id="videoMusicVolumeValue" for="videoMusicVolume">25%</output></div><div class="music-fades"><label>Появление, сек<input id="videoMusicFadeIn" type="number" min="0" max="10" step="0.1" value="1"></label><label>Затухание, сек<input id="videoMusicFadeOut" type="number" min="0" max="10" step="0.1" value="1"></label></div><p class="video-hint">Голос и музыка звучат одновременно. Короткая музыка затухает перед своим окончанием. Музыка восстанавливается вместе с проектом; она не распознаётся и не выравнивает субтитры автоматически.</p></section>
@@ -357,8 +391,21 @@ body{overflow:hidden}
   'use strict';
   // The release list is the only editable source of version numbers and release notes.
   // Add future releases at the beginning; CHANGELOG.md is generated from this file.
+  const releaseKinds = Object.freeze({ highlight: 'Знаковое обновление', standard: 'Обновление', patch: 'Патч' });
   const releases = [
     {
+      version: '1.3.1', date: null, status: 'unreleased', importance: 'patch',
+      title: 'Понятная навигация и история обновлений',
+      summary: 'Небольшое обновление интерфейса без изменения форматов проектов и видеогенератора.',
+      pullRequests: [], commit: null,
+      changes: [
+        'Отдельные группы «Студия» и «Создание с ИИ»; действующий режим по идее честно обозначен как шаблонный.',
+        'Живой счётчик идеи с существующим лимитом, предупреждением о приближении и явной обработкой превышения без обрезания текста.',
+        'Три уровня истории: знаковые релизы, обычные обновления и компактные патчи; значимость задаётся метаданными.'
+      ]
+    },
+    {
+      status: 'published', importance: 'highlight', summary: 'Проекты и исходные материалы восстанавливаются локально; студия удобнее при долгой работе.',
       version: '1.3.0', date: '2026-10-26', title: 'Сохранённые проекты и удобная студия',
       pullRequests: [5, 6], commit: '0708696c94b943c6ecc5c97e9e7816b35ebfa7d4',
       changes: [
@@ -371,6 +418,7 @@ body{overflow:hidden}
       ]
     },
     {
+      status: 'published', importance: 'standard', summary: 'Свои изображения, две звуковые дорожки и оформление продукта.',
       version: '1.2.0', date: '2026-10-26', title: 'Медиаматериалы и оформление продукта',
       pullRequests: [3], commit: '37b94ab1cd57abd40b24e725c6cf6519acfbb0f6',
       changes: [
@@ -383,6 +431,7 @@ body{overflow:hidden}
       ]
     },
     {
+      status: 'published', importance: 'highlight', summary: 'Первый генератор настоящего вертикального видео прямо в браузере.',
       version: '1.1.0', date: '2026-10-26', title: 'От идеи до настоящего видео',
       pullRequests: [2], commit: 'de80c3159ff11fc00b51ddc4f6bff723c019198a',
       changes: [
@@ -394,6 +443,7 @@ body{overflow:hidden}
       ]
     },
     {
+      status: 'published', importance: 'standard', summary: 'Первая версия редактора сценариев, сцен и субтитров.',
       version: '1.0.0', date: '2026-10-25', title: 'Первая история начинается здесь',
       pullRequests: [1], commit: 'c16586c5a886731dca04454ed0c6598e4aa9e6ee',
       changes: [
@@ -409,9 +459,9 @@ body{overflow:hidden}
     Object.freeze(release.changes); Object.freeze(release.pullRequests); Object.freeze(release);
   }
   return Object.freeze({
-    name: 'Shorts Studio', version: releases[0].version, releases: Object.freeze(releases),
+    name: 'Shorts Studio', version: releases[0].version, releases: Object.freeze(releases), releaseKinds,
     repository: 'https://github.com/nw95z6kbbd-wq/shorts-lab',
-    historyNote: 'История составлена по Git и PR. Даты предыдущих выпусков соответствуют объединению функциональных изменений; текущая запись подготовлена к выпуску. Часовой пояс — Asia/Yekaterinburg.',
+    historyNote: 'История составлена по Git и PR. Даты опубликованных выпусков соответствуют объединению функциональных изменений. Записи «Ещё не опубликовано» подготовлены в ветках PR и не являются выпущенными версиями. Часовой пояс — Asia/Yekaterinburg.',
     // Fill these fields only when the actual rights holder and contact are known.
     rights: Object.freeze({ owner: '', contact: '' }),
     licenseNote: 'Свободная лицензия проекта не установлена. Сведения о правообладателе и условиях использования заполняются отдельно.',
@@ -434,6 +484,7 @@ body{overflow:hidden}
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (C) {
   'use strict';
   const WIDTH = 720, HEIGHT = 1280, FPS = 24;
+  const IDEA_LIMIT = 280; // Existing UTF-16 limit, shared by input feedback and draft validation.
   const DEMO_IDEA = 'Мистическая история про заброшенный дом';
   const DEMO_SCENES = [
     'Этот заброшенный дом помнил то, что я забыл.',
@@ -460,7 +511,7 @@ body{overflow:hidden}
   function generateFromIdea(value) {
     const idea = String(value || '').trim().replace(/\s+/gu, ' ');
     if (idea.length < 3 || !C.countWords(idea)) throw new Error('Опишите идею хотя бы несколькими словами.');
-    if (idea.length > 280) throw new Error('Сократите идею до 280 символов.');
+    if (idea.length > IDEA_LIMIT) throw new Error('Сократите идею до ' + IDEA_LIMIT + ' символов.');
     const theme = themeForIdea(idea);
     let hook = idea.replace(/[.!?…]+/gu, ',').replace(/[,\s]+$/gu, '');
     if (hook.length > 240) hook = hook.slice(0, 237).replace(/\s+\S*$/u, '') + '…';
@@ -482,7 +533,7 @@ body{overflow:hidden}
 
   function parseDraft(value) {
     const data = typeof value === 'string' ? JSON.parse(value) : value;
-    if (!data || data.version !== 1 || typeof data.idea !== 'string' || data.idea.length > 280 ||
+    if (!data || data.version !== 1 || typeof data.idea !== 'string' || data.idea.length > IDEA_LIMIT ||
         typeof data.title !== 'string' || data.title.length > 80 || !Array.isArray(data.scenes) ||
         data.scenes.length > 12 || data.scenes.some(scene => !scene || typeof scene.text !== 'string' || scene.text.length > 280)) {
       throw new Error('Не удалось прочитать черновик видео.');
@@ -680,7 +731,7 @@ body{overflow:hidden}
       bytes.slice(segment.data, info.start), newInfo, bytes.slice(info.end));
   }
 
-  return { WIDTH, HEIGHT, FPS, DEMO_IDEA, demo, generateFromIdea, themeForIdea, parseDraft, chunks, makePlan, frameAt, generateSrt, supportedFormats, extensionFor, patchWebmDuration, cameraRect, musicEnvelope };
+  return { WIDTH, HEIGHT, FPS, IDEA_LIMIT, DEMO_IDEA, demo, generateFromIdea, themeForIdea, parseDraft, chunks, makePlan, frameAt, generateSrt, supportedFormats, extensionFor, patchWebmDuration, cameraRect, musicEnvelope };
 });
 
 </script>
@@ -2085,7 +2136,7 @@ window.ShortsEditorReady = (async function () {
       if (label) label.textContent = (scene.imageName || 'Изображение сцены') + (assets.get(scene.imageId)?.persisted === false ? ' · только в этой вкладке' : '');
     }
     if (epoch === saveEpoch) {
-      $('videoDraftStatus').textContent = result.ok ? 'Сохранено на устройстве' : 'Ошибка сохранения · новые файлы только во вкладке';
+      $('videoDraftStatus').textContent = result.ok ? ($('videoIdea').value.length > V.IDEA_LIMIT ? 'Проверьте сохранение · идея превышает лимит' : 'Сохранено на устройстве') : 'Ошибка сохранения · новые файлы только во вкладке';
       if (result.ok) releaseUnused(true); else error(result.error);
     }
     return result.ok;
@@ -2107,6 +2158,11 @@ window.ShortsEditorReady = (async function () {
       recorderAbort?.abort(new DOMException('Запись отменена при переходе в редактор.', 'AbortError'));
     } else window.ShortsEditor.pause();
     active = open;
+    document.querySelector('.sidebar').dataset.studioMode = open ? 'video' : 'editor';
+    document.querySelectorAll('.manual-nav [data-view]').forEach(button => {
+      if (!open && button.classList.contains('active')) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    });
     document.querySelector('.workspace').dataset.mode = open ? 'video' : 'editor';
     $('videoStudio').hidden = !open; $('scriptStudio').hidden = open;
     $('backToEditor').hidden = !open; $('projectName').disabled = open;
@@ -2279,8 +2335,19 @@ window.ShortsEditorReady = (async function () {
     if (!draft.scenes.length) fragment.append(node('div', 'empty-state', 'Добавьте сцену или создайте сценарий по идее.'));
     $('videoScenes').replaceChildren(fragment); updateSceneTimes();
   }
+  function updateIdeaCounter() {
+    const count = $('videoIdea').value.length, limit = V.IDEA_LIMIT;
+    const exceeded = count > limit, near = !exceeded && count >= Math.ceil(limit * .9);
+    $('videoIdeaCounter').textContent = count + ' / ' + limit + ' символов';
+    $('videoIdeaCounter').dataset.state = exceeded ? 'error' : near ? 'near' : 'normal';
+    $('videoIdea').setAttribute('aria-invalid', String(exceeded));
+    if (exceeded && !$('videoDraftStatus').textContent.startsWith('Ошибка')) $('videoDraftStatus').textContent = 'Проверьте сохранение · идея превышает лимит';
+    $('videoIdea').setCustomValidity(exceeded ? 'Сократите идею до ' + limit + ' символов.' : '');
+    $('videoIdeaWarning').textContent = exceeded ? 'Лимит превышен. Идея пока не сохранена: сократите текст. Лишнее не удалено.' : near ? 'Вы приближаетесь к лимиту идеи.' : '';
+    return !exceeded;
+  }
   function renderForm() {
-    $('videoIdea').value = draft.idea; $('videoTitle').value = draft.title;
+    $('videoIdea').value = draft.idea; updateIdeaCounter(); $('videoTitle').value = draft.title;
     $('videoDuration').value = draft.durationSeconds; $('videoTheme').value = draft.theme;
     $('videoCaption').value = draft.caption; $('videoFormat').value = draft.format;
     $('videoVolume').value = Math.round(draft.volume * 100); $('videoVolumeValue').value = Math.round(draft.volume * 100) + '%';
@@ -2414,9 +2481,10 @@ window.ShortsEditorReady = (async function () {
   document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => { if (active) setMode(false); }));
   document.querySelector('.brand').addEventListener('click', () => { if (active) setMode(false); });
   document.addEventListener('shorts:editor-opened', () => setMode(false));
-  $('videoIdea').addEventListener('input', () => { draft.idea = $('videoIdea').value; saveSoon(); });
+  $('videoIdea').addEventListener('input', () => { if (updateIdeaCounter()) { draft.idea = $('videoIdea').value; saveSoon(); } });
   $('generateIdea').addEventListener('click', () => {
     try {
+      if (!updateIdeaCounter()) { $('videoIdea').focus(); return; }
       const generated = V.generateFromIdea($('videoIdea').value);
       replaceWithConfirmation({ ...generated, durationSeconds: draft.durationSeconds, caption: draft.caption, volume: draft.volume, format: draft.format, musicVolume: draft.musicVolume, musicFadeIn: draft.musicFadeIn, musicFadeOut: draft.musicFadeOut });
     } catch (cause) { error(cause.message); }
@@ -2559,6 +2627,7 @@ window.ShortsEditorReady = (async function () {
     $('productTab-' + tab).focus();
   }
 
+  $('productUpdateNotice').querySelector('.notice-message p').textContent = P.releases[0].status === 'unreleased' ? 'Предварительная версия. Изменения ещё не опубликованы.' : 'Узнайте, какие возможности уже доступны.';
   document.querySelectorAll('[data-product-version]').forEach(element => { element.textContent = 'v' + P.version; });
   document.querySelectorAll('[data-product-open]').forEach(button => button.addEventListener('click', event => open(button.dataset.productOpen, event.currentTarget)));
   $('productClose').addEventListener('click', () => $('productDialog').close());
@@ -2577,19 +2646,26 @@ window.ShortsEditorReady = (async function () {
   const releases = document.createDocumentFragment();
   const formatDate = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   P.releases.forEach((release, index) => {
-    const card = node('article', 'release-item' + (index === 0 ? ' release-current' : ''));
+    const card = node('article', 'release-item release-' + release.importance + (index === 0 ? ' release-current' : ''));
+    card.dataset.importance = release.importance; card.dataset.status = release.status;
     const header = node('div', 'release-heading');
     header.append(node('h3', '', 'Версия ' + release.version));
-    if (!index) header.append(node('span', 'release-badge', 'ТЕКУЩАЯ'));
-    const date = node('time', '', formatDate.format(new Date(release.date + 'T12:00:00Z'))); date.dateTime = release.date;
-    header.append(date);
+    header.append(node('span', 'release-kind', P.releaseKinds[release.importance]));
+    if (!index) header.append(node('span', 'release-badge', release.status === 'unreleased' ? 'ГОТОВИТСЯ' : 'ТЕКУЩАЯ'));
+    if (release.status === 'unreleased') header.append(node('span', 'release-pending', 'Ещё не опубликовано'));
+    else {
+      const date = node('time', '', formatDate.format(new Date(release.date + 'T12:00:00Z'))); date.dateTime = release.date;
+      header.append(date);
+    }
     const changes = node('ul'); release.changes.forEach(change => changes.append(node('li', '', change)));
     const sources = node('div', 'release-sources');
     release.pullRequests.forEach(number => {
       const link = node('a', '', 'Подробнее в PR №' + number + ' ↗');
       link.href = P.repository + '/pull/' + number; link.target = '_blank'; link.rel = 'noopener noreferrer'; sources.append(link);
     });
-    card.append(header, node('h4', '', release.title), changes, sources); releases.append(card);
+    card.append(header, node('h4', '', release.title));
+    if (release.importance === 'highlight') card.append(node('p', 'release-summary', release.summary));
+    card.append(changes, sources); releases.append(card);
   });
   $('productReleaseList').append(releases);
   $('productHistoryNote').textContent = P.historyNote;

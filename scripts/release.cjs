@@ -19,9 +19,12 @@ function validate() {
       if (index < 0 || parts[index] > previous[index]) throw new Error('Версии должны идти от новой к старой.');
     }
     previous = parts;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(release.date) || new Date(release.date + 'T12:00:00Z').toISOString().slice(0, 10) !== release.date) throw new Error('Некорректная дата выпуска.');
-    if (!release.title || !release.changes.length || release.changes.some(text => typeof text !== 'string' || !text.trim())) throw new Error('Заполните описание обновления.');
-    if (!/^[a-f0-9]{40}$/.test(release.commit) || !release.pullRequests.length || release.pullRequests.some(number => !Number.isInteger(number) || number < 1)) throw new Error('Укажите действительные ссылки на историю Git и PR.');
+    const pending = release.status === 'unreleased';
+    if (!['published', 'unreleased'].includes(release.status) || !(release.importance in P.releaseKinds)) throw new Error('Укажите статус и значимость релиза.');
+    if (pending && release !== P.releases[0]) throw new Error('Неопубликованной может быть только первая запись.');
+    if (pending ? release.date !== null : !/^\d{4}-\d{2}-\d{2}$/.test(release.date) || new Date(release.date + 'T12:00:00Z').toISOString().slice(0, 10) !== release.date) throw new Error('У опубликованного выпуска должна быть настоящая дата; у подготовительного — null.');
+    if (!release.title || !release.summary || !release.changes.length || release.changes.some(text => typeof text !== 'string' || !text.trim())) throw new Error('Заполните описание обновления.');
+    if ((!pending && (!/^[a-f0-9]{40}$/.test(release.commit) || !release.pullRequests.length)) || (pending && release.commit !== null) || release.pullRequests.some(number => !Number.isInteger(number) || number < 1)) throw new Error('Укажите действительные ссылки на историю Git и PR; неопубликованному выпуску не приписывается merge-коммит.');
   }
 }
 
@@ -32,9 +35,10 @@ function changelog() {
   text += P.historyNote + '\n\n';
   text += '## Будущие обновления\n\nНовые выпуски добавляются в начало списка `releases` в `js/product.js`. Номер интерфейса и история используют этот же источник. Подготовка тега и публикация — отдельные действия; порядок описан в [RELEASING.md](RELEASING.md).\n\n';
   for (const release of P.releases) {
-    text += `## ${release.version} — ${release.date}\n\n${release.title}\n\n`;
+    text += `## ${release.version} — ${release.status === 'unreleased' ? 'Ещё не опубликовано' : release.date}\n\n${release.title}\n\n`;
     text += release.changes.map(change => '- ' + change).join('\n') + '\n\n';
-    text += 'Основание: ' + release.pullRequests.map(number => `[PR #${number}](${P.repository}/pull/${number})`).join(', ') + `; [merge-коммит](${P.repository}/commit/${release.commit}).\n\n`;
+    text += 'Значимость: ' + P.releaseKinds[release.importance] + '.\n\n';
+    if (release.pullRequests.length) text += 'Основание: ' + release.pullRequests.map(number => `[PR #${number}](${P.repository}/pull/${number})`).join(', ') + (release.commit ? `; [коммит изменений](${P.repository}/commit/${release.commit}).` : '. Подготовлено к ручной проверке, ещё не опубликовано.') + '\n\n';
   }
   return text.trimEnd() + '\n';
 }
@@ -46,6 +50,7 @@ function check() {
 
 function prepareTag() {
   check();
+  if (P.releases[0].status !== 'published') throw new Error('Сначала завершите ручную проверку и внесите подтверждённые сведения о выпуске. Неопубликованная версия не получает релизный тег.');
   const git = args => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
   if (git(['status', '--porcelain'])) throw new Error('Сначала сохраните изменения в коммит; рабочая копия должна быть чистой.');
   const tag = 'v' + P.version;

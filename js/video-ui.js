@@ -43,7 +43,7 @@
       if (label) label.textContent = (scene.imageName || 'Изображение сцены') + (assets.get(scene.imageId)?.persisted === false ? ' · только в этой вкладке' : '');
     }
     if (epoch === saveEpoch) {
-      $('videoDraftStatus').textContent = result.ok ? 'Сохранено на устройстве' : 'Ошибка сохранения · новые файлы только во вкладке';
+      $('videoDraftStatus').textContent = result.ok ? ($('videoIdea').value.length > V.IDEA_LIMIT ? 'Проверьте сохранение · идея превышает лимит' : 'Сохранено на устройстве') : 'Ошибка сохранения · новые файлы только во вкладке';
       if (result.ok) releaseUnused(true); else error(result.error);
     }
     return result.ok;
@@ -65,6 +65,11 @@
       recorderAbort?.abort(new DOMException('Запись отменена при переходе в редактор.', 'AbortError'));
     } else window.ShortsEditor.pause();
     active = open;
+    document.querySelector('.sidebar').dataset.studioMode = open ? 'video' : 'editor';
+    document.querySelectorAll('.manual-nav [data-view]').forEach(button => {
+      if (!open && button.classList.contains('active')) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    });
     document.querySelector('.workspace').dataset.mode = open ? 'video' : 'editor';
     $('videoStudio').hidden = !open; $('scriptStudio').hidden = open;
     $('backToEditor').hidden = !open; $('projectName').disabled = open;
@@ -237,8 +242,19 @@
     if (!draft.scenes.length) fragment.append(node('div', 'empty-state', 'Добавьте сцену или создайте сценарий по идее.'));
     $('videoScenes').replaceChildren(fragment); updateSceneTimes();
   }
+  function updateIdeaCounter() {
+    const count = $('videoIdea').value.length, limit = V.IDEA_LIMIT;
+    const exceeded = count > limit, near = !exceeded && count >= Math.ceil(limit * .9);
+    $('videoIdeaCounter').textContent = count + ' / ' + limit + ' символов';
+    $('videoIdeaCounter').dataset.state = exceeded ? 'error' : near ? 'near' : 'normal';
+    $('videoIdea').setAttribute('aria-invalid', String(exceeded));
+    if (exceeded && !$('videoDraftStatus').textContent.startsWith('Ошибка')) $('videoDraftStatus').textContent = 'Проверьте сохранение · идея превышает лимит';
+    $('videoIdea').setCustomValidity(exceeded ? 'Сократите идею до ' + limit + ' символов.' : '');
+    $('videoIdeaWarning').textContent = exceeded ? 'Лимит превышен. Идея пока не сохранена: сократите текст. Лишнее не удалено.' : near ? 'Вы приближаетесь к лимиту идеи.' : '';
+    return !exceeded;
+  }
   function renderForm() {
-    $('videoIdea').value = draft.idea; $('videoTitle').value = draft.title;
+    $('videoIdea').value = draft.idea; updateIdeaCounter(); $('videoTitle').value = draft.title;
     $('videoDuration').value = draft.durationSeconds; $('videoTheme').value = draft.theme;
     $('videoCaption').value = draft.caption; $('videoFormat').value = draft.format;
     $('videoVolume').value = Math.round(draft.volume * 100); $('videoVolumeValue').value = Math.round(draft.volume * 100) + '%';
@@ -372,9 +388,10 @@
   document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => { if (active) setMode(false); }));
   document.querySelector('.brand').addEventListener('click', () => { if (active) setMode(false); });
   document.addEventListener('shorts:editor-opened', () => setMode(false));
-  $('videoIdea').addEventListener('input', () => { draft.idea = $('videoIdea').value; saveSoon(); });
+  $('videoIdea').addEventListener('input', () => { if (updateIdeaCounter()) { draft.idea = $('videoIdea').value; saveSoon(); } });
   $('generateIdea').addEventListener('click', () => {
     try {
+      if (!updateIdeaCounter()) { $('videoIdea').focus(); return; }
       const generated = V.generateFromIdea($('videoIdea').value);
       replaceWithConfirmation({ ...generated, durationSeconds: draft.durationSeconds, caption: draft.caption, volume: draft.volume, format: draft.format, musicVolume: draft.musicVolume, musicFadeIn: draft.musicFadeIn, musicFadeOut: draft.musicFadeOut });
     } catch (cause) { error(cause.message); }

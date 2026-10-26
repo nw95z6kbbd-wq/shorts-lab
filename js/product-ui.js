@@ -40,6 +40,7 @@
     $('productTab-' + tab).focus();
   }
 
+  $('productUpdateNotice').querySelector('.notice-message p').textContent = P.releases[0].status === 'unreleased' ? 'Предварительная версия. Изменения ещё не опубликованы.' : 'Узнайте, какие возможности уже доступны.';
   document.querySelectorAll('[data-product-version]').forEach(element => { element.textContent = 'v' + P.version; });
   document.querySelectorAll('[data-product-open]').forEach(button => button.addEventListener('click', event => open(button.dataset.productOpen, event.currentTarget)));
   $('productClose').addEventListener('click', () => $('productDialog').close());
@@ -58,19 +59,26 @@
   const releases = document.createDocumentFragment();
   const formatDate = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   P.releases.forEach((release, index) => {
-    const card = node('article', 'release-item' + (index === 0 ? ' release-current' : ''));
+    const card = node('article', 'release-item release-' + release.importance + (index === 0 ? ' release-current' : ''));
+    card.dataset.importance = release.importance; card.dataset.status = release.status;
     const header = node('div', 'release-heading');
     header.append(node('h3', '', 'Версия ' + release.version));
-    if (!index) header.append(node('span', 'release-badge', 'ТЕКУЩАЯ'));
-    const date = node('time', '', formatDate.format(new Date(release.date + 'T12:00:00Z'))); date.dateTime = release.date;
-    header.append(date);
+    header.append(node('span', 'release-kind', P.releaseKinds[release.importance]));
+    if (!index) header.append(node('span', 'release-badge', release.status === 'unreleased' ? 'ГОТОВИТСЯ' : 'ТЕКУЩАЯ'));
+    if (release.status === 'unreleased') header.append(node('span', 'release-pending', 'Ещё не опубликовано'));
+    else {
+      const date = node('time', '', formatDate.format(new Date(release.date + 'T12:00:00Z'))); date.dateTime = release.date;
+      header.append(date);
+    }
     const changes = node('ul'); release.changes.forEach(change => changes.append(node('li', '', change)));
     const sources = node('div', 'release-sources');
     release.pullRequests.forEach(number => {
       const link = node('a', '', 'Подробнее в PR №' + number + ' ↗');
       link.href = P.repository + '/pull/' + number; link.target = '_blank'; link.rel = 'noopener noreferrer'; sources.append(link);
     });
-    card.append(header, node('h4', '', release.title), changes, sources); releases.append(card);
+    card.append(header, node('h4', '', release.title));
+    if (release.importance === 'highlight') card.append(node('p', 'release-summary', release.summary));
+    card.append(changes, sources); releases.append(card);
   });
   $('productReleaseList').append(releases);
   $('productHistoryNote').textContent = P.historyNote;

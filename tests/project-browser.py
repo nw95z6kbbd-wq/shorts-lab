@@ -39,9 +39,9 @@ def run():
                 page.route(base+'seed.html', lambda r:r.fulfill(body='<html></html>',content_type='text/html'))
                 page.goto(base+'seed.html')
                 for name in ('core.js','video-core.js'):page.add_script_tag(content=(ROOT/'js'/name).read_text())
-                legacy = page.evaluate('''async () => {
-                  const e=ShortsCore.createProject();e.name='Отдельный текстовый проект';e.script='Сохранённый сценарий редактора.';e.scenes=ShortsCore.createScenes(e.script);
-                  const v=ShortsVideoCore.demo();v.title='Восстановленный ролик';v.scenes=v.scenes.slice(0,2);v.timing='manual';
+                legacy = page.evaluate('''async seed => {
+                  const e=seed.editor;e.name='Отдельный текстовый проект';e.script='Сохранённый сценарий редактора.';e.scenes=ShortsCore.createScenes(e.script);
+                  const v=seed.video;v.title='Восстановленный ролик';v.scenes=v.scenes.slice(0,2);v.timing='manual';
                   v.scenes[0].durationSeconds=2;v.scenes[1].durationSeconds=3;
                   const c=document.createElement('canvas');c.width=800;c.height=1200;c.getContext('2d').fillStyle='#ed563e';c.getContext('2d').fillRect(0,0,800,1200);
                   const image=await new Promise(r=>c.toBlob(r,'image/png'));
@@ -50,7 +50,7 @@ def run():
                   localStorage.setItem('shorts-studio.project.v1',eraw);localStorage.setItem('shorts-studio.video.v1',vraw);
                   await new Promise((resolve,reject)=>{const q=indexedDB.open('shorts-studio.media.v1',1);q.onupgradeneeded=()=>q.result.createObjectStore('images',{keyPath:'id'});q.onerror=()=>reject(q.error);q.onsuccess=()=>{const db=q.result,tx=db.transaction('images','readwrite');tx.objectStore('images').put({id:'legacy-red',file:image,name:'legacy-red.png'});tx.oncomplete=()=>{db.close();resolve();};};});
                   return {editor:eraw,video:vraw};
-                }''')
+                }''',json.loads((ROOT/'tests/fixtures/stable-projects.json').read_text()))
                 page.goto(url); page.wait_for_function('window.ShortsVideoRestored')
                 expect(page.locator('#projectName')).to_have_value('Отдельный текстовый проект')
                 expect(page.locator('#scriptText')).to_have_value('Сохранённый сценарий редактора.')
