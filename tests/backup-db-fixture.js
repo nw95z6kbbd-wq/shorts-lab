@@ -15,6 +15,13 @@ window.testAtomicBackupRepository = async function () {
     assert(!await repo.asset('new-image') && !await repo.asset('new-voice') && !await repo.asset('new-music'),'no partially written originals');
     assert(await (await repo.asset('old-image')).blob.text()==='old image','old bytes untouched');
   }
+  // Abort after a new original actually completed its write request, rather
+  // than only throwing before queued requests have reached the database.
+  const add=IDBObjectStore.prototype.add;let wrote=false,aborted=false;
+  IDBObjectStore.prototype.add=function(value){const request=add.call(this,value);if(this.name==='assets'&&value.id==='new-image')request.addEventListener('success',()=>{wrote=true;this.transaction.abort();});return request;};
+  try{await repo.restoreBackup(next,{editor:1,video:1},files);}catch(e){aborted=e.name==='AbortError';}finally{IDBObjectStore.prototype.add=add;}
+  assert(wrote&&aborted,'abort after a completed media write');
+  assert(JSON.stringify([await repo.read('editor'),await repo.read('video')])===before && !await repo.asset('new-image') && !await repo.asset('new-music'),'completed requests roll back both heads and originals');
   let missing=false;try{await repo.restoreBackup(next,{editor:1,video:1},files.slice(1));}catch(_){missing=true;}assert(missing,'missing originals rejected');
   const a=await repo.restoreBackup(next,{editor:1,video:1},files);assert(a.every(r=>r.revision===2),'both revisions commit together');
   assert((await repo.read('video')).previous.state.voiceAssetId==='old-voice' && await repo.asset('old-voice'),'previous state and media retained');

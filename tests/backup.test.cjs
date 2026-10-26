@@ -48,6 +48,7 @@ test('corruption, missing files, future versions and unsupported known settings 
  const absent=await rewrite(zip,files=>{files.splice(2,1);});await assert.rejects(F.importArchive(absent),/отсутствующие/);
  const future=await rewrite(zip,async files=>{const m=JSON.parse(await files[0].blob.text());m.version=2;files[0].blob=new Blob([JSON.stringify(m)]);});await assert.rejects(F.importArchive(future),/будущая версия/);
  const badHash=await rewrite(zip,async files=>{const m=JSON.parse(await files[0].blob.text());m.project.sha256='0'.repeat(64);files[0].blob=new Blob([JSON.stringify(m)]);});await assert.rejects(F.importArchive(badHash),/целостность/);
+ const badMedia=await rewrite(zip,files=>{files[2].blob=new Blob(['changed media, valid new ZIP CRC']);});await assert.rejects(F.importArchive(badMedia),/контрольная сумма/);
  const modified=await rewrite(zip,async files=>{const p=JSON.parse(await files[1].blob.text());p.video.scenes[0].camera='future-camera';files[1].blob=new Blob([JSON.stringify(p)]);const m=JSON.parse(await files[0].blob.text());m.project.size=files[1].blob.size;m.project.sha256=sha(Buffer.from(await files[1].blob.arrayBuffer()));files[0].blob=new Blob([JSON.stringify(m)]);});await assert.rejects(F.importArchive(modified),/Неподдерживаемое значение/);
 });
 test('unknown fields are ignored with warning, never evaluated or merged into prototypes',async()=>{

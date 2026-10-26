@@ -147,11 +147,18 @@ def run():
             for width,height in ((320,568),(390,844),(768,480),(1440,900)):
                 dest.set_viewport_size({'width':width,'height':height})
                 assert dest.locator('[data-backup-export]:visible').count()==1
+                def layout():return dest.evaluate('''()=>{const v=document.getElementById('studioViewport');return {width:v.scrollWidth,height:v.scrollHeight,top:v.scrollTop,blocks:['videoWorkspace','videoScenes','videoPreviewPanel'].map(id=>{const e=document.getElementById(id);if(!e)return null;const r=e.getBoundingClientRect();return [r.x,r.y,r.width,r.height];})};}''')
+                before_layout=layout()
                 dest.locator('[data-backup-export]:visible').click();expect(dest.locator('#backupDownload')).to_be_visible()
+                assert layout()==before_layout,'ZIP progress must not move document or preview'
                 dest.locator('#backupDownload').scroll_into_view_if_needed()
                 assert dest.locator('#studioViewport').evaluate('e=>e.scrollWidth<=e.clientWidth')
                 assert dest.locator('#backupDialog').evaluate('e=>e.scrollWidth<=e.clientWidth')
+                dest.locator('#backupDownload').focus();dest.keyboard.press('Tab')
+                assert dest.evaluate('backupDialog.contains(document.activeElement)'),'keyboard stays inside modal'
                 dest.keyboard.press('Escape');expect(dest.locator('#backupDialog')).to_be_hidden()
+                assert dest.evaluate('document.activeElement.matches("[data-backup-export]")'),'focus returns to visible project action'
+                assert layout()==before_layout,'closing ZIP must not move document or preview'
             dest.set_viewport_size({'width':1440,'height':1000})
             original_ids=dest.evaluate('async()=>{const r=ShortsProjectDB.createRepository(),v=await r.read("video");r.close();return ShortsProjectDB.references("video",v.state);}')
             choose(archive.read_bytes());validated()
