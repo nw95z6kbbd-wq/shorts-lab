@@ -9,7 +9,9 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="video.css">
+  <link rel="stylesheet" href="product.css">
   <script src="js/core.js" defer></script>
+  <script src="js/product.js" defer></script>
   <script src="js/storage.js" defer></script>
   <script src="js/integrations.js" defer></script>
   <script src="js/app.js" defer></script>
@@ -19,6 +21,7 @@
   <script src="js/video-recorder.js" defer></script>
   <script src="js/video-media.js" defer></script>
   <script src="js/video-ui.js" defer></script>
+  <script src="js/product-ui.js" defer></script>
 </head>
 <body>
   <svg class="icon-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -54,13 +57,15 @@
       <button class="nav-item video-nav" id="openVideoMode" title="Создать видео по идее" aria-label="Создать видео по идее" aria-controls="videoStudio" aria-expanded="false"><svg><use href="#i-sparkles"/></svg>Видео по идее<span class="video-new">НОВОЕ</span></button>
     </nav>
     <div class="sidebar-files"><div class="nav-label">ПРОЕКТ</div><button class="nav-item" id="saveProject"><svg><use href="#i-download"/></svg>Скачать проект</button><button class="nav-item" id="openProject"><svg><use href="#i-upload"/></svg>Открыть проект</button><input id="projectFile" type="file" accept=".json,application/json" hidden></div>
-    <div class="sidebar-bottom"><div class="local-card"><span class="local-icon"><svg><use href="#i-monitor"/></svg></span><strong>Ваше творчество — у вас</strong><p>Работает в браузере.<br>Без регистрации и облака.</p><span class="local-status"><span></span>Локальный режим</span></div><div class="sidebar-version">SHORTS STUDIO <span>ВЕРСИЯ 1.0</span></div></div>
+    <div class="sidebar-bottom"><div class="local-card"><span class="local-icon"><svg><use href="#i-monitor"/></svg></span><strong>Ваше творчество — у вас</strong><p>Работает в браузере.<br>Без регистрации и облака.</p><span class="local-status"><span></span>Локальный режим</span></div><div class="sidebar-version">SHORTS STUDIO <button class="product-sidebar-version" data-product-open="updates" aria-label="Версия и история обновлений"><span data-product-version>—</span></button></div></div>
   </aside>
 
   <div class="workspace">
     <header class="topbar"><div class="breadcrumb"><span>Студия</span><span class="breadcrumb-divider">/</span><span id="videoBreadcrumb" hidden>Видео по идее</span><label for="projectName" class="sr-only">Название проекта</label><input id="projectName" maxlength="80" value="Мой Short" autocomplete="off"></div><span class="save-status" id="saveStatus" role="status"><svg><use href="#i-check"/></svg><span>Сохранено на устройстве</span></span></header>
+    <div class="product-toolbar" aria-label="Сведения о продукте"><span class="product-version-label"><span>SHORTS STUDIO</span><span class="product-version-pill" data-product-version>—</span></span><div class="product-toolbar-actions"><button data-product-open="updates">Что нового</button><button data-product-open="about" aria-label="О Shorts Studio">О проекте</button></div></div>
     <div class="mobile-filebar" aria-label="Файлы проекта"><span>ФАЙЛ ПРОЕКТА</span><button class="text-button" id="saveProjectMobile"><svg><use href="#i-download"/></svg>Скачать проект</button><button class="text-button" id="openProjectMobile"><svg><use href="#i-upload"/></svg>Открыть проект</button></div>
     <main id="mainContent">
+      <aside class="product-update-notice" id="productUpdateNotice" aria-label="Доступна история обновлений" hidden><span class="update-spark" aria-hidden="true">✦</span><div class="notice-message"><strong>Shorts Studio <span data-product-version>—</span> — ваша студия растёт</strong><p>Узнайте, какие возможности уже доступны.</p></div><button class="text-button" data-product-open="updates">Посмотреть изменения</button><button id="productDismissNotice" class="product-notice-close" aria-label="Закрыть уведомление об обновлении">×</button></aside>
       <section class="page-heading"><div><div class="eyebrow"><span></span>МЕНЬШЕ МИНУТЫ. БОЛЬШЕ СМЫСЛА.</div><h1 id="studioTitle">Ваша следующая история<span>.</span></h1><p id="studioDescription">Превратите идею в Short, который досмотрят до конца.</p></div><div class="heading-actions"><button class="button button-secondary video-mode-button" id="createVideoMode"><svg><use href="#i-sparkles"/></svg>Создать видео по идее</button><button class="button button-secondary" id="backToEditor" hidden><svg><use href="#i-prev"/></svg>К редактору</button><button class="button button-secondary" id="newProject"><svg><use href="#i-plus"/></svg>Новый проект</button><button class="button button-primary" id="exportSrt"><svg><use href="#i-download"/></svg>Экспорт SRT</button></div></section>
 
       <section class="stats" aria-label="Статистика проекта">
@@ -115,6 +120,14 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <dialog id="confirmDialog"><form method="dialog"><span class="dialog-icon"><svg><use href="#i-info"/></svg></span><h2 id="dialogTitle">Продолжить?</h2><p id="dialogDescription"></p><div class="dialog-actions"><button class="button button-secondary" value="cancel" autofocus>Отмена</button><button class="button button-primary" id="dialogConfirm" value="confirm">Продолжить</button></div></form></dialog>
+  <dialog id="productDialog" class="product-dialog" aria-labelledby="productDialogTitle">
+    <div class="product-dialog-header"><div><div class="product-dialog-eyebrow">SHORTS STUDIO · СДЕЛАНО ДЛЯ ВАШИХ ИСТОРИЙ</div><h2 id="productDialogTitle">Что нового</h2></div><button id="productClose" class="product-dialog-close" aria-label="Закрыть информацию о продукте">×</button></div>
+    <div id="productTabs" class="product-tabs" role="tablist" aria-label="Информация о Shorts Studio"><button id="productTab-updates" class="product-tab active" role="tab" aria-selected="true" aria-controls="productPane-updates">Что нового</button><button id="productTab-about" class="product-tab" role="tab" aria-selected="false" aria-controls="productPane-about" tabindex="-1">О Shorts Studio</button></div>
+    <div class="product-dialog-scroll"><section id="productPane-updates" role="tabpanel" aria-labelledby="productTab-updates"><div id="productReleaseList"></div><p class="product-history-note" id="productHistoryNote"></p></section>
+    <section id="productPane-about" role="tabpanel" aria-labelledby="productTab-about" hidden><p class="product-about-intro">Ваша студия коротких историй: от первой строки до готового вертикального видео. Shorts Studio работает локально в браузере — без регистрации, платного сервера и API-ключей.</p><div class="product-about-version">Текущая версия <span class="product-version-pill" data-product-version>—</span></div><ul id="productCapabilities" class="product-capabilities"></ul><a id="productRepository" class="product-repository-link" target="_blank" rel="noopener noreferrer">Репозиторий на GitHub ↗</a>
+    <form id="productProfileForm" class="product-profile"><h3>Сведения о правообладателе</h3><p>Заполните только достоверные сведения. Эти настройки сохраняются в вашем браузере и не меняют публичные данные сайта. Публичные поля задаются в конфигурации продукта.</p><label for="productOwner">Имя или название правообладателя<input id="productOwner" maxlength="160" placeholder="Пока не указано" autocomplete="off"></label><label for="productContact">Контактная информация<input id="productContact" maxlength="240" placeholder="Пока не указана" autocomplete="off"></label><div class="product-profile-actions"><button class="button button-primary" type="submit">Сохранить сведения</button><button class="button button-secondary" id="productResetProfile" type="button">Сбросить</button></div><p id="productProfileStatus" class="product-profile-status" role="status"></p></form>
+    <p id="productLicenseNote" class="product-license-note"></p></section></div>
+  </dialog>
   <noscript><div class="noscript">Для работы Shorts Studio включите JavaScript в настройках браузера.</div></noscript>
 </body>
 </html>
