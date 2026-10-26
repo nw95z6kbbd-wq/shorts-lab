@@ -52,8 +52,8 @@ test('corruption, missing files, future versions and unsupported known settings 
 });
 test('unknown fields are ignored with warning, never evaluated or merged into prototypes',async()=>{
  const {zip}=await archive();
- const modified=await rewrite(zip,async files=>{const p=JSON.parse(await files[1].blob.text());p.video.futureSetting={__proto__:null,token:'not copied'};Object.defineProperty(p.editor,'__proto__',{value:{polluted:true},enumerable:true});files[1].blob=new Blob([JSON.stringify(p)]);const m=JSON.parse(await files[0].blob.text());m.project.size=files[1].blob.size;m.project.sha256=sha(Buffer.from(await files[1].blob.arrayBuffer()));files[0].blob=new Blob([JSON.stringify(m)]);});
- const restored=await F.importArchive(modified);assert.ok(restored.warnings.length>=2);assert.equal(restored.projects.video.futureSetting,undefined);assert.equal({}.polluted,undefined);
+ const modified=await rewrite(zip,async files=>{const p=JSON.parse(await files[1].blob.text());for(let i=0;i<30;i++)p['future'+i]='ignored';p.video.futureSetting={__proto__:null,token:'not copied'};Object.defineProperty(p.editor,'__proto__',{value:{polluted:true},enumerable:true});files[1].blob=new Blob([JSON.stringify(p)]);const m=JSON.parse(await files[0].blob.text());m.project.size=files[1].blob.size;m.project.sha256=sha(Buffer.from(await files[1].blob.arrayBuffer()));files[0].blob=new Blob([JSON.stringify(m)]);});
+ const restored=await F.importArchive(modified);assert.equal(restored.warnings.length,20);assert.equal(restored.projects.video.futureSetting,undefined);assert.equal({}.polluted,undefined);
 });
 test('dangerous/duplicate paths, symlinks, encryption and overlapping local headers are rejected before import',async()=>{
  const {zip}=await archive(),original=new Uint8Array(await zip.arrayBuffer());

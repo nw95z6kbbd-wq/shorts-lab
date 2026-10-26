@@ -108,7 +108,7 @@
     const bytes = await zip.bytes('project.json',Z.LIMITS.json);
     if (bytes.length !== manifest.project.size || await sha256(bytes) !== manifest.project.sha256) fail('Нарушена целостность project.json.');
     const project = parse(bytes,'project.json'); format(project);
-    for (const key of Object.keys(project)) if (!['format','version','editor','video'].includes(key)) warnings.push('Неизвестное поле проекта пропущено: '+key.slice(0,80));
+    for (const key of Object.keys(project)) if (!['format','version','editor','video'].includes(key) && warnings.length < 20) warnings.push('Неизвестное поле проекта пропущено: '+key.slice(0,80));
     const projects = states(project,warnings), required = usage(projects), blobs = new Map(), assets = new Map();
     if (required.size !== ids.size || [...required].some(([key,kind])=>!ids.has(key) || (kind==='image') !== (manifest.assets.find(a=>a.id===key).kind==='image'))) fail('Список исходников не соответствует ссылкам сцен и звука.');
     for (const [index, asset] of manifest.assets.entries()) {
