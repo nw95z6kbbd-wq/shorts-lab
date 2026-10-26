@@ -392,10 +392,12 @@ body{overflow:hidden}
   const releaseKinds = Object.freeze({ highlight: 'Знаковое обновление', standard: 'Обновление', patch: 'Патч' });
   const releases = [
     {
-      version: '1.3.1', date: null, status: 'unreleased', importance: 'patch',
+      // Pages deployment 7342489878 succeeded at 2026-10-26T20:15:19Z
+      // (2026-10-27 01:15:19 Asia/Yekaterinburg), Actions run 40393148314.
+      version: '1.3.1', date: '2026-10-27', status: 'published', importance: 'patch',
       title: 'Понятная навигация и история обновлений',
       summary: 'Небольшое обновление интерфейса без изменения форматов проектов и видеогенератора.',
-      pullRequests: [7], commit: null,
+      pullRequests: [7], commit: 'd710fb63a8453757f222406e025094409780a94e',
       changes: [
         'Отдельные группы «Студия» и «Создание с ИИ»; действующий режим по идее честно обозначен как шаблонный.',
         'Живой счётчик идеи с существующим лимитом, предупреждением о приближении и явной обработкой превышения без обрезания текста.',
@@ -459,7 +461,7 @@ body{overflow:hidden}
   return Object.freeze({
     name: 'Shorts Studio', version: releases[0].version, releases: Object.freeze(releases), releaseKinds,
     repository: 'https://github.com/nw95z6kbbd-wq/shorts-lab',
-    historyNote: 'История составлена по Git и PR. Даты опубликованных выпусков соответствуют объединению функциональных изменений. Записи «Ещё не опубликовано» подготовлены в ветках PR и не являются выпущенными версиями. Часовой пояс — Asia/Yekaterinburg.',
+    historyNote: 'История составлена по Git и PR. Даты ранних выпусков соответствуют объединению функциональных изменений; подтверждённые даты публикации — успешным деплоям GitHub Pages. Записи «Ещё не опубликовано» подготовлены в ветках PR и не являются выпущенными версиями. Часовой пояс — Asia/Yekaterinburg.',
     // Fill these fields only when the actual rights holder and contact are known.
     rights: Object.freeze({ owner: '', contact: '' }),
     licenseNote: 'Свободная лицензия проекта не установлена. Сведения о правообладателе и условиях использования заполняются отдельно.',

@@ -61,6 +61,13 @@ def run():
                     else:expect(card.locator('time')).to_have_attribute('datetime',release['date'])
                     assert card.locator('.release-summary').count()==(1 if release['importance']=='highlight' else 0)
                     expect(page.locator('.release-item').nth(i).locator('li')).to_have_count(len(release['changes']))
+                current=metadata['releases'][0]
+                if current['status']=='published':
+                    first=page.locator('.release-item').first
+                    expect(first).to_have_attribute('data-status','published')
+                    expect(first.locator('.release-badge')).to_have_text('ТЕКУЩАЯ')
+                    expect(first.locator('.release-pending')).to_have_count(0)
+                    expect(first).not_to_contain_text('ГОТОВИТСЯ')
                 page.locator('#productClose').click()
                 assert page.evaluate(f'localStorage.getItem({json.dumps(SEEN)})') == metadata['version']
                 page.reload(); expect(page.locator('#productUpdateNotice')).to_be_hidden()
@@ -74,6 +81,11 @@ def run():
                 page.reload(); expect(page.locator('#productUpdateNotice')).to_be_hidden()
                 page.locator('.product-nav [data-product-open="updates"]').click()
                 page.keyboard.press('End'); expect(page.locator('#productTab-about')).to_have_attribute('aria-selected','true')
+                expect(page.locator('.product-about-version')).to_contain_text('Текущая версия')
+                expect(page.locator('.product-about-version [data-product-version]')).to_have_text('v'+metadata['version'])
+                if metadata['releases'][0]['status']=='published':
+                    expect(page.locator('#productPane-about')).not_to_contain_text('Готовится')
+                    expect(page.locator('#productPane-about')).not_to_contain_text('Ещё не опубликовано')
                 expect(page.locator('#productOwner')).to_have_value(metadata['rights']['owner'])
                 expect(page.locator('#productContact')).to_have_value(metadata['rights']['contact'])
                 expect(page.locator('#productRepository')).to_have_attribute('href',metadata['repository'])
