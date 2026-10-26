@@ -131,7 +131,7 @@ jobs:
 
   safari:
     name: Native Safari on macOS
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
