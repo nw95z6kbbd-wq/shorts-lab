@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, feat/browser-video-generator]
   workflow_dispatch:
 
 permissions:
@@ -55,6 +55,7 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
           python tests/video-browser.py
+          python tests/media-browser.py
       - name: Prepare Pages files and downloads
         run: python scripts/prepare-site.py
       - name: Check deployment under repository path
