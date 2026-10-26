@@ -152,6 +152,7 @@
     const shade = ctx.createLinearGradient(0, 590, 0, 1190);
     shade.addColorStop(0, 'transparent'); shade.addColorStop(.65, '#080812a6'); shade.addColorStop(1, '#08081299');
     ctx.fillStyle = shade; ctx.fillRect(0, 590, 720, 600);
+    if (!frame.cue) return;
     let font = 58, lines;
     do { ctx.font = `750 ${font}px sans-serif`; lines = linesFor(ctx, frame.cue.words, 594); if (lines.length <= 4 || font <= 30) break; font -= 4; } while (true);
     const lineHeight = font * 1.32;
@@ -176,23 +177,40 @@
     ctx.restore();
   }
 
+  function visual(ctx, plan, scene, time) {
+    background(ctx, plan, scene.index, time / 1000 + scene.index * .7);
+    if (scene.visual !== 'image') return;
+    const image = plan.images?.get(scene.imageId);
+    if (!image) throw new Error('Изображение сцены не загружено. Выберите файл заново или включите анимированный фон.');
+    const progress = (time - scene.startMs) / (scene.endMs - scene.startMs);
+    const rect = V.cameraRect(image.width || image.naturalWidth, image.height || image.naturalHeight, progress, scene.camera);
+    ctx.drawImage(image, rect.x, rect.y, rect.width, rect.height);
+  }
+
   function render(canvas, plan, elapsedMs) {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('Браузер не смог создать Canvas для видео.');
     const frame = V.frameAt(plan, elapsedMs);
     ctx.save(); ctx.scale(canvas.width / V.WIDTH, canvas.height / V.HEIGHT);
-    const transition = ease(frame.localMs / 440);
+    const previous = plan.timeline[frame.scene.index - 1];
+    const transitionMs = Math.min(440, (frame.scene.endMs - frame.scene.startMs) / 3, previous ? (previous.endMs - previous.startMs) / 3 : 440);
+    const transition = frame.scene.transition === 'none' ? 1 : ease(frame.localMs / transitionMs);
     if (frame.scene.index > 0 && transition < 1) {
-      background(ctx, plan, frame.scene.index - 1, frame.time / 1000 + (frame.scene.index - 1) * .7);
+      visual(ctx, plan, previous, previous.visual === 'image' ? previous.endMs : frame.time);
       let layer = transitionLayers.get(canvas);
       if (!layer) {
         layer = document.createElement('canvas'); layer.width = V.WIDTH; layer.height = V.HEIGHT;
         transitionLayers.set(canvas, layer);
       }
-      background(layer.getContext('2d', { alpha: false }), plan, frame.scene.index, frame.time / 1000 + frame.scene.index * .7);
-      ctx.globalAlpha = transition;
-      ctx.drawImage(layer, 0, 0, V.WIDTH, V.HEIGHT);
-    } else background(ctx, plan, frame.scene.index, frame.time / 1000 + frame.scene.index * .7);
+      visual(layer.getContext('2d', { alpha: false }), plan, frame.scene, frame.time);
+      ctx.save();
+      if (frame.scene.transition === 'slide') ctx.translate(V.WIDTH * (1 - transition), 0);
+      else {
+        ctx.globalAlpha = transition;
+        if (frame.scene.transition === 'zoom') { const scale = 1 + .1 * (1 - transition); ctx.translate(360, 640); ctx.scale(scale, scale); ctx.translate(-360, -640); }
+      }
+      ctx.drawImage(layer, 0, 0, V.WIDTH, V.HEIGHT); ctx.restore();
+    } else visual(ctx, plan, frame.scene, frame.time);
     ctx.globalAlpha = 1;
     const topShade = ctx.createLinearGradient(0, 0, 0, 350); topShade.addColorStop(0, '#080812b3'); topShade.addColorStop(1, 'transparent');
     ctx.fillStyle = topShade; ctx.fillRect(0, 0, 720, 350);

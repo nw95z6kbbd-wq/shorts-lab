@@ -36,6 +36,7 @@
 @media(max-width:600px){.video-grid{display:flex;flex-direction:column}.video-editor{display:contents}.video-editor>.idea-panel{order:1;width:100%}.video-editor>.video-settings{order:2;width:100%}.video-editor>.video-audio{order:3;width:100%}.video-preview-column{order:4;position:static;width:100%;grid-template-columns:minmax(0,1fr);max-width:360px;margin:2px auto 0}.video-storyboard{order:5;width:100%;margin-top:9px}.video-section-heading{padding:20px 18px 15px;align-items:center}.video-section-heading h2{font-size:14px}.video-section-heading p{font-size:10px}.video-settings .video-section-heading{flex-wrap:nowrap}.video-section-heading .format-badge{font-size:7px;white-space:nowrap}.idea-panel>textarea{margin-inline:18px;width:calc(100% - 36px);font-size:14px;min-height:115px}.idea-actions{padding:14px 18px 18px}.idea-actions>span{font-size:9px}.idea-actions>.button{font-size:11px;min-height:39px}.video-settings-grid{padding-inline:18px;gap:13px}.video-settings-grid label{font-size:11px}.video-settings-grid input,.video-settings-grid select{font-size:12px;padding:10px;min-height:41px}.video-audio-controls{padding-inline:18px}.video-audio-controls>span{font-size:11px}.video-volume{font-size:11px}.video-audio>.video-hint,.video-volume,.video-settings>.video-hint{margin-inline:18px}.video-audio>.video-hint{font-size:10px}.video-canvas-wrap{padding-inline:22px}.video-preview-controls{margin-inline:22px}.video-preview-controls .button{font-size:11px;padding:8px 12px}.video-preview-controls>span{font-size:11px}.video-seek{margin-inline:22px;width:calc(100% - 44px)}.video-render-controls{padding:18px 22px}.video-render-controls>p[role=status]{font-size:11px}.video-local-note p{font-size:10px}.video-scene-actions{flex-wrap:nowrap}.heading-actions #createVideoMode{flex:1 0 100%;min-height:40px}.sidebar .nav-list{gap:2px}.sidebar .nav-item{padding:9px}.sidebar{gap:10px}.sidebar .brand{gap:7px}}
 @media(max-width:360px){.sidebar{padding-inline:12px;gap:6px}.sidebar .nav-item{padding:7px}.sidebar .brand>span:last-child{font-size:15px}.video-section-heading .format-badge{font-size:6px}.video-settings .video-section-heading{flex-wrap:wrap}.video-intro{font-size:8px}.video-intro .video-beta{font-size:7px}.video-scene-actions{flex-wrap:wrap}.video-preview-column{max-width:100%}}
 .video-scene-card{position:relative;display:flex;align-items:flex-start;gap:12px;padding:16px;background:#151518;border:1px solid #29242f;border-radius:10px;transition:border-color .2s,background .2s}.video-scene-card:hover{border-color:#594268}.video-scene-card .scene-delete{font-size:19px;line-height:1}.video-scene-card .scene-select{cursor:default}
+.scene-media-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:13px}.scene-media-settings label,.music-fades label{display:grid;gap:5px;font-size:10px;color:#a795b6}.scene-media-settings select,.scene-media-settings input,.music-fades input{width:100%;min-width:0;border:1px solid #42324e;border-radius:5px;background:#17111e;padding:8px;color:#d7c2e4;font-size:11px}.scene-image-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:13px}.scene-image-thumb{width:58px;height:72px;object-fit:cover;border:1px solid #715187;border-radius:6px}.scene-image-row .button{font-size:10px;min-height:34px}.scene-image-name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px;color:#a187b4}.music-fades{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin:14px 21px}.scene-media-settings input:disabled,.scene-media-settings select:disabled{opacity:.4}@media(max-width:600px){.scene-media-settings{gap:9px}.scene-media-settings label,.music-fades label{font-size:10px}.scene-media-settings select,.scene-media-settings input{font-size:11px;padding:9px 6px}.music-fades{margin-inline:18px}.scene-image-row .button{min-height:39px}.scene-image-name{max-width:150px}}
 
 </style>
 </head>
@@ -93,11 +94,13 @@
         <div class="video-intro"><span class="video-beta">БЕСПЛАТНЫЙ ПРОТОТИП</span><span>Идея <b>→</b> сценарий <b>→</b> анимация <b>→</b> видео</span><span id="videoDraftStatus" role="status">Локальный черновик</span></div>
         <div id="videoError" class="notice warning" role="alert" hidden></div>
         <div id="videoSupport" class="notice" role="status" hidden></div>
+        <div id="videoPlanError" class="notice warning" role="alert" hidden></div>
         <div class="video-grid">
           <div class="video-editor">
             <section class="panel idea-panel"><div class="video-section-heading"><div><h2>Какую историю расскажем?</h2><p>Опишите идею. Мы подготовим основу для вашего ролика.</p></div><button class="text-button" id="videoDemo">Демо · 18 сек</button></div><label for="videoIdea" class="sr-only">Идея ролика</label><textarea id="videoIdea" maxlength="280" rows="3" placeholder="Например: мистическая история про заброшенный дом"></textarea><div class="idea-actions"><span>Локальные шаблоны · без API и нейросетей</span><button class="button button-primary" id="generateIdea"><svg><use href="#i-sparkles"/></svg>Создать сценарий</button></div></section>
-            <section class="panel video-settings"><div class="video-section-heading"><div><h2>Ваш ролик</h2><p>Анимация и субтитры уже включены.</p></div><span class="format-badge">720 × 1280 · 24 кадра/с</span></div><div class="video-settings-grid"><label>Название<input id="videoTitle" maxlength="80" placeholder="Название ролика"></label><label>Длительность<select id="videoDuration"><option value="15">15 секунд</option><option value="18" selected>18 секунд</option><option value="20">20 секунд</option><option value="30">30 секунд</option><option value="60">60 секунд</option></select></label><label>Атмосфера<select id="videoTheme"><option value="mystery">Туманный дом</option><option value="space">Космос</option><option value="sunrise">Рассвет</option><option value="neon">Неон</option></select></label><label>Субтитры<select id="videoCaption"><option value="accent">Акцент на словах</option><option value="classic">Классика</option><option value="outline">Контур</option></select></label><label class="video-format-setting">Формат записи<select id="videoFormat"><option value="auto">Авто: MP4, иначе WebM</option><option value="webm">WebM</option></select></label></div><p class="video-hint" id="videoFormatHint"></p></section>
-            <section class="panel video-audio"><div class="video-section-heading"><div><h2>Добавьте настроение звуком</h2><p>Загрузите музыку или готовую озвучку.</p></div><svg><use href="#i-upload"/></svg></div><div class="video-audio-controls"><label class="button button-secondary audio-upload" for="videoAudio">Выбрать аудио<input id="videoAudio" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm"></label><span id="videoAudioInfo">Без аудиодорожки</span><button class="text-button" id="removeVideoAudio" hidden>Убрать</button></div><div class="video-volume"><label for="videoVolume">Громкость</label><input id="videoVolume" type="range" min="0" max="100" value="70"><output id="videoVolumeValue" for="videoVolume">70%</output></div><p class="video-hint">Аудио обрезается по длине ролика; если оно короче, в конце будет тишина. Файл остаётся на устройстве; после перезагрузки выберите его заново.</p></section>
+            <section class="panel video-settings"><div class="video-section-heading"><div><h2>Ваш ролик</h2><p>Анимация и субтитры уже включены.</p></div><span class="format-badge">720 × 1280 · 24 кадра/с</span></div><div class="video-settings-grid"><label>Название<input id="videoTitle" maxlength="80" placeholder="Название ролика"></label><label>Расчёт времени<select id="videoTiming"><option value="auto">Автоматически</option><option value="manual">Вручную по сценам</option></select></label><label>Длительность в авто<select id="videoDuration"><option value="15">15 секунд</option><option value="18" selected>18 секунд</option><option value="20">20 секунд</option><option value="30">30 секунд</option><option value="60">60 секунд</option></select></label><label>Атмосфера<select id="videoTheme"><option value="mystery">Туманный дом</option><option value="space">Космос</option><option value="sunrise">Рассвет</option><option value="neon">Неон</option></select></label><label>Субтитры<select id="videoCaption"><option value="accent">Акцент на словах</option><option value="classic">Классика</option><option value="outline">Контур</option></select></label><label class="video-format-setting">Формат записи<select id="videoFormat"><option value="auto">Авто: MP4, иначе WebM</option><option value="webm">WebM</option></select></label></div><p class="video-hint" id="videoTotalTime"></p><p class="video-hint" id="videoFormatHint"></p></section>
+            <section class="panel video-audio"><div class="video-section-heading"><div><h2>Голос и озвучка</h2><p>Отдельная дорожка для речи.</p></div><svg><use href="#i-upload"/></svg></div><div class="video-audio-controls"><label class="button button-secondary audio-upload" for="videoAudio">Выбрать аудио<input id="videoAudio" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm"></label><span id="videoAudioInfo">Без аудиодорожки</span><button class="text-button" id="removeVideoAudio" hidden>Убрать</button></div><div class="video-volume"><label for="videoVolume">Громкость</label><input id="videoVolume" type="range" min="0" max="100" value="70"><output id="videoVolumeValue" for="videoVolume">70%</output></div><p class="video-hint">Аудио обрезается по длине ролика; если оно короче, в конце будет тишина. Файл остаётся на устройстве; после перезагрузки выберите его заново.</p></section>
+            <section class="panel video-audio"><div class="video-section-heading"><div><h2>Фоновая музыка</h2><p>Независимая дорожка с плавными краями.</p></div><svg><use href="#i-upload"/></svg></div><div class="video-audio-controls"><label class="button button-secondary audio-upload" for="videoMusic">Выбрать музыку<input id="videoMusic" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm"></label><span id="videoMusicInfo">Без музыки</span><button class="text-button" id="removeVideoMusic" hidden>Убрать</button></div><div class="video-volume"><label for="videoMusicVolume">Громкость музыки</label><input id="videoMusicVolume" type="range" min="0" max="100" value="25"><output id="videoMusicVolumeValue" for="videoMusicVolume">25%</output></div><div class="music-fades"><label>Появление, сек<input id="videoMusicFadeIn" type="number" min="0" max="10" step="0.1" value="1"></label><label>Затухание, сек<input id="videoMusicFadeOut" type="number" min="0" max="10" step="0.1" value="1"></label></div><p class="video-hint">Голос и музыка звучат одновременно. Короткая музыка затухает перед своим окончанием. Аудио нужно выбрать заново после перезагрузки; оно не распознаётся и не выравнивает субтитры автоматически.</p></section>
             <section class="video-storyboard" aria-labelledby="videoScenesHeading"><div class="section-heading"><div><h2 id="videoScenesHeading">Сцены ролика <span id="videoSceneCount">0</span></h2><p>Редактируйте текст — анимация подстроится.</p></div><button class="text-button" id="addVideoScene"><svg><use href="#i-plus"/></svg>Добавить</button></div><div id="videoScenes" class="scene-list"></div><div class="video-scene-actions"><button class="text-button" id="videoToEditor">Открыть сценарий в редакторе</button><button class="text-button" id="videoSrt"><svg><use href="#i-download"/></svg>Субтитры SRT</button></div><p class="video-hint">Черновик этого режима хранится отдельно. Перенос в редактор потребует подтверждения замены текущего проекта.</p></section>
           </div>
           <aside class="video-preview-column"><section class="panel video-preview-panel"><div class="preview-heading"><h2><svg><use href="#i-play"/></svg><span id="videoPreviewHeading">Анимация ролика</span></h2><span class="format-badge">9:16</span></div><div class="video-output-tabs" id="videoOutputTabs" hidden><button class="active" id="showVideoCanvas" aria-pressed="true">Анимация</button><button id="showVideoFile" aria-pressed="false">Готовый файл</button></div><div class="video-canvas-wrap"><canvas id="videoCanvas" width="720" height="1280" aria-label="Анимированный предпросмотр ролика 9:16">Браузер не поддерживает Canvas.</canvas><video id="generatedVideo" controls playsinline preload="metadata" hidden aria-label="Готовый видеоролик"></video></div><div class="video-preview-controls"><button class="button button-secondary" id="playGeneratedPreview"><svg><use href="#i-play"/></svg><span>Смотреть</span></button><span id="videoPreviewTime">0:00 / 0:18</span></div><label class="sr-only" for="videoSeek">Позиция предпросмотра</label><input id="videoSeek" class="video-seek" type="range" min="0" max="18000" value="0" step="50"><div class="video-render-controls"><button class="button button-primary" id="recordVideo"><svg><use href="#i-sparkles"/></svg>Собрать видео</button><button class="button button-secondary" id="cancelVideo" hidden>Отменить запись</button><progress id="videoProgress" max="100" value="0" aria-label="Прогресс записи видео" hidden></progress><p id="videoRenderStatus" role="status">Запись займёт 18 секунд. Оставьте вкладку открытой.</p><a class="button button-primary" id="downloadVideo" hidden><svg><use href="#i-download"/></svg>Скачать видео</a><p id="videoFileInfo" class="video-hint" hidden></p></div></section><div class="video-local-note"><svg><use href="#i-monitor"/></svg><p>Всё создаётся в вашем браузере.<br>Без сервера, ключей и платных сервисов.</p></div></aside>
@@ -930,6 +933,7 @@
     return {
       version: 1, idea, title: idea.slice(0, 80), theme, caption: 'accent',
       durationSeconds: 18, volume: 0.7, format: 'auto', edited: false,
+      timing: 'auto', musicVolume: .25, musicFadeIn: 1, musicFadeOut: 1,
       scenes: C.createScenes(script).slice(0, 12)
     };
   }
@@ -948,14 +952,30 @@
         data.scenes.length > 12 || data.scenes.some(scene => !scene || typeof scene.text !== 'string' || scene.text.length > 280)) {
       throw new Error('Не удалось прочитать черновик видео.');
     }
+    const ids = new Set();
+    const scenes = data.scenes.map(scene => {
+      const id = typeof scene.id === 'string' && scene.id && !ids.has(scene.id) ? scene.id : C.id();
+      ids.add(id);
+      if (scene.durationSeconds != null && (!Number.isFinite(scene.durationSeconds) || scene.durationSeconds < .5 || scene.durationSeconds > 60)) throw new Error('Некорректная длительность сцены.');
+      return { id, text: scene.text, durationSeconds: scene.durationSeconds ?? null,
+        visual: scene.visual === 'image' ? 'image' : 'animated',
+        imageId: typeof scene.imageId === 'string' ? scene.imageId : null,
+        imageName: typeof scene.imageName === 'string' ? scene.imageName.slice(0, 200) : '',
+        camera: ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'static'].includes(scene.camera) ? scene.camera : 'zoom-in',
+        transition: ['crossfade', 'slide', 'zoom', 'none'].includes(scene.transition) ? scene.transition : 'crossfade' };
+    });
     return {
       version: 1, idea: data.idea, title: data.title,
-      scenes: data.scenes.map(scene => ({ id: C.id(), text: scene.text })),
+      scenes,
       durationSeconds: [15, 18, 20, 30, 60].includes(data.durationSeconds) ? data.durationSeconds : 18,
       theme: ['mystery', 'space', 'sunrise', 'neon'].includes(data.theme) ? data.theme : 'mystery',
       caption: ['accent', 'classic', 'outline'].includes(data.caption) ? data.caption : 'accent',
       volume: Number.isFinite(data.volume) ? Math.max(0, Math.min(1, data.volume)) : 0.7,
-      format: data.format === 'webm' ? 'webm' : 'auto', edited: data.edited === true
+      format: data.format === 'webm' ? 'webm' : 'auto', edited: data.edited === true,
+      timing: data.timing === 'manual' ? 'manual' : 'auto',
+      musicVolume: Number.isFinite(data.musicVolume) ? Math.max(0, Math.min(1, data.musicVolume)) : .25,
+      musicFadeIn: Number.isFinite(data.musicFadeIn) ? Math.max(0, Math.min(10, data.musicFadeIn)) : 1,
+      musicFadeOut: Number.isFinite(data.musicFadeOut) ? Math.max(0, Math.min(10, data.musicFadeOut)) : 1
     };
   }
 
@@ -967,19 +987,22 @@
   }
 
   function makePlan(draft) {
-    const durationMs = Math.round(Number(draft.durationSeconds) * 1000);
-    if (!Number.isFinite(durationMs) || durationMs < 1000 || durationMs > 60000) throw new Error('Длительность видео должна быть от 1 до 60 секунд.');
-    const scenes = draft.scenes.filter(scene => C.countWords(scene.text) > 0);
+    const manual = draft.timing === 'manual';
+    const scenes = draft.scenes.filter(scene => manual || C.countWords(scene.text) > 0 || scene.visual === 'image');
     if (!scenes.length) throw new Error('Добавьте текст хотя бы в одну сцену.');
     if (scenes.length > 12) throw new Error('В прототипе поддерживается не больше 12 сцен.');
+    if (manual && scenes.some(scene => !Number.isFinite(scene.durationSeconds) || scene.durationSeconds < .5 || scene.durationSeconds > 60)) throw new Error('Укажите длительность каждой сцены от 0,5 до 60 секунд.');
+    const durationMs = manual ? scenes.reduce((sum, scene) => sum + Math.round(scene.durationSeconds * 1000), 0) : Math.round(Number(draft.durationSeconds) * 1000);
+    if (!Number.isFinite(durationMs) || durationMs < 500 || durationMs > 60000) throw new Error('Общая длительность ролика должна быть от 0,5 до 60 секунд.');
     const weights = scenes.map(scene => Math.max(4, C.countWords(scene.text)));
     const sum = weights.reduce((a, b) => a + b, 0);
-    let weight = 0;
+    let weight = 0, manualEnd = 0;
     const cues = [];
     const timeline = scenes.map((scene, index) => {
-      const startMs = Math.round(durationMs * weight / sum);
+      const startMs = manual ? manualEnd : Math.round(durationMs * weight / sum);
       weight += weights[index];
-      const endMs = Math.round(durationMs * weight / sum);
+      const endMs = manual ? startMs + Math.round(scene.durationSeconds * 1000) : Math.round(durationMs * weight / sum);
+      manualEnd = endMs;
       const groups = chunks(scene.text);
       const wordSum = groups.reduce((sum, group) => sum + group.length, 0);
       let wordOffset = 0;
@@ -990,7 +1013,9 @@
         cues.push(cue);
         return cue;
       });
-      return { id: scene.id, text: scene.text, index, startMs, endMs, cues: sceneCues };
+      return { id: scene.id, text: scene.text, index, startMs, endMs, cues: sceneCues,
+        visual: scene.visual || 'animated', imageId: scene.imageId || null,
+        camera: scene.camera || 'zoom-in', transition: scene.transition || 'crossfade' };
     });
     return { title: draft.title, theme: draft.theme, caption: draft.caption, durationMs, timeline, cues };
   }
@@ -998,8 +1023,8 @@
   function frameAt(plan, elapsedMs) {
     const time = Math.max(0, Math.min(plan.durationMs - 1, Number(elapsedMs) || 0));
     const scene = plan.timeline.find(scene => time < scene.endMs) || plan.timeline[plan.timeline.length - 1];
-    const cue = scene.cues.find(cue => time < cue.endMs) || scene.cues[scene.cues.length - 1];
-    const activeWord = Math.min(cue.words.length - 1, Math.floor((time - cue.startMs) / (cue.endMs - cue.startMs) * cue.words.length));
+    const cue = scene.cues.find(cue => time < cue.endMs) || scene.cues[scene.cues.length - 1] || null;
+    const activeWord = cue ? Math.min(cue.words.length - 1, Math.floor((time - cue.startMs) / (cue.endMs - cue.startMs) * cue.words.length)) : -1;
     return { time, scene, cue, activeWord, localMs: time - scene.startMs };
   }
 
@@ -1024,6 +1049,22 @@
     if (mime === 'video/mp4') return 'mp4';
     if (mime === 'video/webm') return 'webm';
     throw new Error('Браузер вернул неизвестный формат видео.');
+  }
+
+  function cameraRect(imageWidth, imageHeight, progress, mode = 'zoom-in') {
+    if (!(imageWidth > 0 && imageHeight > 0)) throw new Error('Изображение не имеет размеров.');
+    const t = Math.max(0, Math.min(1, progress));
+    const smooth = t * t * (3 - 2 * t);
+    const zoom = mode === 'zoom-in' ? 1.02 + .16 * smooth : mode === 'zoom-out' ? 1.18 - .16 * smooth : mode === 'static' ? 1 : 1.15;
+    const scale = Math.max(WIDTH / imageWidth, HEIGHT / imageHeight) * zoom;
+    const width = imageWidth * scale, height = imageHeight * scale;
+    const pan = mode === 'pan-left' ? 1 - smooth : mode === 'pan-right' ? smooth : .5;
+    return { x: -(width - WIDTH) * pan, y: -(height - HEIGHT) / 2, width, height };
+  }
+
+  function musicEnvelope(seconds, endSeconds, fadeIn = 1, fadeOut = 1) {
+    if (seconds < 0 || seconds >= endSeconds) return 0;
+    return Math.max(0, Math.min(1, fadeIn > 0 ? seconds / fadeIn : 1, fadeOut > 0 ? (endSeconds - seconds) / fadeOut : 1));
   }
 
   // MediaRecorder's streaming WebM often omits Duration. Add it without re-encoding.
@@ -1104,7 +1145,7 @@
       bytes.slice(segment.data, info.start), newInfo, bytes.slice(info.end));
   }
 
-  return { WIDTH, HEIGHT, FPS, DEMO_IDEA, demo, generateFromIdea, themeForIdea, parseDraft, chunks, makePlan, frameAt, generateSrt, supportedFormats, extensionFor, patchWebmDuration };
+  return { WIDTH, HEIGHT, FPS, DEMO_IDEA, demo, generateFromIdea, themeForIdea, parseDraft, chunks, makePlan, frameAt, generateSrt, supportedFormats, extensionFor, patchWebmDuration, cameraRect, musicEnvelope };
 });
 
 </script>
@@ -1263,6 +1304,7 @@
     const shade = ctx.createLinearGradient(0, 590, 0, 1190);
     shade.addColorStop(0, 'transparent'); shade.addColorStop(.65, '#080812a6'); shade.addColorStop(1, '#08081299');
     ctx.fillStyle = shade; ctx.fillRect(0, 590, 720, 600);
+    if (!frame.cue) return;
     let font = 58, lines;
     do { ctx.font = `750 ${font}px sans-serif`; lines = linesFor(ctx, frame.cue.words, 594); if (lines.length <= 4 || font <= 30) break; font -= 4; } while (true);
     const lineHeight = font * 1.32;
@@ -1287,23 +1329,40 @@
     ctx.restore();
   }
 
+  function visual(ctx, plan, scene, time) {
+    background(ctx, plan, scene.index, time / 1000 + scene.index * .7);
+    if (scene.visual !== 'image') return;
+    const image = plan.images?.get(scene.imageId);
+    if (!image) throw new Error('Изображение сцены не загружено. Выберите файл заново или включите анимированный фон.');
+    const progress = (time - scene.startMs) / (scene.endMs - scene.startMs);
+    const rect = V.cameraRect(image.width || image.naturalWidth, image.height || image.naturalHeight, progress, scene.camera);
+    ctx.drawImage(image, rect.x, rect.y, rect.width, rect.height);
+  }
+
   function render(canvas, plan, elapsedMs) {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('Браузер не смог создать Canvas для видео.');
     const frame = V.frameAt(plan, elapsedMs);
     ctx.save(); ctx.scale(canvas.width / V.WIDTH, canvas.height / V.HEIGHT);
-    const transition = ease(frame.localMs / 440);
+    const previous = plan.timeline[frame.scene.index - 1];
+    const transitionMs = Math.min(440, (frame.scene.endMs - frame.scene.startMs) / 3, previous ? (previous.endMs - previous.startMs) / 3 : 440);
+    const transition = frame.scene.transition === 'none' ? 1 : ease(frame.localMs / transitionMs);
     if (frame.scene.index > 0 && transition < 1) {
-      background(ctx, plan, frame.scene.index - 1, frame.time / 1000 + (frame.scene.index - 1) * .7);
+      visual(ctx, plan, previous, previous.visual === 'image' ? previous.endMs : frame.time);
       let layer = transitionLayers.get(canvas);
       if (!layer) {
         layer = document.createElement('canvas'); layer.width = V.WIDTH; layer.height = V.HEIGHT;
         transitionLayers.set(canvas, layer);
       }
-      background(layer.getContext('2d', { alpha: false }), plan, frame.scene.index, frame.time / 1000 + frame.scene.index * .7);
-      ctx.globalAlpha = transition;
-      ctx.drawImage(layer, 0, 0, V.WIDTH, V.HEIGHT);
-    } else background(ctx, plan, frame.scene.index, frame.time / 1000 + frame.scene.index * .7);
+      visual(layer.getContext('2d', { alpha: false }), plan, frame.scene, frame.time);
+      ctx.save();
+      if (frame.scene.transition === 'slide') ctx.translate(V.WIDTH * (1 - transition), 0);
+      else {
+        ctx.globalAlpha = transition;
+        if (frame.scene.transition === 'zoom') { const scale = 1 + .1 * (1 - transition); ctx.translate(360, 640); ctx.scale(scale, scale); ctx.translate(-360, -640); }
+      }
+      ctx.drawImage(layer, 0, 0, V.WIDTH, V.HEIGHT); ctx.restore();
+    } else visual(ctx, plan, frame.scene, frame.time);
     ctx.globalAlpha = 1;
     const topShade = ctx.createLinearGradient(0, 0, 0, 350); topShade.addColorStop(0, '#080812b3'); topShade.addColorStop(1, 'transparent');
     ctx.fillStyle = topShade; ctx.fillRect(0, 0, 720, 350);
@@ -1327,6 +1386,60 @@
   }
 
   window.ShortsVideoRenderer = { render };
+})();
+
+</script>
+<script>
+(function () {
+  'use strict';
+  const V = window.ShortsVideoCore;
+  // Preview and export share this exact graph and automation schedule.
+  function connectMix(context, { voiceBuffer, musicBuffer, voiceVolume = .7, musicVolume = .25, fadeIn = 1, fadeOut = 1, durationSeconds, offsetSeconds = 0, destination, monitor = false }) {
+    const sources = [];
+    const bus = context.createGain();
+    const limiter = context.createDynamicsCompressor();
+    limiter.threshold.value = -3; limiter.knee.value = 6; limiter.ratio.value = 20;
+    limiter.attack.value = .003; limiter.release.value = .1;
+    bus.connect(limiter); limiter.connect(destination);
+    if (monitor && destination !== context.destination) limiter.connect(context.destination);
+    const silence = context.createBufferSource(); silence.buffer = context.createBuffer(1, 128, context.sampleRate);
+    silence.loop = true; silence.connect(bus); sources.push(silence);
+    const tracks = [
+      { buffer: voiceBuffer, volume: voiceVolume, music: false },
+      { buffer: musicBuffer, volume: musicVolume, music: true }
+    ];
+    const scheduled = [];
+    for (const track of tracks) {
+      if (!track.buffer || offsetSeconds >= Math.min(track.buffer.duration, durationSeconds)) continue;
+      const source = context.createBufferSource(); source.buffer = track.buffer;
+      const gain = context.createGain(); source.connect(gain); gain.connect(bus);
+      scheduled.push({ source, gain, ...track }); sources.push(source);
+    }
+    return {
+      start(when) {
+        silence.start(when);
+        for (const track of scheduled) {
+          const volume = Math.max(0, Math.min(1, track.volume));
+          const end = Math.min(durationSeconds, track.buffer.duration);
+          if (!track.music) track.gain.gain.setValueAtTime(volume, when);
+          else {
+            const points = [offsetSeconds, end, Math.min(fadeIn, end), Math.max(0, end - fadeOut)];
+            if (fadeIn + fadeOut > end && fadeIn > 0 && fadeOut > 0) points.push(end * fadeIn / (fadeIn + fadeOut));
+            const times = [...new Set(points)].filter(time => time >= offsetSeconds && time <= end).sort((a, b) => a - b);
+            times.forEach((time, i) => {
+              // At the endpoint of a hard cut (no fade-out), keep the previous level.
+              const level = volume * V.musicEnvelope(time === end && !fadeOut ? end - .000001 : time, end, fadeIn, fadeOut);
+              const at = when + time - offsetSeconds;
+              if (!i) track.gain.gain.setValueAtTime(level, at); else track.gain.gain.linearRampToValueAtTime(level, at);
+            });
+          }
+          track.source.start(when, offsetSeconds, end - offsetSeconds);
+        }
+      },
+      stop() { for (const source of sources) { try { source.stop(); } catch (_) {} } bus.disconnect(); limiter.disconnect(); }
+    };
+  }
+  window.ShortsVideoAudio = { connectMix };
 })();
 
 </script>
@@ -1373,46 +1486,43 @@
   }
 
   async function playAudio(buffer, volume, offsetSeconds) {
-    if (!buffer || offsetSeconds >= buffer.duration) return { stop() {} };
+    return playMix({ voiceBuffer: buffer, voiceVolume: volume, offsetSeconds, durationSeconds: buffer?.duration || 1 });
+  }
+
+  async function playMix(options) {
+    if (!options.voiceBuffer && !options.musicBuffer) return { stop() {} };
     const Audio = AudioContextClass();
     if (!Audio) throw new Error('Предпросмотр аудио не поддерживается браузером.');
     const context = new Audio();
-    let source;
+    let mix;
     try {
       await resumeAudio(context);
-      source = context.createBufferSource(); source.buffer = buffer;
-      const gain = context.createGain(); gain.gain.value = Math.max(0, Math.min(1, volume));
-      source.connect(gain); gain.connect(context.destination);
-      source.start(0, Math.max(0, offsetSeconds));
-      return { stop() { try { source.stop(); } catch (_) { /* Already ended. */ } context.close().catch(() => {}); } };
-    } catch (error) { await context.close().catch(() => {}); throw error; }
+      mix = window.ShortsVideoAudio.connectMix(context, { ...options, destination: context.destination });
+      mix.start(context.currentTime + .02);
+      return { stop() { mix.stop(); context.close().catch(() => {}); } };
+    } catch (error) { mix?.stop(); await context.close().catch(() => {}); throw error; }
   }
 
-  async function record({ canvas, plan, audioBuffer = null, volume = .7, format = 'auto', signal, onProgress = () => {}, onFormat = () => {} }) {
-    const support = capabilities(Boolean(audioBuffer), format);
+  async function record({ canvas, plan, audioBuffer = null, volume = .7, voiceBuffer = audioBuffer, musicBuffer = null, voiceVolume = volume, musicVolume = .25, fadeIn = 1, fadeOut = 1, format = 'auto', signal, onProgress = () => {}, onFormat = () => {} }) {
+    const hasAudio = Boolean(voiceBuffer || musicBuffer);
+    const support = capabilities(hasAudio, format);
     if (!support.supported) throw new Error('Браузер не поддерживает запись Canvas в MP4 или WebM. Откройте сайт в актуальном Chrome, Edge, Firefox или Safari. Предпросмотр и сценарий остаются доступны.');
-    if (audioBuffer && !support.audio) throw new Error('Запись аудио не поддерживается. Уберите аудиодорожку и попробуйте снова.');
+    if (hasAudio && !support.audio) throw new Error('Запись аудио не поддерживается. Уберите аудиодорожки и попробуйте снова.');
     signal?.throwIfAborted();
     const render = ms => window.ShortsVideoRenderer.render(canvas, plan, ms);
-    let stream, context, source, silenceSource, recorder, animationFrame, flushTimer, finalTimer;
+    let stream, context, mix, recorder, animationFrame, flushTimer, finalTimer;
     let abortListener, visibilityListener;
     try {
       render(0);
       stream = canvas.captureStream(V.FPS);
       if (!stream.getVideoTracks().length) throw new Error('Браузер не смог захватить изображение Canvas.');
-      if (audioBuffer) {
+      if (hasAudio) {
         const Audio = AudioContextClass();
         context = new Audio();
         await resumeAudio(context);
         signal?.throwIfAborted();
         const destination = context.createMediaStreamDestination();
-        const gain = context.createGain(); gain.gain.value = Math.max(0, Math.min(1, volume));
-        source = context.createBufferSource(); source.buffer = audioBuffer;
-        source.connect(gain); gain.connect(destination); gain.connect(context.destination);
-        // Keep the audio graph producing real silent samples after a short soundtrack ends.
-        silenceSource = context.createBufferSource();
-        silenceSource.buffer = context.createBuffer(1, 128, context.sampleRate);
-        silenceSource.loop = true; silenceSource.connect(destination);
+        mix = window.ShortsVideoAudio.connectMix(context, { voiceBuffer, musicBuffer, voiceVolume, musicVolume, fadeIn, fadeOut, durationSeconds: plan.durationMs / 1000, destination, monitor: true });
         const tracks = destination.stream.getAudioTracks();
         if (!tracks.length) throw new Error('Браузер не смог создать аудиодорожку. Уберите аудио и попробуйте снова.');
         tracks.forEach(track => stream.addTrack(track));
@@ -1464,8 +1574,7 @@
         if (signal?.aborted) { abortListener(); return; }
         try {
           onFormat(recorder.mimeType);
-          silenceSource?.start(context.currentTime);
-          source?.start(context.currentTime + .02);
+          mix?.start(context.currentTime + .02);
           const start = performance.now();
           onProgress(0, 0);
           function frame(now) {
@@ -1490,14 +1599,74 @@
       if (abortListener) signal?.removeEventListener('abort', abortListener);
       if (visibilityListener) document.removeEventListener('visibilitychange', visibilityListener);
       if (recorder) { recorder.ondataavailable = null; recorder.onerror = null; recorder.onstop = null; if (recorder.state !== 'inactive') { try { recorder.stop(); } catch (_) {} } }
-      try { source?.stop(); } catch (_) { /* Audio may already have ended. */ }
-      try { silenceSource?.stop(); } catch (_) { /* The silent clock may not have started. */ }
+      mix?.stop();
       stream?.getTracks().forEach(track => track.stop());
       if (context) await context.close().catch(() => {});
     }
   }
 
-  window.ShortsVideoRecorder = { capabilities, decodeAudio, playAudio, record };
+  window.ShortsVideoRecorder = { capabilities, decodeAudio, playAudio, playMix, record };
+})();
+
+</script>
+<script>
+(function () {
+  'use strict';
+  let database;
+  function open() {
+    if (database) return database;
+    database = new Promise((resolve, reject) => {
+      if (!window.indexedDB) { reject(new Error('Хранилище изображений недоступно.')); return; }
+      const request = indexedDB.open('shorts-studio.media.v1', 1);
+      let expired = false;
+      const timer = setTimeout(() => { expired = true; reject(new Error('Хранилище изображений не ответило.')); }, 3000);
+      request.onupgradeneeded = () => request.result.createObjectStore('images', { keyPath: 'id' });
+      request.onsuccess = () => { clearTimeout(timer); if (expired) request.result.close(); else resolve(request.result); };
+      request.onerror = () => { clearTimeout(timer); reject(new Error('Не удалось открыть хранилище изображений.')); };
+    });
+    database.catch(() => { database = null; });
+    return database;
+  }
+  async function operation(mode, action) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('images', mode);
+      const request = action(transaction.objectStore('images'));
+      transaction.oncomplete = () => resolve(request.result);
+      transaction.onerror = transaction.onabort = () => reject(new Error('Изображение не сохранено: хранилище заполнено или недоступно.'));
+    });
+  }
+  async function decodeImage(file) {
+    if (!file || !file.size || file.size > 15 * 1024 * 1024) throw new Error('Выберите изображение PNG, JPG или WebP размером до 15 МБ.');
+    const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    const png = [137, 80, 78, 71, 13, 10, 26, 10].every((value, i) => bytes[i] === value);
+    const jpg = bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+    const webp = String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP';
+    if (!png && !jpg && !webp) throw new Error('Поддерживаются только настоящие PNG, JPG и WebP. SVG и другие форматы не загружаются.');
+    const url = URL.createObjectURL(file);
+    let image;
+    try {
+      if (typeof createImageBitmap === 'function') {
+        try { image = await createImageBitmap(file); } catch (_) { /* Try the image decoder below. */ }
+      }
+      if (!image) {
+        image = new Image(); image.src = url;
+        await new Promise((resolve, reject) => { if (image.complete && image.naturalWidth) resolve(); else { image.onload = resolve; image.onerror = reject; } });
+      }
+      const width = image.width || image.naturalWidth, height = image.height || image.naturalHeight;
+      if (!width || !height || width * height > 40000000) throw new Error('Слишком большое изображение. Используйте файл не более 40 мегапикселей.');
+      return { image, url, width, height, dispose() { image.close?.(); URL.revokeObjectURL(url); } };
+    } catch (cause) {
+      image?.close?.(); URL.revokeObjectURL(url);
+      throw new Error(cause.message?.includes('мегапикселей') ? cause.message : 'Браузер не смог прочитать изображение. Попробуйте другой PNG, JPG или WebP.');
+    }
+  }
+  window.ShortsVideoMedia = {
+    decodeImage,
+    put: (id, file, name) => operation('readwrite', store => store.put({ id, file, name })),
+    get: id => operation('readonly', store => store.get(id)),
+    remove: id => operation('readwrite', store => store.delete(id))
+  };
 })();
 
 </script>
@@ -1505,6 +1674,7 @@
 (function () {
   'use strict';
   const C = window.ShortsCore, V = window.ShortsVideoCore, R = window.ShortsVideoRecorder;
+  const M = window.ShortsVideoMedia;
   const $ = id => document.getElementById(id);
   const KEY = 'shorts-studio.video.v1';
   let draft = V.demo(), loadError = '';
@@ -1519,9 +1689,17 @@
     }
   } catch (_) { loadError = 'Автосохранение видео недоступно. Работа возможна, но черновик может не сохраниться после перезагрузки.'; }
   let active = false, busy = false, decoding = false, manuallyEdited = draft.edited;
-  let plan, audioBuffer = null, resultUrl = '', recorderAbort = null;
+  let plan, audioBuffer = null, musicBuffer = null, resultUrl = '', recorderAbort = null;
   let previewing = false, previewStarting = false, previewFrame = 0, previewOffset = 0, previewEpoch = 0, previewAudio;
-  let audioEpoch = 0, saveTimer, lastRenderSecond = -1;
+  let audioEpoch = 0, musicEpoch = 0, saveTimer, lastRenderSecond = -1;
+  const assets = new Map();
+  function releaseUnused(saved) {
+    const used = new Set(draft.scenes.map(scene => scene.imageId));
+    for (const [id, asset] of assets) if (!used.has(id)) {
+      asset.dispose(); assets.delete(id);
+      if (saved) M.remove(id).catch(() => {});
+    }
+  }
   const sceneNodes = new Map();
   const originalTitle = $('studioTitle').firstChild.textContent;
   const originalDescription = $('studioDescription').textContent;
@@ -1539,7 +1717,8 @@
     clearTimeout(saveTimer);
     try {
       localStorage.setItem(KEY, JSON.stringify({ ...draft, edited: manuallyEdited }));
-      $('videoDraftStatus').textContent = 'Черновик сохранён на устройстве';
+      $('videoDraftStatus').textContent = draft.scenes.some(scene => assets.get(scene.imageId)?.persisted === false) ? 'Текст сохранён; часть изображений только во вкладке' : 'Черновик сохранён на устройстве';
+      releaseUnused(true);
     } catch (_) {
       $('videoDraftStatus').textContent = 'Черновик не сохранён';
       error('Браузер не смог сохранить черновик видео. Не закрывайте страницу до скачивания результата. Проект редактора хранится отдельно.');
@@ -1591,7 +1770,7 @@
     showFile(false);
   }
   function updateSupport() {
-    const support = R.capabilities(Boolean(audioBuffer), draft.format);
+    const support = R.capabilities(Boolean(audioBuffer || musicBuffer), draft.format);
     let message = '';
     if (!support.supported) message = 'Запись MP4/WebM недоступна в этом браузере. Попробуйте актуальный Chrome, Edge, Firefox или Safari. Сценарий и анимированный предпросмотр остаются доступны.';
     else if (!support.audio) message = 'Этот браузер может записывать видео без звука, но не поддерживает добавление аудиодорожки.';
@@ -1602,12 +1781,15 @@
     $('playGeneratedPreview').disabled = busy || decoding || previewStarting || !plan;
     $('videoSeek').disabled = busy || decoding || !plan;
     $('videoAudio').disabled = busy || decoding || !support.audio;
+    $('videoMusic').disabled = busy || decoding || !support.audio;
+    $('videoDuration').disabled = busy || decoding || draft.timing === 'manual';
+    for (const [id, nodes] of sceneNodes) nodes.camera.disabled = busy || decoding || draft.scenes.find(scene => scene.id === id)?.visual !== 'image';
     $('addVideoScene').disabled = busy || draft.scenes.length >= 12;
     $('videoSrt').disabled = busy || !plan;
     $('videoToEditor').disabled = busy || !plan;
   }
   function lockControls() {
-    document.querySelectorAll('.video-editor input, .video-editor select, .video-editor textarea, .video-editor button').forEach(control => { control.disabled = busy; });
+    document.querySelectorAll('.video-editor input, .video-editor select, .video-editor textarea, .video-editor button').forEach(control => { control.disabled = busy || decoding; });
     $('recordVideo').hidden = busy; $('cancelVideo').hidden = !busy;
     updateSupport();
   }
@@ -1627,20 +1809,30 @@
     catch (cause) { plan = null; error(cause.message || 'Не удалось нарисовать предпросмотр.'); updateSupport(); }
   }
   function rebuild() {
-    try { plan = V.makePlan(draft); } catch (_) { plan = null; }
+    let problem = '';
+    try {
+      plan = V.makePlan(draft);
+      plan.images = new Map([...assets].map(([id, asset]) => [id, asset.image]));
+      if (plan.timeline.some(scene => scene.visual === 'image' && !plan.images.has(scene.imageId))) throw new Error('Для сцен с изображениями выберите файлы заново или переключите их на анимированный фон.');
+    } catch (cause) { plan = null; problem = cause.message; }
+    $('videoPlanError').textContent = problem; $('videoPlanError').hidden = !problem;
+    $('videoTotalTime').textContent = plan ? 'Итого: ' + (plan.durationMs / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 3 }) + ' сек · ' + (draft.timing === 'manual' ? 'сумма длительностей сцен' : 'автоматическая разбивка') : 'Исправьте настройки сцен перед записью.';
     updateSceneTimes(); updateSupport();
   }
   function changed() {
     stopPreview(); error(''); invalidateResult(); previewOffset = 0;
     rebuild(); redraw(); saveSoon();
-    $('videoRenderStatus').textContent = 'Запись займёт ' + draft.durationSeconds + ' секунд. Оставьте вкладку открытой.';
+    $('videoRenderStatus').textContent = 'Запись займёт ' + (plan ? (plan.durationMs / 1000).toLocaleString('ru-RU') : '—') + ' секунд. Оставьте вкладку открытой.';
   }
   function updateSceneTimes() {
     $('videoSceneCount').textContent = draft.scenes.length;
     draft.scenes.forEach(scene => {
       const cue = plan?.timeline.find(item => item.id === scene.id);
       const nodes = sceneNodes.get(scene.id);
-      if (nodes) nodes.time.textContent = cue ? clock(cue.startMs) + ' · ' + ((cue.endMs - cue.startMs) / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' сек' : 'Пустая сцена · пропускается';
+      if (nodes) {
+        nodes.time.textContent = cue ? clock(cue.startMs) + ' · ' + ((cue.endMs - cue.startMs) / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' сек' : 'Сцена не включена в таймлайн';
+        if (document.activeElement !== nodes.duration) nodes.duration.value = draft.timing === 'manual' ? scene.durationSeconds ?? '' : cue ? (cue.endMs - cue.startMs) / 1000 : '';
+      }
     });
   }
   function renderScenes() {
@@ -1663,8 +1855,50 @@
       const textarea = node('textarea', 'scene-text'); textarea.id = 'video-scene-' + index;
       textarea.rows = 2; textarea.maxLength = 280; textarea.value = scene.text; textarea.placeholder = 'Короткая фраза для этой сцены';
       textarea.addEventListener('input', () => { scene.text = textarea.value; manuallyEdited = true; changed(); });
-      content.append(top, textarea); card.append(number, content); fragment.append(card);
-      sceneNodes.set(scene.id, { card, time, textarea });
+      const settings = node('div', 'scene-media-settings');
+      function select(labelText, key, options, fallback) {
+        const label = node('label', '', labelText), control = node('select');
+        control.id = 'video-scene-' + key + '-' + index;
+        for (const [value, text] of options) { const option = node('option', '', text); option.value = value; control.append(option); }
+        control.value = scene[key] || fallback;
+        control.addEventListener('change', () => { scene[key] = control.value; manuallyEdited = true; changed(); });
+        label.append(control); settings.append(label); return control;
+      }
+      select('Визуальный ряд', 'visual', [['animated', 'Анимированный фон'], ['image', 'Моё изображение']], 'animated');
+      const camera = select('Движение камеры', 'camera', [['zoom-in', 'Приближение'], ['zoom-out', 'Отдаление'], ['pan-left', 'Панорама влево'], ['pan-right', 'Панорама вправо'], ['static', 'Без движения']], 'zoom-in');
+      select('Переход к сцене', 'transition', [['crossfade', 'Растворение'], ['slide', 'Сдвиг'], ['zoom', 'Мягкий зум'], ['none', 'Без перехода']], 'crossfade');
+      const durationLabel = node('label', '', 'Длительность, сек'), duration = node('input');
+      duration.type = 'number'; duration.min = '.5'; duration.max = '60'; duration.step = '.001'; duration.id = 'video-scene-duration-' + index;
+      duration.addEventListener('input', () => { useManualTiming(); scene.durationSeconds = duration.value === '' ? null : Number(duration.value); manuallyEdited = true; changed(); });
+      durationLabel.append(duration); settings.append(durationLabel);
+      const imageRow = node('div', 'scene-image-row');
+      const asset = assets.get(scene.imageId);
+      if (asset) { const thumbnail = node('img', 'scene-image-thumb'); thumbnail.src = asset.url; thumbnail.alt = 'Изображение сцены ' + (index + 1); imageRow.append(thumbnail); }
+      const upload = node('label', 'button button-secondary audio-upload', asset ? 'Заменить изображение' : 'Выбрать изображение');
+      const file = node('input'); file.type = 'file'; file.accept = 'image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp'; file.id = 'video-scene-image-' + index;
+      file.addEventListener('change', async () => {
+        const selected = file.files[0]; file.value = ''; if (!selected || busy || decoding) return;
+        stopPreview(); invalidateResult(); error(''); decoding = true; lockControls();
+        let decoded;
+        try {
+          decoded = await M.decodeImage(selected);
+          const id = C.id(); let stored = true;
+          try { await M.put(id, selected, selected.name); } catch (_) { stored = false; }
+          decoded.persisted = stored; assets.set(id, decoded); decoded = null; scene.imageId = id; scene.imageName = selected.name; scene.visual = 'image';
+          manuallyEdited = true; renderScenes(); changed();
+          if (!stored) error('Изображение доступно для предпросмотра и экспорта, но браузер не сохранил его. После перезагрузки выберите файл заново.');
+        } catch (cause) { decoded?.dispose(); error(cause.message); }
+        finally { decoding = false; lockControls(); }
+      });
+      upload.append(file); imageRow.append(upload);
+      if (scene.imageId) {
+        imageRow.append(node('span', 'scene-image-name', (scene.imageName || 'Изображение сцены') + (asset?.persisted === false ? ' · только в этой вкладке' : '')));
+        const removeImage = node('button', 'text-button', 'Убрать');
+        removeImage.addEventListener('click', () => { scene.imageId = null; scene.imageName = ''; scene.visual = 'animated'; manuallyEdited = true; renderScenes(); changed(); });
+        imageRow.append(removeImage);
+      }
+      content.append(top, textarea, settings, imageRow); card.append(number, content); fragment.append(card);
+      sceneNodes.set(scene.id, { card, time, textarea, duration, camera });
     });
     if (!draft.scenes.length) fragment.append(node('div', 'empty-state', 'Добавьте сцену или создайте сценарий по идее.'));
     $('videoScenes').replaceChildren(fragment); updateSceneTimes();
@@ -1674,6 +1908,9 @@
     $('videoDuration').value = draft.durationSeconds; $('videoTheme').value = draft.theme;
     $('videoCaption').value = draft.caption; $('videoFormat').value = draft.format;
     $('videoVolume').value = Math.round(draft.volume * 100); $('videoVolumeValue').value = Math.round(draft.volume * 100) + '%';
+    $('videoTiming').value = draft.timing || 'auto';
+    $('videoMusicVolume').value = Math.round((draft.musicVolume ?? .25) * 100); $('videoMusicVolumeValue').value = $('videoMusicVolume').value + '%';
+    $('videoMusicFadeIn').value = draft.musicFadeIn ?? 1; $('videoMusicFadeOut').value = draft.musicFadeOut ?? 1;
     rebuild(); renderScenes(); redraw(); lockControls();
   }
   function replaceDraft(next) {
@@ -1700,7 +1937,7 @@
     const epoch = ++previewEpoch;
     previewStarting = true; updateSupport();
     try {
-      const session = await R.playAudio(audioBuffer, draft.volume, previewOffset / 1000);
+      const session = await R.playMix({ voiceBuffer: audioBuffer, musicBuffer, voiceVolume: draft.volume, musicVolume: draft.musicVolume, fadeIn: draft.musicFadeIn, fadeOut: draft.musicFadeOut, durationSeconds: plan.durationMs / 1000, offsetSeconds: previewOffset / 1000 });
       if (epoch !== previewEpoch || !active || busy) { session.stop(); return; }
       previewAudio = session; previewStarting = false; previewing = true;
       $('playGeneratedPreview').querySelector('span').textContent = 'Пауза';
@@ -1725,7 +1962,7 @@
     const controller = new AbortController(); recorderAbort = controller;
     try {
       const result = await R.record({
-        canvas: $('videoCanvas'), plan, audioBuffer, volume: draft.volume, format: draft.format, signal: controller.signal,
+        canvas: $('videoCanvas'), plan, audioBuffer, volume: draft.volume, musicBuffer, musicVolume: draft.musicVolume, fadeIn: draft.musicFadeIn, fadeOut: draft.musicFadeOut, format: draft.format, signal: controller.signal,
         onFormat(type) { $('videoRenderStatus').textContent = 'Запись ' + V.extensionFor(type).toUpperCase() + '…'; },
         onProgress(fraction, elapsed) {
           $('videoProgress').value = Math.round(fraction * 100);
@@ -1742,7 +1979,7 @@
       $('downloadVideo').href = resultUrl;
       $('downloadVideo').download = C.fileName(draft.title) + '.' + result.extension;
       $('downloadVideo').hidden = false; $('videoOutputTabs').hidden = false;
-      $('videoFileInfo').textContent = result.extension.toUpperCase() + ' · ' + V.WIDTH + ' × ' + V.HEIGHT + ' · ' + C.clockTime(result.durationMs) + ' · ' + (result.blob.size / 1048576).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' МБ' + (audioBuffer ? ' · с аудио' : ' · без аудио');
+      $('videoFileInfo').textContent = result.extension.toUpperCase() + ' · ' + V.WIDTH + ' × ' + V.HEIGHT + ' · ' + C.clockTime(result.durationMs) + ' · ' + (result.blob.size / 1048576).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' МБ' + (audioBuffer && musicBuffer ? ' · голос + музыка' : audioBuffer || musicBuffer ? ' · с аудио' : ' · без аудио');
       $('videoFileInfo').hidden = false;
       $('videoProgress').value = 100; $('videoRenderStatus').textContent = 'Готово! Видео можно посмотреть и скачать.';
       showFile(true);
@@ -1759,6 +1996,28 @@
     document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 
+  function useManualTiming() {
+    if (draft.timing === 'manual') return;
+    let automatic;
+    try { automatic = V.makePlan(draft); } catch (_) {}
+    for (const scene of draft.scenes) {
+      const cue = automatic?.timeline.find(item => item.id === scene.id);
+      scene.durationSeconds = cue ? Math.max(.5, (cue.endMs - cue.startMs) / 1000) : 3;
+    }
+    draft.timing = 'manual'; $('videoTiming').value = 'manual';
+  }
+
+  async function restoreImages() {
+    const ids = [...new Set(draft.scenes.map(scene => scene.imageId).filter(Boolean))];
+    if (!ids.length) return;
+    decoding = true; lockControls();
+    try {
+      for (const id of ids) {
+        try { const stored = await M.get(id); if (stored?.file) { const asset = await M.decodeImage(stored.file); asset.persisted = true; assets.set(id, asset); } } catch (_) { /* Missing files are reported by rebuild. */ }
+      }
+    } finally { decoding = false; renderForm(); }
+  }
+
   $('openVideoMode').addEventListener('click', () => setMode(true));
   $('createVideoMode').addEventListener('click', () => setMode(true));
   $('backToEditor').addEventListener('click', () => setMode(false));
@@ -1769,7 +2028,7 @@
   $('generateIdea').addEventListener('click', () => {
     try {
       const generated = V.generateFromIdea($('videoIdea').value);
-      replaceWithConfirmation({ ...generated, durationSeconds: draft.durationSeconds, caption: draft.caption, volume: draft.volume, format: draft.format });
+      replaceWithConfirmation({ ...generated, durationSeconds: draft.durationSeconds, caption: draft.caption, volume: draft.volume, format: draft.format, musicVolume: draft.musicVolume, musicFadeIn: draft.musicFadeIn, musicFadeOut: draft.musicFadeOut });
     } catch (cause) { error(cause.message); }
   });
   $('videoDemo').addEventListener('click', () => replaceWithConfirmation(V.demo()));
@@ -1778,9 +2037,21 @@
     $(id).addEventListener('change', () => { draft[field] = field === 'durationSeconds' ? Number($(id).value) : $(id).value; changed(); });
   });
   $('videoVolume').addEventListener('input', () => { draft.volume = Number($('videoVolume').value) / 100; $('videoVolumeValue').value = $('videoVolume').value + '%'; changed(); });
+  $('videoTiming').addEventListener('change', () => {
+    if ($('videoTiming').value === 'manual') useManualTiming(); else draft.timing = 'auto';
+    manuallyEdited = true; changed();
+  });
+  $('videoMusicVolume').addEventListener('input', () => { draft.musicVolume = Number($('videoMusicVolume').value) / 100; $('videoMusicVolumeValue').value = $('videoMusicVolume').value + '%'; changed(); });
+  for (const [id, key] of [['videoMusicFadeIn', 'musicFadeIn'], ['videoMusicFadeOut', 'musicFadeOut']]) {
+    $(id).addEventListener('change', () => {
+      const value = Number($(id).value);
+      if (!Number.isFinite(value) || value < 0 || value > 10) { $(id).value = draft[key] ?? 1; error('Время появления и затухания музыки должно быть от 0 до 10 секунд.'); return; }
+      draft[key] = value; changed();
+    });
+  }
   $('addVideoScene').addEventListener('click', () => {
     if (draft.scenes.length >= 12 || busy) return;
-    const scene = { id: C.id(), text: '' }; draft.scenes.push(scene); manuallyEdited = true;
+    const scene = { id: C.id(), text: '', durationSeconds: 3 }; draft.scenes.push(scene); manuallyEdited = true;
     renderScenes(); changed(); sceneNodes.get(scene.id).textarea.focus();
   });
   $('videoAudio').addEventListener('change', async event => {
@@ -1788,7 +2059,7 @@
     if (!file || busy) return;
     const epoch = ++audioEpoch;
     stopPreview(); invalidateResult(); error(''); decoding = true; audioBuffer = null;
-    $('removeVideoAudio').hidden = true; $('videoAudioInfo').textContent = 'Читаем аудиофайл…'; updateSupport();
+    $('removeVideoAudio').hidden = true; $('videoAudioInfo').textContent = 'Читаем аудиофайл…'; lockControls();
     try {
       const decoded = await R.decodeAudio(file);
       if (epoch !== audioEpoch) return;
@@ -1796,10 +2067,28 @@
       $('videoAudioInfo').textContent = file.name + ' · ' + decoded.duration.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' сек';
       $('removeVideoAudio').hidden = false;
     } catch (cause) { if (epoch === audioEpoch) { $('videoAudioInfo').textContent = 'Без аудиодорожки'; error(cause.message); } }
-    finally { if (epoch === audioEpoch) { decoding = false; updateSupport(); } }
+    finally { if (epoch === audioEpoch) { decoding = false; lockControls(); } }
   });
   $('removeVideoAudio').addEventListener('click', () => {
     audioEpoch++; decoding = false; audioBuffer = null; $('videoAudioInfo').textContent = 'Без аудиодорожки'; $('removeVideoAudio').hidden = true; changed();
+  });
+  $('videoMusic').addEventListener('change', async event => {
+    const file = event.target.files[0]; event.target.value = '';
+    if (!file || busy || decoding) return;
+    const epoch = ++musicEpoch;
+    stopPreview(); invalidateResult(); error(''); decoding = true; musicBuffer = null;
+    $('removeVideoMusic').hidden = true; $('videoMusicInfo').textContent = 'Читаем аудиофайл…'; lockControls();
+    try {
+      const decoded = await R.decodeAudio(file);
+      if (epoch !== musicEpoch) return;
+      musicBuffer = decoded;
+      $('videoMusicInfo').textContent = file.name + ' · ' + decoded.duration.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' сек';
+      $('removeVideoMusic').hidden = false;
+    } catch (cause) { if (epoch === musicEpoch) { $('videoMusicInfo').textContent = 'Без музыки'; error(cause.message); } }
+    finally { if (epoch === musicEpoch) { decoding = false; lockControls(); } }
+  });
+  $('removeVideoMusic').addEventListener('click', () => {
+    musicEpoch++; musicBuffer = null; $('videoMusicInfo').textContent = 'Без музыки'; $('removeVideoMusic').hidden = true; changed();
   });
   $('playGeneratedPreview').addEventListener('click', playPreview);
   $('videoSeek').addEventListener('input', () => { stopPreview(); previewOffset = Number($('videoSeek').value); redraw(); });
@@ -1812,6 +2101,7 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) { stopPreview(); if (saveTimer) saveNow(); } });
   window.addEventListener('pagehide', () => { stopPreview(); recorderAbort?.abort(new DOMException('Страница закрыта.', 'AbortError')); if (saveTimer) saveNow(); invalidateResult(); });
   renderForm();
+  restoreImages();
   if (loadError) error(loadError);
 })();
 

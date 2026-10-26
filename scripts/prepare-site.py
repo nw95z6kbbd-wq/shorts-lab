@@ -17,7 +17,7 @@ def prepare(output):
     favicon = quote((ROOT / "assets/favicon.svg").read_text(encoding="utf-8"), safe="")
     html = html.replace('href="assets/favicon.svg"', 'href="data:image/svg+xml,' + favicon + '"')
     scripts = re.findall(r'<script src="([^"]+)" defer></script>', html)
-    if scripts != ["js/core.js", "js/storage.js", "js/integrations.js", "js/app.js", "js/video-core.js", "js/video-renderer.js", "js/video-recorder.js", "js/video-ui.js"]:
+    if scripts != ["js/core.js", "js/storage.js", "js/integrations.js", "js/app.js", "js/video-core.js", "js/video-renderer.js", "js/video-audio.js", "js/video-recorder.js", "js/video-media.js", "js/video-ui.js"]:
         raise ValueError("Script order changed: update the single-file packaging before publication.")
     html = re.sub(r'\s*<script src="[^"]+" defer></script>', "", html)
     inline = "\n".join('<script>\n' + (ROOT / src).read_text(encoding="utf-8").replace("</script", "<\\/script") + '\n</script>' for src in scripts)

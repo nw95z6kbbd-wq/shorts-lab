@@ -40,46 +40,43 @@
   }
 
   async function playAudio(buffer, volume, offsetSeconds) {
-    if (!buffer || offsetSeconds >= buffer.duration) return { stop() {} };
+    return playMix({ voiceBuffer: buffer, voiceVolume: volume, offsetSeconds, durationSeconds: buffer?.duration || 1 });
+  }
+
+  async function playMix(options) {
+    if (!options.voiceBuffer && !options.musicBuffer) return { stop() {} };
     const Audio = AudioContextClass();
     if (!Audio) throw new Error('Предпросмотр аудио не поддерживается браузером.');
     const context = new Audio();
-    let source;
+    let mix;
     try {
       await resumeAudio(context);
-      source = context.createBufferSource(); source.buffer = buffer;
-      const gain = context.createGain(); gain.gain.value = Math.max(0, Math.min(1, volume));
-      source.connect(gain); gain.connect(context.destination);
-      source.start(0, Math.max(0, offsetSeconds));
-      return { stop() { try { source.stop(); } catch (_) { /* Already ended. */ } context.close().catch(() => {}); } };
-    } catch (error) { await context.close().catch(() => {}); throw error; }
+      mix = window.ShortsVideoAudio.connectMix(context, { ...options, destination: context.destination });
+      mix.start(context.currentTime + .02);
+      return { stop() { mix.stop(); context.close().catch(() => {}); } };
+    } catch (error) { mix?.stop(); await context.close().catch(() => {}); throw error; }
   }
 
-  async function record({ canvas, plan, audioBuffer = null, volume = .7, format = 'auto', signal, onProgress = () => {}, onFormat = () => {} }) {
-    const support = capabilities(Boolean(audioBuffer), format);
+  async function record({ canvas, plan, audioBuffer = null, volume = .7, voiceBuffer = audioBuffer, musicBuffer = null, voiceVolume = volume, musicVolume = .25, fadeIn = 1, fadeOut = 1, format = 'auto', signal, onProgress = () => {}, onFormat = () => {} }) {
+    const hasAudio = Boolean(voiceBuffer || musicBuffer);
+    const support = capabilities(hasAudio, format);
     if (!support.supported) throw new Error('Браузер не поддерживает запись Canvas в MP4 или WebM. Откройте сайт в актуальном Chrome, Edge, Firefox или Safari. Предпросмотр и сценарий остаются доступны.');
-    if (audioBuffer && !support.audio) throw new Error('Запись аудио не поддерживается. Уберите аудиодорожку и попробуйте снова.');
+    if (hasAudio && !support.audio) throw new Error('Запись аудио не поддерживается. Уберите аудиодорожки и попробуйте снова.');
     signal?.throwIfAborted();
     const render = ms => window.ShortsVideoRenderer.render(canvas, plan, ms);
-    let stream, context, source, silenceSource, recorder, animationFrame, flushTimer, finalTimer;
+    let stream, context, mix, recorder, animationFrame, flushTimer, finalTimer;
     let abortListener, visibilityListener;
     try {
       render(0);
       stream = canvas.captureStream(V.FPS);
       if (!stream.getVideoTracks().length) throw new Error('Браузер не смог захватить изображение Canvas.');
-      if (audioBuffer) {
+      if (hasAudio) {
         const Audio = AudioContextClass();
         context = new Audio();
         await resumeAudio(context);
         signal?.throwIfAborted();
         const destination = context.createMediaStreamDestination();
-        const gain = context.createGain(); gain.gain.value = Math.max(0, Math.min(1, volume));
-        source = context.createBufferSource(); source.buffer = audioBuffer;
-        source.connect(gain); gain.connect(destination); gain.connect(context.destination);
-        // Keep the audio graph producing real silent samples after a short soundtrack ends.
-        silenceSource = context.createBufferSource();
-        silenceSource.buffer = context.createBuffer(1, 128, context.sampleRate);
-        silenceSource.loop = true; silenceSource.connect(destination);
+        mix = window.ShortsVideoAudio.connectMix(context, { voiceBuffer, musicBuffer, voiceVolume, musicVolume, fadeIn, fadeOut, durationSeconds: plan.durationMs / 1000, destination, monitor: true });
         const tracks = destination.stream.getAudioTracks();
         if (!tracks.length) throw new Error('Браузер не смог создать аудиодорожку. Уберите аудио и попробуйте снова.');
         tracks.forEach(track => stream.addTrack(track));
@@ -131,8 +128,7 @@
         if (signal?.aborted) { abortListener(); return; }
         try {
           onFormat(recorder.mimeType);
-          silenceSource?.start(context.currentTime);
-          source?.start(context.currentTime + .02);
+          mix?.start(context.currentTime + .02);
           const start = performance.now();
           onProgress(0, 0);
           function frame(now) {
@@ -157,12 +153,11 @@
       if (abortListener) signal?.removeEventListener('abort', abortListener);
       if (visibilityListener) document.removeEventListener('visibilitychange', visibilityListener);
       if (recorder) { recorder.ondataavailable = null; recorder.onerror = null; recorder.onstop = null; if (recorder.state !== 'inactive') { try { recorder.stop(); } catch (_) {} } }
-      try { source?.stop(); } catch (_) { /* Audio may already have ended. */ }
-      try { silenceSource?.stop(); } catch (_) { /* The silent clock may not have started. */ }
+      mix?.stop();
       stream?.getTracks().forEach(track => track.stop());
       if (context) await context.close().catch(() => {});
     }
   }
 
-  window.ShortsVideoRecorder = { capabilities, decodeAudio, playAudio, record };
+  window.ShortsVideoRecorder = { capabilities, decodeAudio, playAudio, playMix, record };
 })();
