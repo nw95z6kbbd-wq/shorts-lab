@@ -109,10 +109,14 @@ def run():
             print('PASS [native Safari]: narrow desktop window layout; actual viewport width:',script('return innerWidth;'),flush=True)
             command('POST','/window/rect',{'width':1280,'height':900})
             click('#createVideoMode')
+            # Safari only captures a painted, visible Canvas reliably. Mirror the
+            # user's preview position instead of recording below the fold.
+            script('document.getElementById("videoCanvas").scrollIntoView({block:"center"});')
+            command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));','args':[]})
             support=script('return ShortsVideoRecorder.capabilities();')
             if support['supported']:
                 result=command('POST','/execute/async',{'script':'''const done=arguments[arguments.length-1];
-                  const draft=ShortsVideoCore.demo(); draft.durationSeconds=1;draft.scenes=draft.scenes.slice(0,2);
+                  const draft=ShortsVideoCore.demo(); draft.durationSeconds=3;draft.scenes=draft.scenes.slice(0,2);
                   ShortsVideoRecorder.record({canvas:document.getElementById('videoCanvas'),plan:ShortsVideoCore.makePlan(draft)}).then(result=>{
                     const url=URL.createObjectURL(result.blob);const video=document.createElement('video');video.muted=true;video.preload='auto';
                     const timer=setTimeout(()=>{URL.revokeObjectURL(url);done({error:'Safari could not load recorded metadata'});},10000);
@@ -121,7 +125,7 @@ def run():
                   }).catch(error=>done({error:error.message}));''','args':[]})
                 assert not result.get('error'),result
                 assert result['size']>0 and (result['width'],result['height'])==(720,1280),result
-                assert isinstance(result['duration'],(int,float)) and .5<result['duration']<2.5,result
+                assert isinstance(result['duration'],(int,float)) and 2<result['duration']<4.5,result
                 print('PASS [native Safari]: real Canvas recording decoded by Safari:',json.dumps(result),flush=True)
             else:
                 assert script('return document.getElementById("recordVideo").disabled && !document.getElementById("videoSupport").hidden;')
