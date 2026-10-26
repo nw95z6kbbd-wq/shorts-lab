@@ -60,7 +60,11 @@ def run():
     def element(selector):
         result=command('POST','/element',{'using':'css selector','value':selector})
         return result['element-6066-11e4-a52e-4f735466cecf']
-    def click(selector): command('POST','/element/'+element(selector)+'/click',{})
+    def click(selector):
+        # Safari's element-click command does not reliably scroll nested dialogs.
+        script('document.querySelector(arguments[0]).scrollIntoView({block:"nearest",inline:"nearest"});',[selector])
+        command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];requestAnimationFrame(()=>done(true));','args':[]})
+        command('POST','/element/'+element(selector)+'/click',{})
 
     try:
         with tempfile.TemporaryFile(mode='w+b') as log:
