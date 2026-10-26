@@ -64,7 +64,11 @@ def run():
         # Safari's element-click command does not reliably scroll nested dialogs.
         script('document.querySelector(arguments[0]).scrollIntoView({block:"nearest",inline:"nearest"});',[selector])
         command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];requestAnimationFrame(()=>done(true));','args':[]})
-        command('POST','/element/'+element(selector)+'/click',{})
+        try:
+            command('POST','/element/'+element(selector)+'/click',{})
+        except RuntimeError as error:
+            details=script('const e=document.querySelector(arguments[0]),r=e.getBoundingClientRect(),d=document.getElementById("productDialog");return {selector:arguments[0],rect:{x:r.x,y:r.y,width:r.width,height:r.height},display:getComputedStyle(e).display,dialog:d.open,aboutHidden:document.getElementById("productPane-about").hidden,active:document.activeElement?.id,scroll:document.querySelector(".product-dialog-scroll").scrollTop};',[selector])
+            raise RuntimeError(str(details)+'; '+str(error)) from error
 
     try:
         with tempfile.TemporaryFile(mode='w+b') as log:
