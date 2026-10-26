@@ -65,11 +65,6 @@
       recorderAbort?.abort(new DOMException('Запись отменена при переходе в редактор.', 'AbortError'));
     } else window.ShortsEditor.pause();
     active = open;
-    document.querySelector('.sidebar').dataset.studioMode = open ? 'video' : 'editor';
-    document.querySelectorAll('.manual-nav [data-view]').forEach(button => {
-      if (!open && button.classList.contains('active')) button.setAttribute('aria-current', 'page');
-      else button.removeAttribute('aria-current');
-    });
     document.querySelector('.workspace').dataset.mode = open ? 'video' : 'editor';
     $('videoStudio').hidden = !open; $('scriptStudio').hidden = open;
     $('backToEditor').hidden = !open; $('projectName').disabled = open;
