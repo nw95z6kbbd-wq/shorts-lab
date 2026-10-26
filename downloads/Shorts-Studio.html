@@ -48,23 +48,21 @@
 
 </style>
   <style>
-/* Notifications occupy a temporary gutter outside the scrollable workspace. */
-:root{--studio-header-height:0px;--notice-space:0px}
+/* Floating notifications never participate in workspace layout. */
+:root{--studio-header-height:0px;--toast-safe-bottom:env(safe-area-inset-bottom,0px)}
 body{overflow:hidden}
-.studio-viewport{height:calc(100vh - var(--notice-space));height:calc(100dvh - var(--notice-space));overflow-y:auto;scroll-padding:16px 0;overscroll-behavior-y:contain}
+.studio-viewport{height:100vh;height:100dvh;overflow-y:auto;scroll-padding:16px 0;overscroll-behavior-y:contain}
 .studio-viewport:focus-visible{outline:2px solid var(--purple);outline-offset:-2px}
 .workspace :is(input,textarea,select,button,a){scroll-margin-block:16px}
 .topbar{position:static;height:62px;background:#111114}
 .topbar .breadcrumb{flex:1;min-width:0}.topbar .breadcrumb input{min-width:0;max-width:100%}
-.notice-dock{position:fixed;z-index:30;right:16px;bottom:12px;display:grid;justify-items:end;gap:8px;max-width:min(400px,calc(100vw - 32px));pointer-events:none}
-#saveStatus{opacity:1;gap:8px;padding:11px 14px;border:1px solid #564167;border-radius:10px;background:#241b30;box-shadow:0 6px 22px #0005;font-size:12px;color:#d7bfe9;line-height:1.5;white-space:normal;transition:opacity .2s,transform .2s}
+#saveStatus{position:fixed;z-index:30;right:16px;bottom:12px;width:max-content;max-width:min(340px,calc(100vw - 24px));pointer-events:none;opacity:1;gap:8px;padding:11px 14px;border:1px solid #564167;border-radius:10px;background:#241b30;box-shadow:0 6px 22px #0005;font-size:12px;color:#d7bfe9;line-height:1.5;white-space:normal;transition:opacity .2s,transform .2s}
 #saveStatus span{max-width:none;white-space:normal;text-align:left;line-height:1.5}#saveStatus svg{width:15px;height:15px;flex-shrink:0;color:inherit}
 #saveStatus[data-visible=false]{opacity:0;transform:translateY(5px)}
 #saveStatus[data-state=saved]{border-color:#385c48;background:#192c22;color:#b3dfc2}
 #saveStatus[data-state=error],#saveStatus[data-state=warning]{border-color:#a76b4f;background:#3c251e;color:#ffcfb3}
 #saveStatus[data-state=pending] svg{animation:save-pulse 1.4s ease-in-out infinite}
 .workspace[data-mode=video] #saveStatus{opacity:1}
-.notice-dock .toast{position:static;transform:none;max-width:100%;margin:0;animation:none;font-size:11px;padding:11px 14px;pointer-events:none}
 .sidebar{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#44334f transparent}
 .sidebar>*{flex-shrink:0}.product-nav{display:grid;gap:5px;margin-top:18px;padding-top:15px;border-top:1px solid #2b2332}
 .product-nav .nav-item{color:#b6a3c9}.product-nav .nav-item:hover{background:#272030;color:#e0c6f5}.product-nav-label{font-size:11px}
@@ -79,14 +77,12 @@ body{overflow:hidden}
 .has-video-result #videoProgress,.has-video-result #videoRenderStatus{display:none}
 .has-video-result #recordVideo{background:#251d2e;color:#c6aedb;border-color:#554060;box-shadow:none;min-height:34px;font-size:10px}
 @media(max-width:1050px){.topbar{height:58px}.product-nav{width:100%;margin-top:20px;padding-top:16px}.product-nav-label{display:none}.product-mobile-version{display:inline-block;justify-self:center;margin-top:5px}.product-nav .nav-item{width:100%;padding:12px}.product-nav .nav-item svg{width:19px;height:19px}}
-@media(max-width:760px){.sidebar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 8px;overflow:visible;padding-block:12px}.sidebar>.brand{grid-column:1;min-width:0}.sidebar>.nav-list{grid-column:2;gap:2px}.sidebar>.nav-list .nav-item{padding:8px;min-height:36px}.product-nav{grid-column:1/-1;display:flex;align-items:center;gap:7px;margin:0;padding:9px 0 0}.product-nav .nav-item{width:auto;min-height:40px;padding:7px 10px;gap:7px;border:1px solid #372b40;border-radius:7px;background:#19141f}.product-nav-label{display:inline;font-size:11px}.product-nav .nav-item svg{display:none}.product-mobile-version{display:inline-block;margin-left:auto;margin-top:0;flex-shrink:0}.topbar{height:56px}.topbar .breadcrumb{gap:7px}.topbar .breadcrumb>span:first-child,.topbar .breadcrumb-divider{display:none}#saveStatus{font-size:11px;padding:10px 12px}.notice-dock{right:12px;max-width:calc(100vw - 24px)}.video-preview-column{position:static}}
+@media(max-width:760px){.sidebar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 8px;overflow:visible;padding-block:12px}.sidebar>.brand{grid-column:1;min-width:0}.sidebar>.nav-list{grid-column:2;gap:2px}.sidebar>.nav-list .nav-item{padding:8px;min-height:36px}.product-nav{grid-column:1/-1;display:flex;align-items:center;gap:7px;margin:0;padding:9px 0 0}.product-nav .nav-item{width:auto;min-height:40px;padding:7px 10px;gap:7px;border:1px solid #372b40;border-radius:7px;background:#19141f}.product-nav-label{display:inline;font-size:11px}.product-nav .nav-item svg{display:none}.product-mobile-version{display:inline-block;margin-left:auto;margin-top:0;flex-shrink:0}.topbar{height:56px}.topbar .breadcrumb{gap:7px}.topbar .breadcrumb>span:first-child,.topbar .breadcrumb-divider{display:none}#saveStatus{font-size:11px;padding:10px 12px}.video-preview-column{position:static}}
 @media(max-width:360px){.sidebar{padding-inline:14px}.sidebar>.nav-list .nav-item{padding:7px;width:34px}.sidebar>.brand>span:last-child{font-size:16px}.sidebar>.brand{gap:6px}.product-nav{gap:5px}.product-nav .nav-item{padding-inline:8px}.product-nav-label{font-size:10px}.product-mobile-version{font-size:9px}#saveStatus{font-size:11px}}
 @media(max-height:540px) and (min-width:761px){.sidebar{padding-top:16px}.sidebar .local-card,.sidebar .workspace-label,.sidebar .project-card{display:none}.sidebar .nav-list{margin-top:15px}.sidebar-bottom{padding-top:14px}.product-nav{margin-top:10px;padding-top:10px}.has-video-result .video-render-controls{padding-block:12px;gap:8px}}
 @media(prefers-reduced-motion:reduce){#saveStatus{transition:none}#saveStatus[data-state=pending] svg{animation:none}}
 @keyframes save-pulse{50%{opacity:.35}}
 @media(max-width:600px){.video-canvas-wrap>canvas,.video-canvas-wrap>video{width:100%;height:auto;max-height:none}}
-
-@media(min-width:761px){.notice-dock{max-width:min(400px,calc(100vw - 120px))}}
 
 </style>
 </head>
@@ -188,10 +184,8 @@ body{overflow:hidden}
     </main>
   </div>
   </div>
-  <div id="noticeDock" class="notice-dock">
     <div class="save-status" id="saveStatus" role="status" aria-live="polite" aria-atomic="true" hidden><svg aria-hidden="true"><use href="#i-clock"/></svg><span id="saveStatusText"></span></div>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-  </div>
   <dialog id="confirmDialog"><form method="dialog"><span class="dialog-icon"><svg><use href="#i-info"/></svg></span><h2 id="dialogTitle">Продолжить?</h2><p id="dialogDescription"></p><div class="dialog-actions"><button class="button button-secondary" value="cancel" autofocus>Отмена</button><button class="button button-primary" id="dialogConfirm" value="confirm">Продолжить</button></div></form></dialog>
   <dialog id="productDialog" class="product-dialog" aria-labelledby="productDialogTitle">
     <div class="product-dialog-header"><div><div class="product-dialog-eyebrow">SHORTS STUDIO · СДЕЛАНО ДЛЯ ВАШИХ ИСТОРИЙ</div><h2 id="productDialogTitle">Что нового</h2></div><button id="productClose" class="product-dialog-close" aria-label="Закрыть информацию о продукте">×</button></div>
@@ -2636,7 +2630,6 @@ window.ShortsEditorReady = (async function () {
   // completion. The timers below dismiss a notification; they never save data.
   const workspace = document.querySelector('.workspace');
   const viewport = document.getElementById('studioViewport');
-  const dock = document.getElementById('noticeDock');
   const indicator = document.getElementById('saveStatus');
   const label = document.getElementById('saveStatusText');
   const sources = [document.getElementById('editorSaveState'), document.getElementById('videoDraftStatus')];
@@ -2658,15 +2651,37 @@ window.ShortsEditorReady = (async function () {
       column.classList.toggle('preview-sticky', innerWidth > 760 && chrome + 160 <= available);
     }
   }
-  function fitNotices() {
-    // A dedicated bottom gutter prevents notices from covering ANY workspace
-    // control, including mobile Download. It collapses when the notices leave.
-    const visible = [...dock.children].some(child => !child.hidden);
-    const keyboard = window.visualViewport && visualViewport.scale === 1 ? Math.max(0, innerHeight - visualViewport.height - visualViewport.offsetTop) : 0;
-    dock.style.bottom = 'calc(' + keyboard + 'px + 12px + env(safe-area-inset-bottom, 0px))';
-    const bottom = parseFloat(getComputedStyle(dock).bottom) || 12;
-    document.documentElement.style.setProperty('--notice-space', (visible ? Math.ceil(dock.getBoundingClientRect().height + bottom + 12) : keyboard) + 'px');
-    fitPreview();
+  let placementFrame;
+  function placeToast() {
+    if (indicator.hidden) return;
+    // Only the fixed notification moves. Never resize/scroll the workspace or
+    // refit the preview in response to saving, text changes or dismissal.
+    const visual = window.visualViewport;
+    const safeBottom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--toast-safe-bottom')) || 0;
+    const top = (visual?.offsetTop || 0) + 12;
+    const bottom = Math.min(innerHeight, (visual?.offsetTop || 0) + (visual?.height || innerHeight)) - 12 - safeBottom;
+    const left = Math.max(workspace.getBoundingClientRect().left, visual?.offsetLeft || 0) + 12;
+    const right = Math.min(innerWidth, (visual?.offsetLeft || 0) + (visual?.width || innerWidth)) - 12;
+    const { width, height } = indicator.getBoundingClientRect();
+    const obstacles = [...document.querySelectorAll('button,input:not([type=hidden]),textarea,select,a[href],video,.video-render-controls,#toast')]
+      .filter(element => element !== indicator && !element.closest('dialog') && element.getClientRects().length)
+      .map(element => element.getBoundingClientRect())
+      .filter(rect => rect.bottom > top && rect.top < bottom && rect.right > left && rect.left < right);
+    const xs = [Math.max(left, right - width), left];
+    const ys = [...new Set([bottom - height, top, ...obstacles.flatMap(rect => [rect.top - height - 8, rect.bottom + 8])])]
+      .filter(y => y >= top && y + height <= bottom).sort((a, b) => b - a);
+    let best = { x: xs[0], y: Math.max(top, bottom - height), overlap: Infinity };
+    for (const y of ys) for (const x of xs) {
+      const overlap = obstacles.reduce((sum, rect) => sum + Math.max(0, Math.min(x + width + 4, rect.right) - Math.max(x - 4, rect.left)) * Math.max(0, Math.min(y + height + 4, rect.bottom) - Math.max(y - 4, rect.top)), 0);
+      if (overlap < best.overlap) best = { x, y, overlap };
+      if (!overlap) break;
+    }
+    indicator.style.left = best.x + 'px'; indicator.style.top = best.y + 'px';
+    indicator.style.right = 'auto'; indicator.style.bottom = 'auto';
+  }
+  function schedulePlacement() {
+    cancelAnimationFrame(placementFrame);
+    placementFrame = requestAnimationFrame(placeToast);
   }
   function showSaveState() {
     clearTimeout(dismissTimer); clearTimeout(hideTimer);
@@ -2689,9 +2704,9 @@ window.ShortsEditorReady = (async function () {
     if (label.textContent !== nextLabel) label.textContent = nextLabel;
     if (visible && state === 'saved') dismissTimer = setTimeout(() => {
       indicator.dataset.visible = 'false';
-      hideTimer = setTimeout(() => { indicator.hidden = true; fitNotices(); }, 220);
+      hideTimer = setTimeout(() => { indicator.hidden = true; }, 220);
     }, Math.max(0, until - Date.now()));
-    fitNotices();
+    placeToast();
   }
   function readSource(source) {
     const text = source.textContent.trim(), state = classify(text), previous = states.get(source);
@@ -2707,15 +2722,16 @@ window.ShortsEditorReady = (async function () {
   }
   new MutationObserver(() => { showSaveState(); fitPreview(); }).observe(workspace, { attributes: true, attributeFilter: ['data-mode'] });
   new MutationObserver(showResult).observe(download, { attributes: true, attributeFilter: ['hidden'] });
-  new MutationObserver(fitNotices).observe(document.getElementById('toast'), { attributes: true, childList: true, attributeFilter: ['hidden'] });
+  new MutationObserver(schedulePlacement).observe(document.getElementById('toast'), { attributes: true, childList: true, attributeFilter: ['hidden'] });
   if (typeof ResizeObserver === 'function') {
-    const observer = new ResizeObserver(fitNotices);
-    observer.observe(dock); observer.observe(viewport);
+    const observer = new ResizeObserver(() => { fitPreview(); schedulePlacement(); });
+    observer.observe(viewport);
     for (const column of columns) observer.observe(column);
   }
-  window.addEventListener('resize', fitNotices);
-  window.visualViewport?.addEventListener('resize', fitNotices);
-  window.visualViewport?.addEventListener('scroll', fitNotices);
+  window.addEventListener('resize', () => { fitPreview(); schedulePlacement(); });
+  viewport.addEventListener('scroll', schedulePlacement, { passive: true });
+  window.visualViewport?.addEventListener('resize', schedulePlacement);
+  window.visualViewport?.addEventListener('scroll', schedulePlacement);
   showSaveState(); showResult();
 })();
 

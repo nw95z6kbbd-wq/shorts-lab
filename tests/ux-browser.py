@@ -51,6 +51,23 @@ def run():
                 page.wait_for_function('document.getElementById("studioViewport").scrollTop>0')
                 before=page.evaluate('async()=>{const db=ShortsProjectDB.createRepository();const value=await db.read("editor");db.close();return value.revision;}')
                 page.evaluate((ROOT/'tests/ux-fixture.js').read_text())
+                # No focus, scroll or project-shape changes: isolate the toast's
+                # effect across an actual delayed transaction and its dismissal.
+                expect(page.locator('#saveStatus')).to_be_hidden(timeout=4000)
+                layout=page.evaluate('uxLayoutSnapshot()')
+                page.evaluate('holdUXTransaction()')
+                page.evaluate('const e=document.getElementById("projectName");e.value="Неподвижный интерфейс";e.dispatchEvent(new Event("input",{bubbles:true}));')
+                expect(page.locator('#saveStatus')).to_have_attribute('data-state','pending')
+                assert page.evaluate('uxLayoutSnapshot()')==layout
+                assert page.locator('#saveStatus').evaluate('e=>getComputedStyle(e).position')=='fixed'
+                page.evaluate('window.uxHold=false')
+                expect(page.locator('#saveStatus')).to_have_attribute('data-state','saved')
+                assert page.evaluate('uxLayoutSnapshot()')==layout
+                expect(page.locator('#saveStatus')).to_be_hidden(timeout=4000)
+                assert page.evaluate('uxLayoutSnapshot()')==layout
+                assert page.locator('#noticeDock').count()==0
+                assert page.evaluate('getComputedStyle(document.documentElement).getPropertyValue("--notice-space")===""')
+                print(f'PASS [{engine} UX]: unchanged block coordinates, document dimensions and scroll before/during/after real save toast; no bottom panel',flush=True)
                 page.evaluate('holdUXTransaction()')
                 page.locator('#projectName').fill('Транзакция должна завершиться')
                 expect(page.locator('#saveStatus')).to_have_attribute('data-state','pending')
@@ -163,11 +180,27 @@ def run():
                     assert page.locator('#videoFileInfo').evaluate('e=>e.scrollHeight<=e.clientHeight+1 && e.scrollWidth<=e.clientWidth+1')
                     assert page.locator('.video-preview-panel').evaluate('e=>e.scrollHeight<=e.clientHeight+1')
                     expect(page.locator('#downloadVideo')).to_be_visible()
-                    # Notice space is physically outside the workspace and cannot cover buttons.
+                    # The fixed toast avoids critical controls without any layout reservation.
                     page.locator('#downloadVideo').scroll_into_view_if_needed()
-                    assert page.locator('#saveStatus').bounding_box()['y']>=page.locator('#studioViewport').bounding_box()['height']
+                    page.evaluate('()=>new Promise(resolve=>requestAnimationFrame(resolve))')
+                    assert not page.evaluate('uxToastOverlapsControls()'),(width,height)
                     link=page.locator('#downloadVideo');link.focus();expect(link).to_be_focused()
                     rect=link.bounding_box();assert rect['y']>=0 and rect['y']+rect['height']<=page.locator('#studioViewport').bounding_box()['height']+1
+                    expect(page.locator('#saveStatus')).to_be_hidden(timeout=4000)
+                    layout=page.evaluate('uxLayoutSnapshot()')
+                    # Presentation-only state fixture isolates toast visibility from
+                    # invalidation of the video result on genuine project edits.
+                    page.evaluate('videoDraftStatus.textContent="Сохранение…"')
+                    expect(page.locator('#saveStatus')).to_be_visible()
+                    assert page.evaluate('uxLayoutSnapshot()')==layout,(width,height)
+                    page.evaluate('videoDraftStatus.textContent="Сохранено на устройстве"')
+                    expect(page.locator('#saveStatus')).to_have_attribute('data-state','saved')
+                    assert page.evaluate('uxLayoutSnapshot()')==layout,(width,height)
+                    assert not page.evaluate('uxToastOverlapsControls()'),(width,height)
+                    if width==390:page.screenshot(path='/tmp/shorts-floating-mobile.png')
+                    if width==1440 and height==900:page.screenshot(path='/tmp/shorts-floating-desktop.png')
+                    expect(page.locator('#saveStatus')).to_be_hidden(timeout=4000)
+                    assert page.evaluate('uxLayoutSnapshot()')==layout,(width,height)
                     # Same output DOM geometry in both display states; actual file
                     # playback/tab switching remains in the real export suites.
                     page.evaluate('videoCanvas.hidden=true;generatedVideo.hidden=false')

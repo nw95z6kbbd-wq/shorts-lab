@@ -4,7 +4,6 @@
   // completion. The timers below dismiss a notification; they never save data.
   const workspace = document.querySelector('.workspace');
   const viewport = document.getElementById('studioViewport');
-  const dock = document.getElementById('noticeDock');
   const indicator = document.getElementById('saveStatus');
   const label = document.getElementById('saveStatusText');
   const sources = [document.getElementById('editorSaveState'), document.getElementById('videoDraftStatus')];
@@ -26,15 +25,37 @@
       column.classList.toggle('preview-sticky', innerWidth > 760 && chrome + 160 <= available);
     }
   }
-  function fitNotices() {
-    // A dedicated bottom gutter prevents notices from covering ANY workspace
-    // control, including mobile Download. It collapses when the notices leave.
-    const visible = [...dock.children].some(child => !child.hidden);
-    const keyboard = window.visualViewport && visualViewport.scale === 1 ? Math.max(0, innerHeight - visualViewport.height - visualViewport.offsetTop) : 0;
-    dock.style.bottom = 'calc(' + keyboard + 'px + 12px + env(safe-area-inset-bottom, 0px))';
-    const bottom = parseFloat(getComputedStyle(dock).bottom) || 12;
-    document.documentElement.style.setProperty('--notice-space', (visible ? Math.ceil(dock.getBoundingClientRect().height + bottom + 12) : keyboard) + 'px');
-    fitPreview();
+  let placementFrame;
+  function placeToast() {
+    if (indicator.hidden) return;
+    // Only the fixed notification moves. Never resize/scroll the workspace or
+    // refit the preview in response to saving, text changes or dismissal.
+    const visual = window.visualViewport;
+    const safeBottom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--toast-safe-bottom')) || 0;
+    const top = (visual?.offsetTop || 0) + 12;
+    const bottom = Math.min(innerHeight, (visual?.offsetTop || 0) + (visual?.height || innerHeight)) - 12 - safeBottom;
+    const left = Math.max(workspace.getBoundingClientRect().left, visual?.offsetLeft || 0) + 12;
+    const right = Math.min(innerWidth, (visual?.offsetLeft || 0) + (visual?.width || innerWidth)) - 12;
+    const { width, height } = indicator.getBoundingClientRect();
+    const obstacles = [...document.querySelectorAll('button,input:not([type=hidden]),textarea,select,a[href],video,.video-render-controls,#toast')]
+      .filter(element => element !== indicator && !element.closest('dialog') && element.getClientRects().length)
+      .map(element => element.getBoundingClientRect())
+      .filter(rect => rect.bottom > top && rect.top < bottom && rect.right > left && rect.left < right);
+    const xs = [Math.max(left, right - width), left];
+    const ys = [...new Set([bottom - height, top, ...obstacles.flatMap(rect => [rect.top - height - 8, rect.bottom + 8])])]
+      .filter(y => y >= top && y + height <= bottom).sort((a, b) => b - a);
+    let best = { x: xs[0], y: Math.max(top, bottom - height), overlap: Infinity };
+    for (const y of ys) for (const x of xs) {
+      const overlap = obstacles.reduce((sum, rect) => sum + Math.max(0, Math.min(x + width + 4, rect.right) - Math.max(x - 4, rect.left)) * Math.max(0, Math.min(y + height + 4, rect.bottom) - Math.max(y - 4, rect.top)), 0);
+      if (overlap < best.overlap) best = { x, y, overlap };
+      if (!overlap) break;
+    }
+    indicator.style.left = best.x + 'px'; indicator.style.top = best.y + 'px';
+    indicator.style.right = 'auto'; indicator.style.bottom = 'auto';
+  }
+  function schedulePlacement() {
+    cancelAnimationFrame(placementFrame);
+    placementFrame = requestAnimationFrame(placeToast);
   }
   function showSaveState() {
     clearTimeout(dismissTimer); clearTimeout(hideTimer);
@@ -57,9 +78,9 @@
     if (label.textContent !== nextLabel) label.textContent = nextLabel;
     if (visible && state === 'saved') dismissTimer = setTimeout(() => {
       indicator.dataset.visible = 'false';
-      hideTimer = setTimeout(() => { indicator.hidden = true; fitNotices(); }, 220);
+      hideTimer = setTimeout(() => { indicator.hidden = true; }, 220);
     }, Math.max(0, until - Date.now()));
-    fitNotices();
+    placeToast();
   }
   function readSource(source) {
     const text = source.textContent.trim(), state = classify(text), previous = states.get(source);
@@ -75,14 +96,15 @@
   }
   new MutationObserver(() => { showSaveState(); fitPreview(); }).observe(workspace, { attributes: true, attributeFilter: ['data-mode'] });
   new MutationObserver(showResult).observe(download, { attributes: true, attributeFilter: ['hidden'] });
-  new MutationObserver(fitNotices).observe(document.getElementById('toast'), { attributes: true, childList: true, attributeFilter: ['hidden'] });
+  new MutationObserver(schedulePlacement).observe(document.getElementById('toast'), { attributes: true, childList: true, attributeFilter: ['hidden'] });
   if (typeof ResizeObserver === 'function') {
-    const observer = new ResizeObserver(fitNotices);
-    observer.observe(dock); observer.observe(viewport);
+    const observer = new ResizeObserver(() => { fitPreview(); schedulePlacement(); });
+    observer.observe(viewport);
     for (const column of columns) observer.observe(column);
   }
-  window.addEventListener('resize', fitNotices);
-  window.visualViewport?.addEventListener('resize', fitNotices);
-  window.visualViewport?.addEventListener('scroll', fitNotices);
+  window.addEventListener('resize', () => { fitPreview(); schedulePlacement(); });
+  viewport.addEventListener('scroll', schedulePlacement, { passive: true });
+  window.visualViewport?.addEventListener('resize', schedulePlacement);
+  window.visualViewport?.addEventListener('scroll', schedulePlacement);
   showSaveState(); showResult();
 })();

@@ -125,18 +125,25 @@ def run():
             print('PASS [native Safari]: narrow desktop window layout; actual viewport width:',script('return innerWidth;'),flush=True)
             command('POST','/window/rect',{'width':1440,'height':1000})
             script((ROOT/'tests/ux-fixture.js').read_text())
+            wait_for('document.getElementById("saveStatus").hidden',seconds=6)
+            layout=script('return uxLayoutSnapshot();')
             command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];holdUXTransaction().then(()=>done(true),e=>done({error:e.message}));','args':[]})
             script('const e=document.getElementById("projectName");e.value="Safari toast";e.dispatchEvent(new Event("input",{bubbles:true}));')
             wait_for('document.getElementById("saveStatus").dataset.state==="pending"')
             time.sleep(.7)
+            assert script('return uxLayoutSnapshot();')==layout
             assert script('return document.getElementById("saveStatusText").textContent;')=='Сохранение…'
             script('const v=document.getElementById("studioViewport");v.scrollTop=v.scrollHeight;')
             command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));','args':[]})
             assert script('const r=document.querySelector(".preview-column").getBoundingClientRect();return r.top>=-1 && r.bottom<=document.getElementById("studioViewport").clientHeight+1;')
-            assert script('return document.getElementById("saveStatus").getBoundingClientRect().top>=document.getElementById("studioViewport").clientHeight;')
+            assert not script('return uxToastOverlapsControls();')
+            layout=script('return uxLayoutSnapshot();')
             script('window.uxHold=false;')
             wait_for('document.getElementById("saveStatus").dataset.state==="saved"')
+            assert script('return uxLayoutSnapshot();')==layout
             wait_for('document.getElementById("saveStatus").hidden',seconds=6)
+            assert script('return uxLayoutSnapshot();')==layout
+            assert script('return !document.getElementById("noticeDock") && !getComputedStyle(document.documentElement).getPropertyValue("--notice-space");')
             script('quotaUXFailure();const e=document.getElementById("projectName");e.value="Safari quota";e.dispatchEvent(new Event("input",{bubbles:true}));')
             wait_for('document.getElementById("saveStatus").dataset.state==="error"')
             time.sleep(2.9)
@@ -148,7 +155,7 @@ def run():
             assert script('return document.getElementById("saveStatus").dataset.state;')=='error'
             script('restoreUXQuota();const e=document.getElementById("projectName");e.value="Safari retry";e.dispatchEvent(new Event("input",{bubbles:true}));')
             wait_for('document.getElementById("saveStatus").dataset.state==="saved"')
-            print('PASS [native Safari]: delayed real transaction, auto-dismiss toast, persistent quota error, isolated mode status, retry, sticky editor and non-overlapping notice gutter',flush=True)
+            print('PASS [native Safari]: delayed real transaction, auto-dismiss toast, persistent quota error, isolated mode status, retry, sticky editor and floating toast with unchanged document geometry/scroll and no bottom panel',flush=True)
             command('POST','/window/rect',{'width':1000,'height':900})
             def prepare_canvas():
                 click('#createVideoMode')

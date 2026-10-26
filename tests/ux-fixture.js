@@ -25,3 +25,24 @@ window.quotaUXFailure = () => {
 window.restoreUXQuota = () => { IDBObjectStore.prototype.put = window.uxPut; };
 
 void 0;
+
+window.uxLayoutSnapshot = () => {
+  const rect = element => {
+    const box = element.getBoundingClientRect();
+    return ['x', 'y', 'width', 'height'].map(key => Math.round(box[key] * 1000) / 1000);
+  };
+  const view = document.getElementById('studioViewport');
+  return {
+    document: [document.documentElement.scrollWidth, document.documentElement.scrollHeight, document.body.scrollWidth, document.body.scrollHeight, scrollX, scrollY],
+    viewport: [view.clientWidth, view.clientHeight, view.scrollWidth, view.scrollHeight, view.scrollLeft, view.scrollTop],
+    blocks: [...document.querySelectorAll('#mainContent,.workspace,.studio-grid,.video-grid,.preview-column,.video-preview-column,.editor-column,.video-editor,#portrait,#videoCanvas,#generatedVideo')].filter(e => e.getClientRects().length).map(e => [e.id || e.className, rect(e)])
+  };
+};
+window.uxToastOverlapsControls = () => {
+  const toast = document.getElementById('saveStatus').getBoundingClientRect();
+  return [...document.querySelectorAll('#downloadVideo,#recordVideo,#cancelVideo,#playGeneratedPreview,#playPreview,#videoSeek')].filter(e => e.getClientRects().length).some(e => {
+    const r = e.getBoundingClientRect();
+    return Math.min(toast.right, r.right) > Math.max(toast.left, r.left) && Math.min(toast.bottom, r.bottom) > Math.max(toast.top, r.top);
+  });
+};
+void 0;
