@@ -78,6 +78,18 @@ def run():
                     assert not errors, errors
                     assert all(url.startswith((base, "data:", "blob:")) for url in requests), requests
                     print("PASS: standalone editor, JSON download and mobile layout; no missing assets or external requests")
+                    page.locator("#openVideoMode").click()
+                    expect(page.locator("#videoStudio")).to_be_visible()
+                    expect(page.locator(".video-scene-card")).to_have_count(6)
+                    expect(page.locator("#recordVideo")).to_be_enabled()
+                    assert page.evaluate('''() => {
+                      const canvas = document.getElementById('videoCanvas');
+                      const plan = ShortsVideoCore.makePlan(ShortsVideoCore.demo());
+                      ShortsVideoRenderer.render(canvas, plan, 800); const a = canvas.toDataURL();
+                      ShortsVideoRenderer.render(canvas, plan, 1600); return a !== canvas.toDataURL();
+                    }''')
+                    assert not errors, errors
+                    print("PASS: video generator and Canvas renderer are included in the standalone Pages download")
                 finally:
                     browser.close()
         finally:
