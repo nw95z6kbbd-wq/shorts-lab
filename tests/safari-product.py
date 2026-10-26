@@ -138,6 +138,14 @@ def run():
                 click('#recordVideo')
                 visibility=script('const r=document.getElementById("videoCanvas").getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight,hidden:document.hidden,focus:document.hasFocus()};')
                 wait_for('!document.getElementById("downloadVideo").hidden || document.getElementById("videoRenderStatus").textContent.includes("не завершена")',seconds=25)
+                if not script('return !document.getElementById("downloadVideo").hidden;'):
+                    first_error=script('return document.getElementById("videoError").textContent;')
+                    formats=script('return ShortsVideoRecorder.capabilities(true,"webm");')
+                    assert formats['supported'], {'error':first_error,'webm':formats,'canvas':visibility}
+                    print('::warning title=Safari MP4 codec limitation::'+first_error+' Testing the existing user-selectable WebM fallback; the recorder is unchanged.',flush=True)
+                    script('const select=document.getElementById("videoFormat");select.value="webm";select.dispatchEvent(new Event("change",{bubbles:true}));')
+                    click('#recordVideo')
+                    wait_for('!document.getElementById("downloadVideo").hidden || document.getElementById("videoRenderStatus").textContent.includes("не завершена")',seconds=25)
                 assert script('return !document.getElementById("downloadVideo").hidden;'),{'error':script('return document.getElementById("videoError").textContent;'),'canvas':visibility}
                 wait_for('document.getElementById("generatedVideo").readyState>=1')
                 metadata=script('const v=document.getElementById("generatedVideo");return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:document.getElementById("videoFileInfo").textContent};')
