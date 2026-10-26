@@ -9,6 +9,7 @@ import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 from playwright.sync_api import expect, sync_playwright
+from patch_checks import check_patch_ux
 
 ROOT = Path(__file__).resolve().parents[1]
 SEEN = 'shorts-studio.updates.dismissed.v1'
@@ -51,7 +52,14 @@ def run():
                 expect(page.locator('.release-item')).to_have_count(len(metadata['releases']))
                 for i, release in enumerate(metadata['releases']):
                     expect(page.locator('.release-heading h3').nth(i)).to_have_text('Версия ' + release['version'])
-                    expect(page.locator('.release-heading time').nth(i)).to_have_attribute('datetime', release['date'])
+                    card=page.locator('.release-item').nth(i)
+                    expect(card).to_have_attribute('data-importance',release['importance'])
+                    expect(card).to_have_attribute('data-status',release['status'])
+                    if release['status']=='unreleased':
+                        expect(card.locator('.release-pending')).to_have_text('Ещё не опубликовано')
+                        assert card.locator('time').count()==0
+                    else:expect(card.locator('time')).to_have_attribute('datetime',release['date'])
+                    assert card.locator('.release-summary').count()==(1 if release['importance']=='highlight' else 0)
                     expect(page.locator('.release-item').nth(i).locator('li')).to_have_count(len(release['changes']))
                 page.locator('#productClose').click()
                 assert page.evaluate(f'localStorage.getItem({json.dumps(SEEN)})') == metadata['version']
@@ -103,6 +111,8 @@ def run():
                 page.locator('#backToEditor').click(); expect(page.locator('#scriptStudio')).to_be_visible()
                 print(f'PASS [{engine}]: 4 viewport sizes, modal scrolling and product UI in both editor modes', flush=True)
 
+                check_patch_ux(page, engine)
+
                 blocked = browser.new_context()
                 blocked.add_init_script('Object.defineProperty(Storage.prototype,"setItem",{value(){throw new DOMException("full","QuotaExceededError")}});')
                 other=blocked.new_page(); other.on('pageerror',lambda e:errors.append(str(e)))
@@ -121,7 +131,19 @@ def run():
                     mobile.locator('#productProfileForm button[type="submit"]').tap()
                     expect(mobile.locator('#productProfileStatus')).to_contain_text('Сохранено только')
                     assert mobile.evaluate('document.documentElement.scrollWidth <= innerWidth')
-                    mobile.locator('#productClose').tap();phone.close()
+                    mobile.locator('#productClose').tap()
+                    mobile.locator('.manual-nav [data-view="script"]').tap()
+                    manual_name=mobile.locator('#projectName').input_value()
+                    mobile.locator('#openVideoMode').tap()
+                    mobile.locator('#videoIdea').fill('Мобильная идея 🌌')
+                    limit=mobile.evaluate('ShortsVideoCore.IDEA_LIMIT')
+                    expect(mobile.locator('#videoIdeaCounter')).to_have_text(f'{len("Мобильная идея 🌌".encode("utf-16-le"))//2} / {limit} символов')
+                    mobile.locator('.manual-nav [data-view="scenes"]').tap()
+                    expect(mobile.locator('#projectName')).to_have_value(manual_name)
+                    mobile.locator('#openVideoMode').tap()
+                    expect(mobile.locator('#videoIdea')).to_have_value('Мобильная идея 🌌')
+                    assert mobile.locator('#studioViewport').evaluate('e=>e.scrollWidth<=e.clientWidth')
+                    phone.close()
                     print('PASS [WebKit iPhone emulation]: touch navigation, forms and mobile modal',flush=True)
                 assert not errors, errors
                 assert all(request.startswith((base,'blob:','data:')) for request in requests),requests

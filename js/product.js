@@ -6,8 +6,21 @@
   'use strict';
   // The release list is the only editable source of version numbers and release notes.
   // Add future releases at the beginning; CHANGELOG.md is generated from this file.
+  const releaseKinds = Object.freeze({ highlight: 'Знаковое обновление', standard: 'Обновление', patch: 'Патч' });
   const releases = [
     {
+      version: '1.3.1', date: null, status: 'unreleased', importance: 'patch',
+      title: 'Понятная навигация и история обновлений',
+      summary: 'Небольшое обновление интерфейса без изменения форматов проектов и видеогенератора.',
+      pullRequests: [7], commit: null,
+      changes: [
+        'Отдельные группы «Студия» и «Создание с ИИ»; действующий режим по идее честно обозначен как шаблонный.',
+        'Живой счётчик идеи с существующим лимитом, предупреждением о приближении и явной обработкой превышения без обрезания текста.',
+        'Три уровня истории: знаковые релизы, обычные обновления и компактные патчи; значимость задаётся метаданными.'
+      ]
+    },
+    {
+      status: 'published', importance: 'highlight', summary: 'Проекты и исходные материалы восстанавливаются локально; студия удобнее при долгой работе.',
       version: '1.3.0', date: '2026-10-26', title: 'Сохранённые проекты и удобная студия',
       pullRequests: [5, 6], commit: '0708696c94b943c6ecc5c97e9e7816b35ebfa7d4',
       changes: [
@@ -20,6 +33,7 @@
       ]
     },
     {
+      status: 'published', importance: 'standard', summary: 'Свои изображения, две звуковые дорожки и оформление продукта.',
       version: '1.2.0', date: '2026-10-26', title: 'Медиаматериалы и оформление продукта',
       pullRequests: [3], commit: '37b94ab1cd57abd40b24e725c6cf6519acfbb0f6',
       changes: [
@@ -32,6 +46,7 @@
       ]
     },
     {
+      status: 'published', importance: 'highlight', summary: 'Первый генератор настоящего вертикального видео прямо в браузере.',
       version: '1.1.0', date: '2026-10-26', title: 'От идеи до настоящего видео',
       pullRequests: [2], commit: 'de80c3159ff11fc00b51ddc4f6bff723c019198a',
       changes: [
@@ -43,6 +58,7 @@
       ]
     },
     {
+      status: 'published', importance: 'standard', summary: 'Первая версия редактора сценариев, сцен и субтитров.',
       version: '1.0.0', date: '2026-10-25', title: 'Первая история начинается здесь',
       pullRequests: [1], commit: 'c16586c5a886731dca04454ed0c6598e4aa9e6ee',
       changes: [
@@ -58,9 +74,9 @@
     Object.freeze(release.changes); Object.freeze(release.pullRequests); Object.freeze(release);
   }
   return Object.freeze({
-    name: 'Shorts Studio', version: releases[0].version, releases: Object.freeze(releases),
+    name: 'Shorts Studio', version: releases[0].version, releases: Object.freeze(releases), releaseKinds,
     repository: 'https://github.com/nw95z6kbbd-wq/shorts-lab',
-    historyNote: 'История составлена по Git и PR. Даты предыдущих выпусков соответствуют объединению функциональных изменений; текущая запись подготовлена к выпуску. Часовой пояс — Asia/Yekaterinburg.',
+    historyNote: 'История составлена по Git и PR. Даты опубликованных выпусков соответствуют объединению функциональных изменений. Записи «Ещё не опубликовано» подготовлены в ветках PR и не являются выпущенными версиями. Часовой пояс — Asia/Yekaterinburg.',
     // Fill these fields only when the actual rights holder and contact are known.
     rights: Object.freeze({ owner: '', contact: '' }),
     licenseNote: 'Свободная лицензия проекта не установлена. Сведения о правообладателе и условиях использования заполняются отдельно.',

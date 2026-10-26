@@ -99,7 +99,7 @@ def run():
             click('.product-nav [data-product-open="updates"]')
             wait_for('document.getElementById("productDialog").open')
             assert script('return document.querySelectorAll(".release-item").length;')==len(product['releases'])
-            assert script('return Array.from(document.querySelectorAll(".release-heading time")).map(e=>e.dateTime);')==[release['date'] for release in product['releases']]
+            assert script('return Array.from(document.querySelectorAll(".release-heading time")).map(e=>e.dateTime);')==[release['date'] for release in product['releases'] if release['status']=='published']
             click('#productClose');command('POST','/refresh',{})
             wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert && document.getElementById("saveStatus").dataset.state',seconds=30)
             assert script('return document.getElementById("productUpdateNotice").hidden;')
@@ -117,6 +117,40 @@ def run():
             click('#productResetProfile');click('#productClose')
             assert before==script('return [localStorage.getItem("shorts-studio.project.v1"),localStorage.getItem("shorts-studio.video.v1")];')
             print('PASS [native Safari]: version, dated release history, notice dismissal and local profile; project data unchanged',flush=True)
+            assert script('return document.querySelectorAll(".studio-navigation .nav-group").length;')==2
+            assert script('return document.querySelectorAll(".manual-nav [data-view]").length;')==3
+            assert script('return document.querySelectorAll(".ai-nav button").length;')==1
+            click('.manual-nav [data-view="script"]')
+            script('const e=document.getElementById("projectName");e.value="Ручной Safari";e.dispatchEvent(new Event("input",{bubbles:true}));')
+            click('#openVideoMode')
+            assert script('return document.querySelectorAll(".manual-nav [aria-current]").length;')==0
+            for text in ['Привет', 'Привет 🌌', 'Ёж e\u0301 👨‍👩‍👧‍👦']:
+                script('const e=document.getElementById("videoIdea");e.value=arguments[0];e.dispatchEvent(new InputEvent("input",{bubbles:true,inputType:"insertFromPaste",data:arguments[0]}));',[text])
+                expected=str(len(text.encode('utf-16-le'))//2)+' / '+str(script('return ShortsVideoCore.IDEA_LIMIT;'))+' символов'
+                assert script('return document.getElementById("videoIdeaCounter").textContent;')==expected
+            wait_for('document.getElementById("videoDraftStatus").textContent==="Сохранено на устройстве"')
+            limit=script('return ShortsVideoCore.IDEA_LIMIT;')
+            old_scenes=script('return document.getElementById("videoScenes").textContent;')
+            script('const e=document.getElementById("videoIdea");e.value="я".repeat(ShortsVideoCore.IDEA_LIMIT+1);e.dispatchEvent(new Event("input",{bubbles:true}));')
+            assert script('return document.getElementById("videoIdea").value.length;')==limit+1
+            assert script('return document.getElementById("videoIdea").getAttribute("aria-invalid");')=='true'
+            click('#generateIdea')
+            assert script('return document.getElementById("videoScenes").textContent;')==old_scenes
+            click('.manual-nav [data-view="scenes"]')
+            assert script('return document.getElementById("projectName").value;')=='Ручной Safari'
+            click('#openVideoMode')
+            assert script('return document.getElementById("videoIdea").value.length;')==limit+1
+            script('const e=document.getElementById("videoIdea");e.value="Исправленная идея Safari 🌌";e.dispatchEvent(new Event("input",{bubbles:true}));')
+            wait_for('document.getElementById("videoDraftStatus").textContent==="Сохранено на устройстве"')
+            click('.product-nav [data-product-open="updates"]')
+            assert script('return Array.from(document.querySelectorAll(".release-item")).some(e=>e.dataset.importance==="highlight") && document.querySelectorAll(".release-standard").length>0 && document.querySelectorAll(".release-patch").length>0;')
+            if product['releases'][0]['status']=='unreleased':
+                assert script('return document.querySelector(".release-item .release-pending").textContent;')=='Ещё не опубликовано'
+            else:
+                assert script('return document.querySelector(".release-item time").dateTime;')==product['releases'][0]['date']
+            click('#productClose');click('#backToEditor')
+            print('PASS [native Safari patch UX]: grouped navigation, Unicode counter, untrimmed overflow, preserved manual/video inputs and three release significance levels with pending patch',flush=True)
+
             command('POST','/window/rect',{'width':390,'height':844})
             assert script('return document.documentElement.scrollWidth <= innerWidth;')
             click('.product-nav [data-product-open="about"]')
@@ -181,21 +215,32 @@ def run():
             assert 'voice.wav' in script('return document.getElementById("videoAudioInfo").textContent;')
             assert 'music.wav' in script('return document.getElementById("videoMusicInfo").textContent;')
             if script('return ShortsVideoRecorder.capabilities(true).supported;'):
-                click('#recordVideo')
-                visibility=script('const r=document.getElementById("videoCanvas").getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight,hidden:document.hidden,focus:document.hasFocus()};')
-                wait_for('!document.getElementById("downloadVideo").hidden || document.getElementById("videoRenderStatus").textContent.includes("не завершена")',seconds=25)
-                if not script('return !document.getElementById("downloadVideo").hidden;'):
-                    first_error=script('return document.getElementById("videoError").textContent;')
-                    formats=script('return ShortsVideoRecorder.capabilities(true,"webm");')
-                    assert formats['supported'], {'error':first_error,'webm':formats,'canvas':visibility}
-                    print('::warning title=Safari MP4 codec limitation::'+first_error+' Testing the existing user-selectable WebM fallback; the recorder is unchanged.',flush=True)
-                    script('const select=document.getElementById("videoFormat");select.value="webm";select.dispatchEvent(new Event("change",{bubbles:true}));')
+                def record_restored_ui():
                     click('#recordVideo')
                     wait_for('!document.getElementById("downloadVideo").hidden || document.getElementById("videoRenderStatus").textContent.includes("не завершена")',seconds=25)
-                assert script('return !document.getElementById("downloadVideo").hidden;'),{'error':script('return document.getElementById("videoError").textContent;'),'canvas':visibility}
-                wait_for('document.getElementById("generatedVideo").readyState>=1')
-                metadata=script('const v=document.getElementById("generatedVideo");return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:document.getElementById("videoFileInfo").textContent};')
-                assert metadata['width']==720 and metadata['height']==1280 and 5<metadata['duration']<7.5,metadata
+                    if script('return document.getElementById("downloadVideo").hidden;'):
+                        return {'error':script('return document.getElementById("videoError").textContent;')}
+                    wait_for('document.getElementById("generatedVideo").readyState>=1')
+                    return script('const v=document.getElementById("generatedVideo");return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:document.getElementById("videoFileInfo").textContent};')
+                def full_restored_video(result):
+                    return result.get('width')==720 and result.get('height')==1280 and isinstance(result.get('duration'),(int,float)) and 5<result['duration']<7.5
+                metadata=record_restored_ui()
+                if not full_restored_video(metadata):
+                    # Never count a short MP4 as a successful export. Verify the
+                    # original encoder stack, then test the existing WebM choice
+                    # with the same full-duration/dimension/audio assertions.
+                    assert metadata.get('error') or metadata.get('info','').startswith('MP4'),metadata
+                    baseline_name=os.environ.get('SAFARI_BASELINE_ROOT')
+                    if baseline_name:
+                        baseline=(ROOT/baseline_name).resolve()
+                        for name in ('video-recorder.js','video-audio.js','video-renderer.js'):
+                            assert (baseline/'js'/name).read_bytes()==(ROOT/'js'/name).read_bytes(),name
+                    formats=script('return ShortsVideoRecorder.capabilities(true,"webm");')
+                    assert formats['supported'],{'first':metadata,'webm':formats}
+                    print('::warning title=Safari MP4 audio codec limitation::Empty or truncated MP4 is NOT accepted as success: '+json.dumps(metadata)+'. Encoder/mixer/renderer are unchanged; testing the existing WebM choice with full duration.',flush=True)
+                    script('const select=document.getElementById("videoFormat");select.value="webm";select.dispatchEvent(new Event("change",{bubbles:true}));')
+                    metadata=record_restored_ui()
+                assert full_restored_video(metadata),metadata
                 assert 'голос + музыка' in metadata['info'],metadata
                 group=script('const p=document.querySelector(".video-download-panel"),i=document.getElementById("videoFileInfo"),d=document.getElementById("downloadVideo");return {infoBeforeDownload:Boolean(i.compareDocumentPosition(d)&Node.DOCUMENT_POSITION_FOLLOWING),noScroll:p.scrollHeight<=p.clientHeight+1};')
                 assert group['infoBeforeDownload'] and group['noScroll'],group

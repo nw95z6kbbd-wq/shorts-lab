@@ -5,6 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (C) {
   'use strict';
   const WIDTH = 720, HEIGHT = 1280, FPS = 24;
+  const IDEA_LIMIT = 280; // Existing UTF-16 limit, shared by input feedback and draft validation.
   const DEMO_IDEA = 'Мистическая история про заброшенный дом';
   const DEMO_SCENES = [
     'Этот заброшенный дом помнил то, что я забыл.',
@@ -31,7 +32,7 @@
   function generateFromIdea(value) {
     const idea = String(value || '').trim().replace(/\s+/gu, ' ');
     if (idea.length < 3 || !C.countWords(idea)) throw new Error('Опишите идею хотя бы несколькими словами.');
-    if (idea.length > 280) throw new Error('Сократите идею до 280 символов.');
+    if (idea.length > IDEA_LIMIT) throw new Error('Сократите идею до ' + IDEA_LIMIT + ' символов.');
     const theme = themeForIdea(idea);
     let hook = idea.replace(/[.!?…]+/gu, ',').replace(/[,\s]+$/gu, '');
     if (hook.length > 240) hook = hook.slice(0, 237).replace(/\s+\S*$/u, '') + '…';
@@ -53,7 +54,7 @@
 
   function parseDraft(value) {
     const data = typeof value === 'string' ? JSON.parse(value) : value;
-    if (!data || data.version !== 1 || typeof data.idea !== 'string' || data.idea.length > 280 ||
+    if (!data || data.version !== 1 || typeof data.idea !== 'string' || data.idea.length > IDEA_LIMIT ||
         typeof data.title !== 'string' || data.title.length > 80 || !Array.isArray(data.scenes) ||
         data.scenes.length > 12 || data.scenes.some(scene => !scene || typeof scene.text !== 'string' || scene.text.length > 280)) {
       throw new Error('Не удалось прочитать черновик видео.');
@@ -251,5 +252,5 @@
       bytes.slice(segment.data, info.start), newInfo, bytes.slice(info.end));
   }
 
-  return { WIDTH, HEIGHT, FPS, DEMO_IDEA, demo, generateFromIdea, themeForIdea, parseDraft, chunks, makePlan, frameAt, generateSrt, supportedFormats, extensionFor, patchWebmDuration, cameraRect, musicEnvelope };
+  return { WIDTH, HEIGHT, FPS, IDEA_LIMIT, DEMO_IDEA, demo, generateFromIdea, themeForIdea, parseDraft, chunks, makePlan, frameAt, generateSrt, supportedFormats, extensionFor, patchWebmDuration, cameraRect, musicEnvelope };
 });
