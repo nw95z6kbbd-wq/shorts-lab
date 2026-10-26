@@ -2026,6 +2026,10 @@ window.ShortsEditorReady = (async function () {
     $('videoDraftStatus').textContent = 'Сохранение…';
     const result = await window.ShortsStorage.save({ ...draft, edited: manuallyEdited }, 'video');
     for (const [id, asset] of assets) asset.persisted = !window.ShortsStorage.pending(id);
+    for (const scene of draft.scenes) {
+      const label = sceneNodes.get(scene.id)?.card.querySelector('.scene-image-name');
+      if (label) label.textContent = (scene.imageName || 'Изображение сцены') + (assets.get(scene.imageId)?.persisted === false ? ' · только в этой вкладке' : '');
+    }
     if (epoch === saveEpoch) {
       $('videoDraftStatus').textContent = result.ok ? 'Сохранено на устройстве' : 'Ошибка сохранения · новые файлы только во вкладке';
       if (result.ok) releaseUnused(true); else error(result.error);

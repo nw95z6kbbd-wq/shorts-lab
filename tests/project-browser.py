@@ -63,6 +63,7 @@ def run():
                 page.locator('#video-scene-image-1').set_input_files({'name':'blue.png','mimeType':'image/png','buffer':base64.b64decode(blue)})
                 expect(page.locator('.scene-image-thumb')).to_have_count(2)
                 expect(page.locator('#videoDraftStatus')).to_contain_text('Сохранено')
+                assert all('только в этой вкладке' not in label for label in page.locator('.scene-image-name').all_text_contents())
                 for role,frequency,input_id in [('voice',440,'videoAudio'),('music',880,'videoMusic')]:
                     stage = 'upload ' + role
                     path=folder/(role+'.wav');media.tone(path,frequency)
