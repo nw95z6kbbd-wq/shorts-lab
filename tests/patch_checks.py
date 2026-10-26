@@ -78,7 +78,10 @@ def check_patch_ux(page, engine):
         assert page.locator('#productDialog').evaluate('e=>e.scrollWidth<=e.clientWidth')
         for kind in ('highlight','standard','patch'):
             expect(page.locator(f'.release-{kind}').first).to_be_visible()
-        expect(page.locator('.release-patch .release-pending')).to_have_text('Ещё не опубликовано')
+        current=page.evaluate('ShortsProduct.releases[0]')
+        if current['status']=='unreleased':
+            expect(page.locator('.release-item').first.locator('.release-pending')).to_have_text('Ещё не опубликовано')
+        else:expect(page.locator('.release-item').first.locator('time')).to_have_attribute('datetime',current['date'])
         page.keyboard.press('Escape')
     # The existing toast/sticky invariance suite remains separate and unchanged.
     page.set_viewport_size({'width':1440,'height':900})

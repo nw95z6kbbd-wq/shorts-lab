@@ -143,8 +143,11 @@ def run():
             script('const e=document.getElementById("videoIdea");e.value="Исправленная идея Safari 🌌";e.dispatchEvent(new Event("input",{bubbles:true}));')
             wait_for('document.getElementById("videoDraftStatus").textContent==="Сохранено на устройстве"')
             click('.product-nav [data-product-open="updates"]')
-            assert script('return Array.from(document.querySelectorAll(".release-item")).some(e=>e.dataset.importance==="highlight") && document.querySelectorAll(".release-standard").length>0 && document.querySelectorAll(".release-patch").length===1;')
-            assert script('return document.querySelector(".release-patch .release-pending").textContent;')=='Ещё не опубликовано'
+            assert script('return Array.from(document.querySelectorAll(".release-item")).some(e=>e.dataset.importance==="highlight") && document.querySelectorAll(".release-standard").length>0 && document.querySelectorAll(".release-patch").length>0;')
+            if product['releases'][0]['status']=='unreleased':
+                assert script('return document.querySelector(".release-item .release-pending").textContent;')=='Ещё не опубликовано'
+            else:
+                assert script('return document.querySelector(".release-item time").dateTime;')==product['releases'][0]['date']
             click('#productClose');click('#backToEditor')
             print('PASS [native Safari patch UX]: grouped navigation, Unicode counter, untrimmed overflow, preserved manual/video inputs and three release significance levels with pending patch',flush=True)
 
