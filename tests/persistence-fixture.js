@@ -10,7 +10,7 @@ window.savePersistenceFixture = async function () {
     return new Blob([buffer], { type: 'audio/wav' });
   }
   const state = ShortsVideoCore.demo(); state.title = 'Проверка сохранения Safari'; state.timing = 'manual';
-  state.scenes = state.scenes.slice(0, 2).map((s, i) => ({ ...s, durationSeconds: 1.5, visual: 'image', imageId: 'safari-image-' + i, imageName: 'image-' + i + '.png', camera: i ? 'pan-left' : 'zoom-in', transition: 'crossfade' }));
+  state.scenes = state.scenes.slice(0, 2).map((s, i) => ({ ...s, durationSeconds: 3, visual: 'image', imageId: 'safari-image-' + i, imageName: 'image-' + i + '.png', camera: i ? 'pan-left' : 'zoom-in', transition: 'crossfade' }));
   for (const [i, color] of ['#ed563e', '#286cdd'].entries()) {
     const c = document.createElement('canvas'); c.width = 800; c.height = 1200;
     const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, c.width, c.height);

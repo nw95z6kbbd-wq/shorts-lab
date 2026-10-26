@@ -77,7 +77,7 @@ def run():
             assert capabilities['browserName'].lower()=='safari'
             print('Native Safari version:',capabilities.get('browserVersion'),flush=True)
             command('POST','/timeouts',{'script':30000,'pageLoad':30000,'implicit':0})
-            command('POST','/window/rect',{'width':1280,'height':900})
+            command('POST','/window/rect',{'width':1000,'height':900})
             command('POST','/url',{'url':f'http://127.0.0.1:{server.server_port}/index.html'})
             wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
             version=script('return ShortsProduct.version;'); assert version==product['version']
@@ -110,7 +110,7 @@ def run():
             assert script('const d=document.getElementById("productDialog");return d.scrollWidth<=d.clientWidth;')
             click('#productClose')
             print('PASS [native Safari]: narrow desktop window layout; actual viewport width:',script('return innerWidth;'),flush=True)
-            command('POST','/window/rect',{'width':1280,'height':900})
+            command('POST','/window/rect',{'width':1000,'height':900})
             def prepare_canvas():
                 click('#createVideoMode')
                 if script('return !document.getElementById("videoOutputTabs").hidden;'):
@@ -136,11 +136,12 @@ def run():
             assert 'music.wav' in script('return document.getElementById("videoMusicInfo").textContent;')
             if script('return ShortsVideoRecorder.capabilities(true).supported;'):
                 click('#recordVideo')
+                visibility=script('const r=document.getElementById("videoCanvas").getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight,hidden:document.hidden,focus:document.hasFocus()};')
                 wait_for('!document.getElementById("downloadVideo").hidden || document.getElementById("videoRenderStatus").textContent.includes("не завершена")',seconds=25)
-                assert script('return !document.getElementById("downloadVideo").hidden;'),script('return document.getElementById("videoError").textContent;')
+                assert script('return !document.getElementById("downloadVideo").hidden;'),{'error':script('return document.getElementById("videoError").textContent;'),'canvas':visibility}
                 wait_for('document.getElementById("generatedVideo").readyState>=1')
                 metadata=script('const v=document.getElementById("generatedVideo");return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:document.getElementById("videoFileInfo").textContent};')
-                assert metadata['width']==720 and metadata['height']==1280 and 2<metadata['duration']<4.5,metadata
+                assert metadata['width']==720 and metadata['height']==1280 and 5<metadata['duration']<7.5,metadata
                 assert 'голос + музыка' in metadata['info'],metadata
                 print('::notice title=Native Safari project restoration verified::Original PNG and two WAV hashes match after reload; actual post-restore UI export: '+json.dumps(metadata),flush=True)
             else:
