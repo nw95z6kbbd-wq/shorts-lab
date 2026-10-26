@@ -44,8 +44,8 @@
   document.querySelectorAll('[data-product-open]').forEach(button => button.addEventListener('click', event => open(button.dataset.productOpen, event.currentTarget)));
   $('productClose').addEventListener('click', () => $('productDialog').close());
   $('productDialog').addEventListener('close', () => {
-    const target = lastOpener?.getClientRects().length ? lastOpener : document.querySelector('.product-toolbar [data-product-open="updates"]');
-    target?.focus({ preventScroll: true });
+    const target = lastOpener?.getClientRects().length ? lastOpener : document.querySelector('.product-nav [data-product-open="updates"]');
+    target?.focus();
   });
   $('productDismissNotice').addEventListener('click', dismiss);
   for (const tab of ['updates', 'about']) $('productTab-' + tab).addEventListener('click', () => setTab(tab, true));

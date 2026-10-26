@@ -60,7 +60,20 @@ def run():
     def element(selector):
         result=command('POST','/element',{'using':'css selector','value':selector})
         return result['element-6066-11e4-a52e-4f735466cecf']
-    def click(selector): command('POST','/element/'+element(selector)+'/click',{})
+    def click(selector):
+        # Safari's element-click command does not reliably scroll nested dialogs.
+        script('document.querySelector(arguments[0]).scrollIntoView({block:"nearest",inline:"nearest"});',[selector])
+        command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];requestAnimationFrame(()=>done(true));','args':[]})
+        try:
+            command('POST','/element/'+element(selector)+'/click',{})
+        except RuntimeError as error:
+            details=script('const e=document.querySelector(arguments[0]),r=e.getBoundingClientRect(),d=document.getElementById("productDialog"),x=Math.round(r.x+r.width/2),y=Math.round(r.y+r.height/2),hit=document.elementFromPoint(x,y);const parents=[];for(let p=e.parentElement;p&&p!==document.body;p=p.parentElement){const b=p.getBoundingClientRect();parents.push({tag:p.tagName,id:p.id,height:p.clientHeight,top:b.top,bottom:b.bottom,scroll:p.scrollTop,overflow:getComputedStyle(p).overflowY});}return {parents,selector:arguments[0],rect:{x:r.x,y:r.y,width:r.width,height:r.height},x,y,clickable:!e.matches(":disabled")&&r.width>0&&r.height>0&&(hit===e||e.contains(hit)),hit:hit?.tagName+"#"+hit?.id,display:getComputedStyle(e).display,dialog:d.open,aboutHidden:document.getElementById("productPane-about").hidden,active:document.activeElement?.id,scroll:document.querySelector(".product-dialog-scroll").scrollTop};',[selector])
+            if 'element not interactable' in str(error) and details['clickable']:
+                # A real trusted pointer click bypasses safaridriver's broken
+                # nested-scroll element-click path; obscured controls still fail.
+                command('POST','/actions',{'actions':[{'type':'pointer','id':'safari-pointer','parameters':{'pointerType':'mouse'},'actions':[{'type':'pointerMove','duration':0,'origin':'viewport','x':details['x'],'y':details['y']},{'type':'pointerDown','button':0},{'type':'pointerUp','button':0}]}]})
+                return
+            raise RuntimeError(str(details)+'; '+str(error)) from error
 
     try:
         with tempfile.TemporaryFile(mode='w+b') as log:
@@ -79,18 +92,18 @@ def run():
             command('POST','/timeouts',{'script':30000,'pageLoad':30000,'implicit':0})
             command('POST','/window/rect',{'width':1000,'height':900})
             command('POST','/url',{'url':f'http://127.0.0.1:{server.server_port}/index.html'})
-            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
+            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert && document.getElementById("saveStatus").dataset.state',seconds=30)
             version=script('return ShortsProduct.version;'); assert version==product['version']
             assert script('return Array.from(document.querySelectorAll("[data-product-version]")).every(e=>e.textContent=== "v"+ShortsProduct.version);')
             before=script('return [localStorage.getItem("shorts-studio.project.v1"),localStorage.getItem("shorts-studio.video.v1")];')
-            click('.product-toolbar [data-product-open="updates"]')
+            click('.product-nav [data-product-open="updates"]')
             wait_for('document.getElementById("productDialog").open')
             assert script('return document.querySelectorAll(".release-item").length;')==len(product['releases'])
             assert script('return Array.from(document.querySelectorAll(".release-heading time")).map(e=>e.dateTime);')==[release['date'] for release in product['releases']]
             click('#productClose');command('POST','/refresh',{})
-            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
+            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert && document.getElementById("saveStatus").dataset.state',seconds=30)
             assert script('return document.getElementById("productUpdateNotice").hidden;')
-            click('.product-toolbar [data-product-open="about"]')
+            click('.product-nav [data-product-open="about"]')
             assert script('return document.getElementById("productRepository").href;')==product['repository']
             assert script('return document.getElementById("productOwner").value;')==product['rights']['owner']
             script('document.getElementById("productOwner").value="Проверка Safari";')
@@ -98,18 +111,51 @@ def run():
             wait_for('document.getElementById("productProfileStatus").textContent.includes("Сохранено только")')
             assert 'Сохранено только' in script('return document.getElementById("productProfileStatus").textContent;')
             click('#productClose');command('POST','/refresh',{})
-            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert',seconds=30)
-            click('.product-toolbar [data-product-open="about"]')
+            wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert && document.getElementById("saveStatus").dataset.state',seconds=30)
+            click('.product-nav [data-product-open="about"]')
             assert script('return document.getElementById("productOwner").value;')=='Проверка Safari'
             click('#productResetProfile');click('#productClose')
             assert before==script('return [localStorage.getItem("shorts-studio.project.v1"),localStorage.getItem("shorts-studio.video.v1")];')
             print('PASS [native Safari]: version, dated release history, notice dismissal and local profile; project data unchanged',flush=True)
             command('POST','/window/rect',{'width':390,'height':844})
             assert script('return document.documentElement.scrollWidth <= innerWidth;')
-            click('.product-toolbar [data-product-open="about"]')
+            click('.product-nav [data-product-open="about"]')
             assert script('const d=document.getElementById("productDialog");return d.scrollWidth<=d.clientWidth;')
             click('#productClose')
             print('PASS [native Safari]: narrow desktop window layout; actual viewport width:',script('return innerWidth;'),flush=True)
+            command('POST','/window/rect',{'width':1440,'height':1000})
+            script((ROOT/'tests/ux-fixture.js').read_text())
+            wait_for('document.getElementById("saveStatus").hidden',seconds=6)
+            layout=script('return uxLayoutSnapshot();')
+            command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];holdUXTransaction().then(()=>done(true),e=>done({error:e.message}));','args':[]})
+            script('const e=document.getElementById("projectName");e.value="Safari toast";e.dispatchEvent(new Event("input",{bubbles:true}));')
+            wait_for('document.getElementById("saveStatus").dataset.state==="pending"')
+            time.sleep(.7)
+            assert script('return uxLayoutSnapshot();')==layout
+            assert script('return document.getElementById("saveStatusText").textContent;')=='Сохранение…'
+            script('const v=document.getElementById("studioViewport");v.scrollTop=v.scrollHeight;')
+            command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));','args':[]})
+            assert script('const r=document.querySelector(".preview-column").getBoundingClientRect();return r.top>=-1 && r.bottom<=document.getElementById("studioViewport").clientHeight+1;')
+            assert not script('return uxToastOverlapsControls();')
+            layout=script('return uxLayoutSnapshot();')
+            script('window.uxHold=false;')
+            wait_for('document.getElementById("saveStatus").dataset.state==="saved"')
+            assert script('return uxLayoutSnapshot();')==layout
+            wait_for('document.getElementById("saveStatus").hidden',seconds=6)
+            assert script('return uxLayoutSnapshot();')==layout
+            assert script('return !document.getElementById("noticeDock") && !getComputedStyle(document.documentElement).getPropertyValue("--notice-space");')
+            script('quotaUXFailure();const e=document.getElementById("projectName");e.value="Safari quota";e.dispatchEvent(new Event("input",{bubbles:true}));')
+            wait_for('document.getElementById("saveStatus").dataset.state==="error"')
+            time.sleep(2.9)
+            assert script('return !document.getElementById("saveStatus").hidden;')
+            click('#createVideoMode')
+            assert script('return document.getElementById("saveStatus").dataset.mode;')=='video'
+            assert script('return document.getElementById("saveStatus").hidden;')
+            click('#backToEditor')
+            assert script('return document.getElementById("saveStatus").dataset.state;')=='error'
+            script('restoreUXQuota();const e=document.getElementById("projectName");e.value="Safari retry";e.dispatchEvent(new Event("input",{bubbles:true}));')
+            wait_for('document.getElementById("saveStatus").dataset.state==="saved"')
+            print('PASS [native Safari]: delayed real transaction, auto-dismiss toast, persistent quota error, isolated mode status, retry, sticky editor and floating toast with unchanged document geometry/scroll and no bottom panel',flush=True)
             command('POST','/window/rect',{'width':1000,'height':900})
             def prepare_canvas():
                 click('#createVideoMode')
@@ -151,6 +197,8 @@ def run():
                 metadata=script('const v=document.getElementById("generatedVideo");return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:document.getElementById("videoFileInfo").textContent};')
                 assert metadata['width']==720 and metadata['height']==1280 and 5<metadata['duration']<7.5,metadata
                 assert 'голос + музыка' in metadata['info'],metadata
+                group=script('const p=document.querySelector(".video-download-panel"),i=document.getElementById("videoFileInfo"),d=document.getElementById("downloadVideo");return {infoBeforeDownload:Boolean(i.compareDocumentPosition(d)&Node.DOCUMENT_POSITION_FOLLOWING),noScroll:p.scrollHeight<=p.clientHeight+1};')
+                assert group['infoBeforeDownload'] and group['noScroll'],group
                 print('::notice title=Native Safari project restoration verified::Original PNG and two WAV hashes match after reload; actual post-restore UI export: '+json.dumps(metadata),flush=True)
             else:
                 assert script('return document.getElementById("recordVideo").disabled;')

@@ -52,21 +52,37 @@ jobs:
           python tests/check-errors.py tests/project-db-browser.py
           python tests/check-errors.py tests/project-migration-browser.py
           python tests/check-errors.py tests/browser.py
-      - name: Check real browser video and audio recording
+      - name: Ensure FFmpeg is available
         run: |
           if ! command -v ffprobe >/dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y ffmpeg
+            printf '%s\n' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' 'Acquire::Retries "1";' | sudo tee /etc/apt/apt.conf.d/99-shortsstudio-ci-timeouts >/dev/null
+            # FFmpeg needs only Ubuntu's own repositories; unrelated vendor
+            # indexes on hosted runners must not hold up the browser checks.
+            printf '%s\n' 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://archive.ubuntu.com/ubuntu noble main universe' 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://archive.ubuntu.com/ubuntu noble-updates main universe' 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://security.ubuntu.com/ubuntu noble-security main universe' > /tmp/shorts-studio-ubuntu.list
+            shorts_apt_status=0
+            timeout 3m sudo apt-get -o Dir::Etc::sourcelist=/tmp/shorts-studio-ubuntu.list -o Dir::Etc::sourceparts=- update > /tmp/shorts-studio-apt.log 2>&1 || shorts_apt_status=$?
+            if [ "$shorts_apt_status" -eq 0 ]; then
+              timeout 3m sudo apt-get -o Dir::Etc::sourcelist=/tmp/shorts-studio-ubuntu.list -o Dir::Etc::sourceparts=- install -y ffmpeg >> /tmp/shorts-studio-apt.log 2>&1 || shorts_apt_status=$?
+            fi
+            if [ "$shorts_apt_status" -ne 0 ]; then
+              python -c 'from pathlib import Path; text="\n".join(Path("/tmp/shorts-studio-apt.log").read_text().splitlines()[-18:]); print("::error title=FFmpeg installation::"+text.replace("%","%25").replace("\r","%0D").replace("\n","%0A"))'
+              exit "$shorts_apt_status"
+            fi
           fi
-          python tests/check-errors.py tests/video-browser.py
-          python tests/check-errors.py tests/media-browser.py
-          python tests/check-errors.py tests/project-browser.py
+      - name: Check real browser video and audio recording
+        run: python tests/check-errors.py tests/video-browser.py
+      - name: Check images and two-track video export
+        run: python tests/check-errors.py tests/media-browser.py
+      - name: Check project restart and restored video export
+        run: python tests/check-errors.py tests/project-browser.py
       - name: Prepare Pages files and downloads
         run: python scripts/prepare-site.py
       - name: Check product information and standalone version
         run: |
           python tests/check-errors.py tests/product-browser.py
+          python tests/check-errors.py tests/ux-browser.py
           PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
+          UX_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/ux-browser.py
           PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
       - name: Check deployment under repository path
         run: python tests/pages.py
@@ -123,7 +139,9 @@ jobs:
         run: |
           python scripts/prepare-site.py
           PRODUCT_BROWSER=webkit python tests/check-errors.py tests/product-browser.py
+          UX_BROWSER=webkit python tests/check-errors.py tests/ux-browser.py
           PRODUCT_BROWSER=webkit PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
+          UX_BROWSER=webkit UX_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/ux-browser.py
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-db-browser.py
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-migration-browser.py
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-browser.py

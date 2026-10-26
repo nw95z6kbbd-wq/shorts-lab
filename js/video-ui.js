@@ -68,7 +68,7 @@
     document.querySelector('.workspace').dataset.mode = open ? 'video' : 'editor';
     $('videoStudio').hidden = !open; $('scriptStudio').hidden = open;
     $('backToEditor').hidden = !open; $('projectName').disabled = open;
-    $('projectName').hidden = open; $('videoBreadcrumb').hidden = !open; $('saveStatus').hidden = open;
+    $('projectName').hidden = open; $('videoBreadcrumb').hidden = !open;
     $('openVideoMode').setAttribute('aria-expanded', String(open));
     $('openVideoMode').classList.toggle('active', open);
     if (open) $('openVideoMode').setAttribute('aria-current', 'page');

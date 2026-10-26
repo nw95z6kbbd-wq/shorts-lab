@@ -39,7 +39,7 @@ window.ShortsEditorReady = (async function () {
 
   function updateSaveStatus(text, error = false) {
     $('saveStatus').classList.toggle('error', error);
-    $('saveStatus').querySelector('span').textContent = text;
+    $('editorSaveState').textContent = text;
     $('saveStatus').querySelector('use').setAttribute('href', error ? '#i-info' : '#i-check');
   }
 
