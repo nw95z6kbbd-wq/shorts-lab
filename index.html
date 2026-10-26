@@ -27,6 +27,7 @@
   <script src="js/ux.js" defer></script>
 </head>
 <body>
+  <div id="studioViewport" class="studio-viewport" role="region" aria-label="Рабочая область Shorts Studio" tabindex="0">
   <svg class="icon-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
     <symbol id="i-logo" viewBox="0 0 24 24"><path d="m8 3 10 6-5 3 5 3-10 6V3Z" fill="currentColor" stroke="none"/></symbol>
     <symbol id="i-pen" viewBox="0 0 24 24"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15l-1 6 5-2"/></symbol>
@@ -65,7 +66,7 @@
   </aside>
 
   <div class="workspace">
-    <header class="topbar"><div class="breadcrumb"><span>Студия</span><span class="breadcrumb-divider">/</span><span id="videoBreadcrumb" hidden>Видео по идее</span><label for="projectName" class="sr-only">Название проекта</label><input id="projectName" maxlength="80" value="Мой Short" autocomplete="off"></div><span class="save-status" id="saveStatus" role="status"><svg><use href="#i-check"/></svg><span id="saveStatusText">Восстановление…</span></span><span id="editorSaveState" hidden>Восстановление…</span></header>
+    <header class="topbar"><div class="breadcrumb"><span>Студия</span><span class="breadcrumb-divider">/</span><span id="videoBreadcrumb" hidden>Видео по идее</span><label for="projectName" class="sr-only">Название проекта</label><input id="projectName" maxlength="80" value="Мой Short" autocomplete="off"></div><span id="editorSaveState" hidden>Восстановление…</span></header>
 
     <div class="mobile-filebar" aria-label="Файлы проекта"><span>ФАЙЛ ПРОЕКТА</span><button class="text-button" id="saveProjectMobile"><svg><use href="#i-download"/></svg>Скачать проект</button><button class="text-button" id="openProjectMobile"><svg><use href="#i-upload"/></svg>Открыть проект</button></div>
     <main id="mainContent">
@@ -122,7 +123,11 @@
       </div>
     </main>
   </div>
-  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </div>
+  <div id="noticeDock" class="notice-dock">
+    <div class="save-status" id="saveStatus" role="status" aria-live="polite" aria-atomic="true" hidden><svg aria-hidden="true"><use href="#i-clock"/></svg><span id="saveStatusText"></span></div>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </div>
   <dialog id="confirmDialog"><form method="dialog"><span class="dialog-icon"><svg><use href="#i-info"/></svg></span><h2 id="dialogTitle">Продолжить?</h2><p id="dialogDescription"></p><div class="dialog-actions"><button class="button button-secondary" value="cancel" autofocus>Отмена</button><button class="button button-primary" id="dialogConfirm" value="confirm">Продолжить</button></div></form></dialog>
   <dialog id="productDialog" class="product-dialog" aria-labelledby="productDialogTitle">
     <div class="product-dialog-header"><div><div class="product-dialog-eyebrow">SHORTS STUDIO · СДЕЛАНО ДЛЯ ВАШИХ ИСТОРИЙ</div><h2 id="productDialogTitle">Что нового</h2></div><button id="productClose" class="product-dialog-close" aria-label="Закрыть информацию о продукте">×</button></div>

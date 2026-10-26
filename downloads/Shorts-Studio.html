@@ -48,26 +48,30 @@
 
 </style>
   <style>
-/* Shared chrome stays in document flow and reserves its own space. */
-:root{--studio-header-height:62px}
-html{scroll-padding-top:calc(var(--studio-header-height) + 16px)}
-.workspace :is(input,textarea,select,button,a){scroll-margin-top:calc(var(--studio-header-height) + 16px)}
-.topbar{position:sticky;top:0;z-index:25;height:62px;background:#111114f5;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 6px 20px #0002}
+/* Notifications occupy a temporary gutter outside the scrollable workspace. */
+:root{--studio-header-height:0px;--notice-space:0px}
+body{overflow:hidden}
+.studio-viewport{height:calc(100vh - var(--notice-space));height:calc(100dvh - var(--notice-space));overflow-y:auto;scroll-padding:16px 0;overscroll-behavior-y:contain}
+.studio-viewport:focus-visible{outline:2px solid var(--purple);outline-offset:-2px}
+.workspace :is(input,textarea,select,button,a){scroll-margin-block:16px}
+.topbar{position:static;height:62px;background:#111114}
 .topbar .breadcrumb{flex:1;min-width:0}.topbar .breadcrumb input{min-width:0;max-width:100%}
-#saveStatus{flex-shrink:0;opacity:1;gap:7px;padding:7px 10px;border:1px solid #42354f;border-radius:8px;background:#211a2b;font-size:11px;color:#cbb5e3;line-height:1.4;white-space:nowrap}
-#saveStatus span{max-width:none;white-space:nowrap;line-height:1.4}#saveStatus svg{width:14px;height:14px;flex-shrink:0}
-#saveStatus[data-state=saved]{border-color:#304b40;background:#16251f;color:#a9cfb8}
-#saveStatus[data-state=error],#saveStatus[data-state=warning]{border-color:#765044;background:#33221e;color:#f1bfa7}
+.notice-dock{position:fixed;z-index:30;right:16px;bottom:12px;display:grid;justify-items:end;gap:8px;max-width:min(400px,calc(100vw - 32px));pointer-events:none}
+#saveStatus{opacity:1;gap:8px;padding:11px 14px;border:1px solid #564167;border-radius:10px;background:#241b30;box-shadow:0 6px 22px #0005;font-size:12px;color:#d7bfe9;line-height:1.5;white-space:normal;transition:opacity .2s,transform .2s}
+#saveStatus span{max-width:none;white-space:normal;text-align:left;line-height:1.5}#saveStatus svg{width:15px;height:15px;flex-shrink:0;color:inherit}
+#saveStatus[data-visible=false]{opacity:0;transform:translateY(5px)}
+#saveStatus[data-state=saved]{border-color:#385c48;background:#192c22;color:#b3dfc2}
+#saveStatus[data-state=error],#saveStatus[data-state=warning]{border-color:#a76b4f;background:#3c251e;color:#ffcfb3}
 #saveStatus[data-state=pending] svg{animation:save-pulse 1.4s ease-in-out infinite}
 .workspace[data-mode=video] #saveStatus{opacity:1}
+.notice-dock .toast{position:static;transform:none;max-width:100%;margin:0;animation:none;font-size:11px;padding:11px 14px;pointer-events:none}
 .sidebar{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#44334f transparent}
 .sidebar>*{flex-shrink:0}.product-nav{display:grid;gap:5px;margin-top:18px;padding-top:15px;border-top:1px solid #2b2332}
 .product-nav .nav-item{color:#b6a3c9}.product-nav .nav-item:hover{background:#272030;color:#e0c6f5}.product-nav-label{font-size:11px}
 .product-mobile-version{display:none}.sidebar-bottom{padding-top:22px}.product-sidebar-version{cursor:default}
-.preview-column,.video-preview-column{top:calc(var(--studio-header-height) + 14px)}
-.video-preview-column.preview-overflow{position:static}
-.video-canvas-wrap{display:flex;justify-content:center}
-.video-canvas-wrap>canvas,.video-canvas-wrap>video{width:auto;max-width:100%;height:auto;max-height:max(120px,calc(100vh - 390px));max-height:max(120px,calc(100dvh - 390px))}
+.preview-column,.video-preview-column{position:static;align-self:start;top:16px}
+.preview-column.preview-sticky,.video-preview-column.preview-sticky{position:sticky}
+@media(min-width:761px){.portrait-wrap,.video-canvas-wrap{display:flex;justify-content:center}.portrait{width:min(100%,calc(var(--preview-media-height,600px)*9/16));flex-shrink:0}.video-canvas-wrap>canvas,.video-canvas-wrap>video{width:auto;max-width:100%;height:auto;max-height:var(--preview-media-height,600px)}}
 .video-download-panel{display:none;padding:12px;border:1px solid #5a4170;background:linear-gradient(120deg,#2b2038,#1b1524);border-radius:9px;gap:10px}
 .has-video-result .video-download-panel{display:grid}
 .video-download-panel #videoFileInfo{margin:0;font-size:11px;line-height:1.7;color:#d6c1e7;overflow-wrap:anywhere}
@@ -75,16 +79,19 @@ html{scroll-padding-top:calc(var(--studio-header-height) + 16px)}
 .has-video-result #videoProgress,.has-video-result #videoRenderStatus{display:none}
 .has-video-result #recordVideo{background:#251d2e;color:#c6aedb;border-color:#554060;box-shadow:none;min-height:34px;font-size:10px}
 @media(max-width:1050px){.topbar{height:58px}.product-nav{width:100%;margin-top:20px;padding-top:16px}.product-nav-label{display:none}.product-mobile-version{display:inline-block;justify-self:center;margin-top:5px}.product-nav .nav-item{width:100%;padding:12px}.product-nav .nav-item svg{width:19px;height:19px}}
-@media(max-width:760px){.sidebar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 8px;overflow:visible;padding-block:12px}.sidebar>.brand{grid-column:1;min-width:0}.sidebar>.nav-list{grid-column:2;gap:2px}.sidebar>.nav-list .nav-item{padding:8px;min-height:36px}.product-nav{grid-column:1/-1;display:flex;align-items:center;gap:7px;margin:0;padding:9px 0 0}.product-nav .nav-item{width:auto;min-height:40px;padding:7px 10px;gap:7px;border:1px solid #372b40;border-radius:7px;background:#19141f}.product-nav-label{display:inline;font-size:11px}.product-nav .nav-item svg{display:none}.product-mobile-version{display:inline-block;margin-left:auto;margin-top:0;flex-shrink:0}.topbar{height:56px}.topbar .breadcrumb{gap:7px}.topbar .breadcrumb>span:first-child,.topbar .breadcrumb-divider{display:none}#saveStatus{font-size:10px;padding:7px 8px;gap:5px}#saveStatus svg{width:13px;height:13px}.video-preview-column{position:static}}
-@media(max-width:360px){.sidebar{padding-inline:14px}.sidebar>.nav-list .nav-item{padding:7px;width:34px}.sidebar>.brand>span:last-child{font-size:16px}.sidebar>.brand{gap:6px}.product-nav{gap:5px}.product-nav .nav-item{padding-inline:8px}.product-nav-label{font-size:10px}.product-mobile-version{font-size:9px}#saveStatus{padding-inline:7px;font-size:9px}}
-@media(max-height:540px) and (min-width:761px){.sidebar{padding-top:16px}.sidebar .local-card,.sidebar .workspace-label,.sidebar .project-card{display:none}.sidebar .nav-list{margin-top:15px}.sidebar-bottom{padding-top:14px}.product-nav{margin-top:10px;padding-top:10px}.video-canvas-wrap>canvas,.video-canvas-wrap>video{max-height:max(80px,calc(100dvh - 300px))}.has-video-result .video-render-controls{padding-block:12px;gap:8px}}
-@media(prefers-reduced-motion:reduce){#saveStatus[data-state=pending] svg{animation:none}}
+@media(max-width:760px){.sidebar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 8px;overflow:visible;padding-block:12px}.sidebar>.brand{grid-column:1;min-width:0}.sidebar>.nav-list{grid-column:2;gap:2px}.sidebar>.nav-list .nav-item{padding:8px;min-height:36px}.product-nav{grid-column:1/-1;display:flex;align-items:center;gap:7px;margin:0;padding:9px 0 0}.product-nav .nav-item{width:auto;min-height:40px;padding:7px 10px;gap:7px;border:1px solid #372b40;border-radius:7px;background:#19141f}.product-nav-label{display:inline;font-size:11px}.product-nav .nav-item svg{display:none}.product-mobile-version{display:inline-block;margin-left:auto;margin-top:0;flex-shrink:0}.topbar{height:56px}.topbar .breadcrumb{gap:7px}.topbar .breadcrumb>span:first-child,.topbar .breadcrumb-divider{display:none}#saveStatus{font-size:11px;padding:10px 12px}.notice-dock{right:12px;max-width:calc(100vw - 24px)}.video-preview-column{position:static}}
+@media(max-width:360px){.sidebar{padding-inline:14px}.sidebar>.nav-list .nav-item{padding:7px;width:34px}.sidebar>.brand>span:last-child{font-size:16px}.sidebar>.brand{gap:6px}.product-nav{gap:5px}.product-nav .nav-item{padding-inline:8px}.product-nav-label{font-size:10px}.product-mobile-version{font-size:9px}#saveStatus{font-size:11px}}
+@media(max-height:540px) and (min-width:761px){.sidebar{padding-top:16px}.sidebar .local-card,.sidebar .workspace-label,.sidebar .project-card{display:none}.sidebar .nav-list{margin-top:15px}.sidebar-bottom{padding-top:14px}.product-nav{margin-top:10px;padding-top:10px}.has-video-result .video-render-controls{padding-block:12px;gap:8px}}
+@media(prefers-reduced-motion:reduce){#saveStatus{transition:none}#saveStatus[data-state=pending] svg{animation:none}}
 @keyframes save-pulse{50%{opacity:.35}}
 @media(max-width:600px){.video-canvas-wrap>canvas,.video-canvas-wrap>video{width:100%;height:auto;max-height:none}}
+
+@media(min-width:761px){.notice-dock{max-width:min(400px,calc(100vw - 120px))}}
 
 </style>
 </head>
 <body>
+  <div id="studioViewport" class="studio-viewport" role="region" aria-label="Рабочая область Shorts Studio" tabindex="0">
   <svg class="icon-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
     <symbol id="i-logo" viewBox="0 0 24 24"><path d="m8 3 10 6-5 3 5 3-10 6V3Z" fill="currentColor" stroke="none"/></symbol>
     <symbol id="i-pen" viewBox="0 0 24 24"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15l-1 6 5-2"/></symbol>
@@ -123,7 +130,7 @@ html{scroll-padding-top:calc(var(--studio-header-height) + 16px)}
   </aside>
 
   <div class="workspace">
-    <header class="topbar"><div class="breadcrumb"><span>Студия</span><span class="breadcrumb-divider">/</span><span id="videoBreadcrumb" hidden>Видео по идее</span><label for="projectName" class="sr-only">Название проекта</label><input id="projectName" maxlength="80" value="Мой Short" autocomplete="off"></div><span class="save-status" id="saveStatus" role="status"><svg><use href="#i-check"/></svg><span id="saveStatusText">Восстановление…</span></span><span id="editorSaveState" hidden>Восстановление…</span></header>
+    <header class="topbar"><div class="breadcrumb"><span>Студия</span><span class="breadcrumb-divider">/</span><span id="videoBreadcrumb" hidden>Видео по идее</span><label for="projectName" class="sr-only">Название проекта</label><input id="projectName" maxlength="80" value="Мой Short" autocomplete="off"></div><span id="editorSaveState" hidden>Восстановление…</span></header>
 
     <div class="mobile-filebar" aria-label="Файлы проекта"><span>ФАЙЛ ПРОЕКТА</span><button class="text-button" id="saveProjectMobile"><svg><use href="#i-download"/></svg>Скачать проект</button><button class="text-button" id="openProjectMobile"><svg><use href="#i-upload"/></svg>Открыть проект</button></div>
     <main id="mainContent">
@@ -180,7 +187,11 @@ html{scroll-padding-top:calc(var(--studio-header-height) + 16px)}
       </div>
     </main>
   </div>
-  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </div>
+  <div id="noticeDock" class="notice-dock">
+    <div class="save-status" id="saveStatus" role="status" aria-live="polite" aria-atomic="true" hidden><svg aria-hidden="true"><use href="#i-clock"/></svg><span id="saveStatusText"></span></div>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </div>
   <dialog id="confirmDialog"><form method="dialog"><span class="dialog-icon"><svg><use href="#i-info"/></svg></span><h2 id="dialogTitle">Продолжить?</h2><p id="dialogDescription"></p><div class="dialog-actions"><button class="button button-secondary" value="cancel" autofocus>Отмена</button><button class="button button-primary" id="dialogConfirm" value="confirm">Продолжить</button></div></form></dialog>
   <dialog id="productDialog" class="product-dialog" aria-labelledby="productDialogTitle">
     <div class="product-dialog-header"><div><div class="product-dialog-eyebrow">SHORTS STUDIO · СДЕЛАНО ДЛЯ ВАШИХ ИСТОРИЙ</div><h2 id="productDialogTitle">Что нового</h2></div><button id="productClose" class="product-dialog-close" aria-label="Закрыть информацию о продукте">×</button></div>
@@ -359,8 +370,8 @@ html{scroll-padding-top:calc(var(--studio-header-height) + 16px)}
       changes: [
         'Надёжное локальное сохранение независимых текстового и видеопроекта в IndexedDB: состояние и новые материалы записываются одной транзакцией.',
         'Восстановление изображений, исходных голоса и музыки, сценариев, громкостей, переходов, длительностей и настроек экспорта.',
-        'Постоянно видимый компактный индикатор сохранения, завершения и ошибки в активном режиме.',
-        'Сведения о готовом видео собраны над кнопкой скачивания; панель адаптируется к высоте окна.',
+        'Одно компактное уведомление о сохранении активного проекта: успех только после записи, плавное скрытие успеха и постоянное сообщение при ошибке.',
+        'Предпросмотр остаётся видимым при прокрутке длинных сцен, когда позволяет высота окна; сведения о видео собраны над кнопкой скачивания.',
         'Разделы «Что нового» и «О Shorts Studio» перенесены в боковую навигацию и доступны на мобильных экранах.',
         'Локальные данные зависят от браузера: очистка данных сайта и завершение приватного сеанса могут удалить проекты. Перед закрытием дождитесь сохранения.'
       ]
@@ -2621,53 +2632,90 @@ window.ShortsEditorReady = (async function () {
 <script>
 (function () {
   'use strict';
-  // Presentation only: consume the existing controller messages after their
-  // transaction-completion checks. No storage, timers or recorder callbacks.
+  // Presentation only: existing controller messages follow actual transaction
+  // completion. The timers below dismiss a notification; they never save data.
   const workspace = document.querySelector('.workspace');
+  const viewport = document.getElementById('studioViewport');
+  const dock = document.getElementById('noticeDock');
   const indicator = document.getElementById('saveStatus');
-  const editor = document.getElementById('editorSaveState');
-  const video = document.getElementById('videoDraftStatus');
-  const header = document.querySelector('.topbar');
-  const preview = document.querySelector('.video-preview-column');
+  const label = document.getElementById('saveStatusText');
+  const sources = [document.getElementById('editorSaveState'), document.getElementById('videoDraftStatus')];
+  const columns = [...document.querySelectorAll('.preview-column,.video-preview-column')];
   const panel = document.querySelector('.video-preview-panel');
   const download = document.getElementById('downloadVideo');
-  function showSaveState() {
-    const classify = source => {
-      const text = source.textContent.trim();
-      return text.startsWith('Сохранено') ? 'saved' : text.startsWith('Ошибка') ? 'error' : text.startsWith('Проверьте') ? 'warning' : 'pending';
-    };
-    const priority = { saved: 0, pending: 1, warning: 2, error: 3 };
-    let source = workspace.dataset.mode === 'video' ? video : editor;
-    for (const candidate of [editor, video]) if (priority[classify(candidate)] > priority[classify(source)]) source = candidate;
-    const text = source.textContent.trim(), state = classify(source);
-    const label = { saved: 'Сохранено', error: 'Ошибка сохранения', warning: 'Проверьте сохранение', pending: text.startsWith('Восстановление') ? 'Восстановление…' : 'Сохранение…' }[state];
-    indicator.dataset.state = state;
-    indicator.classList.toggle('error', state === 'error');
-    document.getElementById('saveStatusText').textContent = label;
-    indicator.querySelector('use').setAttribute('href', state === 'saved' ? '#i-check' : state === 'pending' ? '#i-clock' : '#i-info');
-    const detail = state === 'error' ? document.getElementById(source === video ? 'videoError' : 'storageWarning').textContent.trim() : text;
-    indicator.title = (source === video ? 'Видеопроект. ' : 'Текстовый проект. ') + (detail || text);
-    indicator.setAttribute('aria-label', (source === video ? 'Видеопроект. ' : 'Текстовый проект. ') + text);
-  }
+  const states = new Map();
+  let dismissTimer, hideTimer;
+  const classify = text => text.startsWith('Сохранено') ? 'saved' : text.startsWith('Ошибка') ? 'error' : text.startsWith('Проверьте') ? 'warning' : 'pending';
   function fitPreview() {
-    const height = header.getBoundingClientRect().height;
-    document.documentElement.style.setProperty('--studio-header-height', height + 'px');
-    // A panel taller than the viewport must scroll with the document: a sticky
-    // oversized panel would trap the download controls below the visible area.
-    preview.classList.toggle('preview-overflow', preview.offsetHeight > innerHeight - height - 24);
+    for (const column of columns) {
+      if (!column.offsetHeight) continue;
+      const media = column.querySelector('.portrait-wrap,.video-canvas-wrap');
+      const chrome = column.getBoundingClientRect().height - media.getBoundingClientRect().height;
+      const available = viewport.clientHeight - 32;
+      // Scale only the displayed portrait, never the Canvas backing resolution.
+      const mediaHeight = Math.max(160, Math.floor(available - chrome));
+      column.style.setProperty('--preview-media-height', mediaHeight + 'px');
+      column.classList.toggle('preview-sticky', innerWidth > 760 && chrome + 160 <= available);
+    }
+  }
+  function fitNotices() {
+    // A dedicated bottom gutter prevents notices from covering ANY workspace
+    // control, including mobile Download. It collapses when the notices leave.
+    const visible = [...dock.children].some(child => !child.hidden);
+    const keyboard = window.visualViewport && visualViewport.scale === 1 ? Math.max(0, innerHeight - visualViewport.height - visualViewport.offsetTop) : 0;
+    dock.style.bottom = 'calc(' + keyboard + 'px + 12px + env(safe-area-inset-bottom, 0px))';
+    const bottom = parseFloat(getComputedStyle(dock).bottom) || 12;
+    document.documentElement.style.setProperty('--notice-space', (visible ? Math.ceil(dock.getBoundingClientRect().height + bottom + 12) : keyboard) + 'px');
+    fitPreview();
+  }
+  function showSaveState() {
+    clearTimeout(dismissTimer); clearTimeout(hideTimer);
+    const source = workspace.dataset.mode === 'video' ? sources[1] : sources[0];
+    const current = states.get(source);
+    if (!current) return;
+    const { text, state, until } = current;
+    const owner = source === sources[1] ? 'Видеопроект. ' : 'Текстовый проект. ';
+    indicator.dataset.state = state;
+    indicator.dataset.mode = source === sources[1] ? 'video' : 'editor';
+    indicator.setAttribute('aria-live', state === 'error' || state === 'warning' ? 'assertive' : 'polite');
+    const detail = state === 'error' ? document.getElementById(source === sources[1] ? 'videoError' : 'storageWarning').textContent.trim() : text;
+    indicator.title = owner + (detail || text);
+    indicator.setAttribute('aria-label', owner + text);
+    indicator.querySelector('use').setAttribute('href', state === 'saved' ? '#i-check' : state === 'pending' ? '#i-clock' : '#i-info');
+    const visible = state !== 'saved' || until > Date.now();
+    indicator.hidden = !visible;
+    indicator.dataset.visible = String(visible);
+    const nextLabel = { saved: 'Сохранено на устройстве', error: 'Ошибка сохранения', warning: 'Проверьте сохранение', pending: text.startsWith('Восстановление') ? 'Восстановление…' : 'Сохранение…' }[state];
+    if (label.textContent !== nextLabel) label.textContent = nextLabel;
+    if (visible && state === 'saved') dismissTimer = setTimeout(() => {
+      indicator.dataset.visible = 'false';
+      hideTimer = setTimeout(() => { indicator.hidden = true; fitNotices(); }, 220);
+    }, Math.max(0, until - Date.now()));
+    fitNotices();
+  }
+  function readSource(source) {
+    const text = source.textContent.trim(), state = classify(text), previous = states.get(source);
+    if (!previous || previous.text !== text) states.set(source, { text, state, until: state === 'saved' ? Date.now() + 2500 : 0 });
   }
   function showResult() {
     panel.classList.toggle('has-video-result', !download.hidden);
     fitPreview();
   }
-  const saveObserver = new MutationObserver(showSaveState);
-  for (const source of [editor, video]) saveObserver.observe(source, { childList: true, subtree: true, characterData: true });
+  for (const source of sources) {
+    readSource(source);
+    new MutationObserver(() => { readSource(source); showSaveState(); }).observe(source, { childList: true, subtree: true, characterData: true });
+  }
   new MutationObserver(() => { showSaveState(); fitPreview(); }).observe(workspace, { attributes: true, attributeFilter: ['data-mode'] });
   new MutationObserver(showResult).observe(download, { attributes: true, attributeFilter: ['hidden'] });
+  new MutationObserver(fitNotices).observe(document.getElementById('toast'), { attributes: true, childList: true, attributeFilter: ['hidden'] });
   if (typeof ResizeObserver === 'function') {
-    const observer = new ResizeObserver(fitPreview); observer.observe(header); observer.observe(preview);
+    const observer = new ResizeObserver(fitNotices);
+    observer.observe(dock); observer.observe(viewport);
+    for (const column of columns) observer.observe(column);
   }
-  window.addEventListener('resize', fitPreview);
+  window.addEventListener('resize', fitNotices);
+  window.visualViewport?.addEventListener('resize', fitNotices);
+  window.visualViewport?.addEventListener('scroll', fitNotices);
   showSaveState(); showResult();
 })();
 
