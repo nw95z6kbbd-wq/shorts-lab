@@ -113,7 +113,15 @@ jobs:
   webkit:
     name: Product UI in WebKit and mobile emulation
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Allow cold registry pulls without spending every run resolving apt deps.
+    timeout-minutes: 20
+    container:
+      # Keep the tag aligned with requirements-dev.txt; the preflight checks it.
+      # Official multi-arch manifest digest verified against MCR, not a mutable tag.
+      image: mcr.microsoft.com/playwright/python:v1.62.0-noble@sha256:aa81288e738725378becba5b3e06cb0f3a7f012a610e87e8d767a090ea3f740d
+      options: --init --shm-size=1g
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     steps:
       - uses: actions/checkout@v4
         with:
@@ -121,20 +129,33 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      # Python, browsers and OS libraries are already provided by the image.
+      # Its build-time Playwright wheel is intentionally removed upstream.
       - name: Install Python browser test tools
+        run: python -m pip install --timeout 30 --retries 2 -r requirements-dev.txt
+      - name: Verify bundled WebKit environment
         run: |
-          python -m pip install --timeout 30 --retries 2 -r requirements-dev.txt
-      - name: Install WebKit system dependencies
-        run: |
-          printf '%s\n' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' 'Acquire::Retries "1";' | sudo tee /etc/apt/apt.conf.d/99-shortsstudio-ci-timeouts >/dev/null
-          timeout 5m python -m playwright install-deps webkit
-      - name: Download WebKit test browser
-        env:
-          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '60000'
-        run: timeout 5m python -m playwright install webkit
+          python - <<'PY'
+          from importlib.metadata import version
+          from pathlib import Path
+          import re
+          from playwright.sync_api import sync_playwright
+
+          workflow = Path('.github/workflows/pages.yml').read_text()
+          image = re.search(r'mcr\.microsoft\.com/playwright/python:v([0-9.]+)-noble@sha256:', workflow)
+          if not image or image.group(1) != version('playwright'):
+              raise RuntimeError('Playwright image and requirements-dev.txt must use the same version; update the tag AND verified digest together.')
+          with sync_playwright() as p:
+              executable = Path(p.webkit.executable_path)
+              if not executable.is_file():
+                  raise RuntimeError('Matching bundled WebKit not found: ' + str(executable))
+              browser = p.webkit.launch()
+              page = browser.new_page()
+              page.set_content('<p lang="ru">WebKit готов</p>')
+              assert page.locator('p').inner_text() == 'WebKit готов'
+              browser.close()
+              print('Bundled WebKit launched successfully; Playwright ' + version('playwright'))
+          PY
       - name: Check source and standalone product UI in WebKit
         run: |
           python scripts/prepare-site.py
