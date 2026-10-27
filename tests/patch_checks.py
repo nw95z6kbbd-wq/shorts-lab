@@ -82,7 +82,11 @@ def check_patch_ux(page, engine):
         if current['status']=='unreleased':
             expect(page.locator('.release-item').first.locator('.release-pending')).to_have_text('Ещё не опубликовано')
         else:expect(page.locator('.release-item').first.locator('time')).to_have_attribute('datetime',current['date'])
+        # Native dialog focus restoration can precede the queued close event.
+        # Wait for the app's close handler before focusing next viewport's nav.
+        page.evaluate('window.patchCloseDone=false;document.getElementById("productDialog").addEventListener("close",()=>{window.patchCloseDone=true;},{once:true});')
         page.keyboard.press('Escape')
+        page.wait_for_function('window.patchCloseDone')
         expect(page.locator('#productDialog')).to_be_hidden()
         expect(page.locator('.product-nav [data-product-open="updates"]')).to_be_focused()
     # The existing toast/sticky invariance suite remains separate and unchanged.
