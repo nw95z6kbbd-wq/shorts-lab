@@ -22,7 +22,10 @@
         const raw = localStorage.getItem(keys[slot]); legacy[slot] = raw;
         if (raw !== null) {
           try { records.push({ id: slot, state: DB.normalize(slot, JSON.parse(raw)) }); }
-          catch (_) { warnings[slot] = 'Старые данные повреждены. Исходник оставлен без изменений и скопирован в резерв миграции; открыт пример.'; }
+          catch (error) {
+            if (error.code === 'UNSUPPORTED') { unavailable ||= error; warnings[slot] = message(error); }
+            else warnings[slot] = 'Старые данные повреждены. Исходник оставлен без изменений и скопирован в резерв миграции; открыт пример.';
+          }
         }
       } catch (_) { warnings[slot] = 'Старое хранилище localStorage недоступно.'; }
     }
@@ -64,6 +67,7 @@
         return;
       }
       const records = readLegacy(), video = records.find(record => record.id === 'video');
+      if (unavailable) throw unavailable; // Never migrate a partial set over future legacy data.
       if (Object.keys(keys).some(slot => legacy[slot] === undefined)) throw new Error('Не удалось проверить прежние данные localStorage. Миграция отложена; старые данные не изменены.');
       const files = await legacyImages(video ? DB.references('video', video.state) : []);
       for (const file of files) legacyAssets.set(file.id, file);

@@ -39,6 +39,13 @@ def run():
             page.add_script_tag(content=(ROOT/'js/storage.js').read_text())
             assert page.evaluate('testStudioAdapterSafety()')
             print(f'PASS [{engine} Studio adapter]: future head blocks autosave/recovery overwrite; incomplete v2 ZIP refused',flush=True)
+            future=context.new_page();future.route('http://future-studio.test/**',lambda route:route.fulfill(body='<html></html>',content_type='text/html'));future.goto('http://future-studio.test/')
+            for name in ['core.js','video-core.js','project-db.js']:future.add_script_tag(content=(ROOT/'js'/name).read_text())
+            raw=future.evaluate('''b=>{const raw=JSON.stringify({...b.editor,version:999});localStorage.setItem('shorts-studio.project.v1',raw);return raw;}''',baseline)
+            future.add_script_tag(content=(ROOT/'js/storage.js').read_text())
+            assert future.evaluate('''async raw=>{const loaded=await ShortsStorage.load('editor'),r=ShortsProjectDB.createRepository(),same=localStorage.getItem('shorts-studio.project.v1')===raw,head=await r.read('editor'),marker=await r.migration(),saved=await ShortsStorage.save(ShortsCore.createProject());r.close();return loaded.writable===false&&same&&!head&&!marker&&!saved.ok;}''',raw)
+            print(f'PASS [{engine} future legacy DTO]: no partial migration, replacement or deletion of original localStorage',flush=True)
+
         finally:browser.close()
 
 
