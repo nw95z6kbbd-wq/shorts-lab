@@ -19,6 +19,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from backup_native import check_native_backup, wait_native_video
 from studio_data_native import check_native_studio_data
 from render_plan_native import check_native_render_plan
+from render_guard import assert_render_stack
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -92,6 +93,7 @@ def run():
             session=result['sessionId']; capabilities=result['capabilities']
             assert capabilities['browserName'].lower()=='safari'
             print('Native Safari version:',capabilities.get('browserVersion'),flush=True)
+            assert_render_stack(ROOT,(ROOT/os.environ['SAFARI_BASELINE_ROOT']).resolve() if os.environ.get('SAFARI_BASELINE_ROOT') else None)
             command('POST','/timeouts',{'script':30000,'pageLoad':30000,'implicit':0})
             command('POST','/window/rect',{'width':1000,'height':900})
             command('POST','/url',{'url':f'http://127.0.0.1:{server.server_port}/index.html'})
@@ -250,11 +252,10 @@ def run():
                     baseline_name=os.environ.get('SAFARI_BASELINE_ROOT')
                     if baseline_name:
                         baseline=(ROOT/baseline_name).resolve()
-                        for name in ('video-recorder.js','video-audio.js','video-renderer.js'):
-                            assert (baseline/'js'/name).read_bytes()==(ROOT/'js'/name).read_bytes(),name
+                        assert_render_stack(ROOT,baseline)
                     formats=script('return ShortsVideoRecorder.capabilities(true,"webm");')
                     assert formats['supported'],{'first':metadata,'webm':formats}
-                    print('::warning title=Safari MP4 audio codec limitation::Empty, timed-out or truncated MP4 is NOT accepted as success: '+json.dumps(metadata)+'. Encoder/mixer/renderer are unchanged; reload the saved project to release the failed encoder, then require a full-duration WebM.',flush=True)
+                    print('::warning title=Safari MP4 audio codec limitation::Empty, timed-out or truncated MP4 is NOT accepted as success: '+json.dumps(metadata)+'. Encoder/mixer/drawing implementations are unchanged outside the strictly checked resource bridge; reload the saved project to release the failed encoder, then require a full-duration WebM.',flush=True)
                     command('POST','/refresh',{})
                     wait_for('window.ShortsVideoRestored',seconds=30)
                     script(fixture)
@@ -292,11 +293,8 @@ def run():
                     relative=baseline.relative_to(ROOT).as_posix()
                     # An encoder limitation is accepted only with reproducible evidence:
                     # the stable site has the identical failure and all existing runtime
-                    # modules and original styles are byte-for-byte unchanged.
-                    original_files=[baseline/'js'/name for name in ('core.js','video-core.js','video-renderer.js','video-audio.js','video-recorder.js')]
-                    original_files += [baseline/'styles.css',baseline/'video.css']
-                    assert len(original_files)>=5, 'Incomplete Safari baseline'
-                    assert all(file.read_bytes()==(ROOT/file.relative_to(baseline)).read_bytes() for file in original_files), 'Safari recording failed and original runtime differs from baseline'
+                    # code matches outside the exact approved planning/resource bridge.
+                    assert_render_stack(ROOT,baseline)
                     command('POST','/url',{'url':f'http://127.0.0.1:{server.server_port}/{relative}/index.html'})
                     wait_for('window.ShortsEditor && window.ShortsVideoRecorder')
                     prepare_canvas()

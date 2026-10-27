@@ -10,7 +10,7 @@ window.testRenderPlanPixels = async function (cases, payload) {
       images.set(f.name.split('.')[0],image);if(f.name==='red.png')images.set('baseline-original-image',image);
     }
     const canvas=()=>{const c=document.createElement('canvas');c.width=720;c.height=1280;return c;};
-    const before=canvas(),after=canvas(),compat=canvas(),resources={images};let frames=0;
+    const before=canvas(),after=canvas(),beforeCompat=canvas(),compat=canvas(),resources={images};let frames=0;
     const pixels=c=>new Uint32Array(c.getContext('2d').getImageData(0,0,720,1280).data.buffer);
     const same=(a,b,label)=>{assert(a.length===b.length,label+' length');for(let i=0;i<a.length;i++)if(a[i]!==b[i])throw Error(label+' differs at pixel '+i);};
     const run=(name,draft)=>{
@@ -19,8 +19,16 @@ window.testRenderPlanPixels = async function (cases, payload) {
       assert(JSON.stringify(JSON.parse(JSON.stringify(plan)))===JSON.stringify(plan),'plan is plain transferable data');
       const boundary=plan.timeline[1]?.startMs||0;
       for(const time of new Set([0,1,Math.max(0,boundary-1),boundary,boundary+100,plan.durationMs-1])){
-        LegacyVideoRenderer.render(before,expected,time);R.render(after,plan,time,resources);R.render(compat,legacy,time);
-        const original=pixels(before);same(original,pixels(after),name+' shared at '+time);same(original,pixels(compat),name+' legacy API at '+time);frames++;
+        assert(JSON.stringify(LegacyVideoCore.frameAt(expected,time))===JSON.stringify(V.frameAt(plan,time)),name+' frame values at '+time);
+        // Equal call counts matter: JSC may optimize one identical renderer
+        // earlier if it is called twice for the two API paths being tested.
+        LegacyVideoRenderer.render(before,expected,time);R.render(after,plan,time,resources);
+        LegacyVideoRenderer.render(beforeCompat,expected,time);R.render(compat,legacy,time);
+        const original=pixels(before),actual=pixels(after),originalCompat=pixels(beforeCompat),actualCompat=pixels(compat);
+        const different=(a,b)=>{let count=0,max=0,first=null;for(let i=0;i<a.length;i++)if(a[i]!==b[i]){count++;first??={pixel:i,a:a[i].toString(16),b:b[i].toString(16)};for(let n=0;n<4;n++)max=Math.max(max,Math.abs((a[i]>>>(8*n)&255)-(b[i]>>>(8*n)&255)));}return{count,max,first};};
+        const delta=different(original,actual),compatDelta=different(originalCompat,actualCompat);
+        if(delta.count||compatDelta.count)throw Error(JSON.stringify({name,time,shared:delta,legacy:compatDelta,oldSelf:different(original,originalCompat),newSelf:different(actual,actualCompat)}));
+        same(original,actual,name+' shared at '+time);same(originalCompat,actualCompat,name+' legacy API at '+time);frames++;
       }
     };
     for(const f of cases)run(f.name,f.draft);
