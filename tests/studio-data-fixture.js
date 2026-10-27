@@ -121,7 +121,7 @@ window.testStudioAdapterSafety = async function () {
   // Invalid new inputs return a failed save result, not an unhandled exception.
   const invalid=await ShortsStorage.save({...ShortsCore.createProject(),version:999});assert(!invalid.ok,'unsupported DTO is an explicit save failure');
   const incomplete=ShortsCore.upgradeProject(before.previous.state);incomplete.scenes[0].imageId='missing-studio-original';
-  let denied=false;try{await ShortsStorage.captureBackup({editor:incomplete,video:ShortsVideoCore.demo()},64*1024*1024);}catch(e){denied=e.message.includes('missing-studio-original');}assert(denied,'adapter refuses missing Studio originals instead of dropping references');
+  let denied=false;try{await ShortsStorage.captureBackup({editor:incomplete,video:ShortsVideoCore.demo()},64*1024*1024);}catch(e){denied=e.code==='UNSUPPORTED';}assert(denied,'unknown saved head cannot be replaced by a misleading ZIP of the fallback UI');
   assert(JSON.stringify(await repo.read('editor'))===JSON.stringify(before),'failed capture never replaces future head/recovery');repo.close();return true;
 };
 

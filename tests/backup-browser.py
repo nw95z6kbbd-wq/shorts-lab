@@ -56,6 +56,10 @@ def run():
                 checkpoint(engine+': storage gate '+str(fail))
                 assert gate.evaluate('fail=>testBackupStorageGate(fail)',fail);gate_context.close()
             print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP adapter]: late autosave cannot overwrite restored heads; failed import resumes original queued saving',flush=True)
+            capture_context=browser.new_context();capture=capture_context.new_page();capture.goto(base+'tests/fixtures/backup-seed.html')
+            for name in ('core.js','video-core.js','project-db.js','storage.js'):capture.add_script_tag(content=(ROOT/'js'/name).read_text())
+            for name in ('ux-fixture.js','backup-storage-fixture.js'):capture.add_script_tag(content=(ROOT/'tests'/name).read_text())
+            assert capture.evaluate('testBackupCaptureBothModes()');capture_context.close()
             context=browser.new_context(viewport={'width':1440,'height':1000},accept_downloads=True);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
             def seed(page):
                 page.goto(base+'tests/fixtures/backup-seed.html')

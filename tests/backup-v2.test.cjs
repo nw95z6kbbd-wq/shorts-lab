@@ -40,6 +40,11 @@ test('ZIP v1 checkpoint sources and original frozen archive remain independent a
  const old=await oldF.importArchive(blob),current=await F.importArchive(blob);assert.deepEqual(current.projects,old.projects);assert.deepEqual(current.manifest,old.manifest);assert.equal(current.projects.editor.version,1);
  for(const [id,a] of old.assets)assert.deepEqual(Buffer.from(await current.assets.get(id).blob.arrayBuffer()),Buffer.from(await a.blob.arrayBuffer()));
 });
+test('frozen ZIP 2 example restores expected DTOs and valid original PNG/JPG/WebP/WAV hashes',async()=>{
+ const expected=require('./fixtures/zip-v2/expected.json'),bundle=await F.importArchive(new Blob([fs.readFileSync('tests/fixtures/zip-v2/editor2-video1.shorts.zip')]));
+ assert.equal(bundle.manifest.version,2);assert.deepEqual(plain(bundle.projects),expected.projects);
+ for(const a of expected.assets){const actual=bundle.assets.get(a.id);for(const key of ['kind','name','type','size','sha256'])assert.equal(actual[key],a[key]);assert.equal(hash(Buffer.from(await actual.blob.arrayBuffer())),a.sha256);}
+});
 test('v1-only projects still export ZIP 1 readable by the frozen old client, including empty drafts',async()=>{
  for(const editor of [plain(baseline.editor),C.createProject()]){
   const projects={editor,video:V.parseDraft(V.demo())};const zip=await F.exportArchive(projects,new Map(),'1.4.0');

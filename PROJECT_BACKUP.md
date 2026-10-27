@@ -98,6 +98,9 @@ CHROMIUM_PATH=/usr/bin/chromium python3 tests/check-errors.py tests/backup-brows
 BACKUP_ENTRY=downloads/Shorts-Studio.html CHROMIUM_PATH=/usr/bin/chromium python3 tests/check-errors.py tests/backup-browser.py
 BACKUP_BROWSER=webkit python3 tests/check-errors.py tests/backup-browser.py
 BACKUP_BROWSER=webkit BACKUP_ENTRY=downloads/Shorts-Studio.html python3 tests/check-errors.py tests/backup-browser.py
+BACKUP_STUDIO_VERSION=2 CHROMIUM_PATH=/usr/bin/chromium python3 tests/check-errors.py tests/backup-browser.py
+BACKUP_STUDIO_VERSION=2 BACKUP_ENTRY=downloads/Shorts-Studio.html CHROMIUM_PATH=/usr/bin/chromium python3 tests/check-errors.py tests/backup-browser.py
+BACKUP_BROWSER=webkit BACKUP_STUDIO_VERSION=2 python3 tests/check-errors.py tests/backup-browser.py
 ```
 
 Playwright из `requirements-dev.txt`, установленный соответствующий браузер и FFmpeg нужны только для тестов. CI запускает эти проверки вместе со всеми прежними, включая мобильную эмуляцию; настоящий Safari — через `tests/safari-product.py` на macOS. Для локального Safari: `sudo /usr/bin/safaridriver --enable`, затем `python3 tests/safari-product.py`.
@@ -107,6 +110,8 @@ Playwright из `requirements-dev.txt`, установленный соотве�
 После восстановления Chromium/FFmpeg проверяют настоящее 9:16-видео: длительность, порядок трёх изображений, отсутствие чёрных кадров и обе частоты аудио. Native Safari проверяет настоящую запись и кадры через декодированный video/Canvas. Если Linux WebKit не предоставляет MediaRecorder, тест сообщает ограничение, но продолжает настоящие проверки ZIP/хранилища/предпросмотра; это не считается проверкой записи WebKit. Кодеки и ограничения готового видео остались прежними.
 
 ## Ручная проверка в Safari перед merge
+
+Для проверки DTO 2 без добавления ручного медиа-UI есть [готовый ZIP 2](tests/fixtures/zip-v2/editor2-video1.shorts.zip) и независимое описание ожидаемых данных `tests/fixtures/zip-v2/expected.json`. Это синтетический тестовый проект с PNG/JPG/WebP и шестисекундными WAV 440/880 Гц, не настоящая речь. Импорт заменяет **оба** черновика после подтверждения: используйте отдельный origin/профиль и сохраните свою копию. Проверьте повторный экспорт/импорт, общий голос/изображение, отдельные исходники Студии и `imageId` неактивного анимированного фона. Существующий интерфейс не показывает эти ручные медиа; их сохранность проверяется содержимым повторного ZIP. Видеорежим должен воспроизводить и экспортировать свои изображения/две дорожки. Ручная видеосборка не добавлена.
 
 1. Откройте ветку локально/в тестовой среде, а не опубликованный сайт. Убедитесь, что версия **1.4.0 «Ещё не опубликовано»**. Сохраните независимую копию важных прежних данных до экспериментов.
 2. В Студии измените название/сценарий, отредактируйте отдельную сцену и оформление. В видеорежиме загрузите PNG, JPG и WebP, голос и музыку; задайте разные движения камеры, переходы, ручные длительности, громкости и края музыки.
