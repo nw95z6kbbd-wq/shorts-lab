@@ -20,6 +20,7 @@ from backup_native import check_native_backup, wait_native_video
 from studio_data_native import check_native_studio_data
 from render_plan_native import check_native_render_plan
 from render_guard import assert_render_stack
+from runtime_session_native import check_native_runtime
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -318,6 +319,7 @@ def run():
             check_native_backup(ROOT,f'http://127.0.0.1:{server.server_port}/',script,command,click,wait_for,editor_version=2)
             check_native_studio_data(ROOT,script,command)
             check_native_render_plan(ROOT,script,command)
+            check_native_runtime(ROOT,script,command,click)
     finally:
         if session:
             try: request('DELETE','/session/'+session)
