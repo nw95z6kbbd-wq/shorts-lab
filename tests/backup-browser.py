@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import struct
 import tempfile
+import time
 import threading
 import zipfile
 from http.server import ThreadingHTTPServer
@@ -46,7 +47,9 @@ def run():
     try:
         with tempfile.TemporaryDirectory(prefix='shorts-zip-') as tmp,sync_playwright() as p:
             folder=Path(tmp);payload=media_payload(folder)
-            launch={} if engine=='webkit' else {'executable_path':os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'),'args':['--no-sandbox']}
+            downloads=folder/'browser-downloads';downloads.mkdir()
+            launch={'downloads_path':str(downloads)}
+            if engine!='webkit':launch.update(executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'),args=['--no-sandbox'])
             browser=getattr(p,engine).launch(**launch)
             checkpoint(engine+': adapters before fixtures')
             for fail in (False,True):
@@ -91,9 +94,26 @@ def run():
             page.evaluate('()=>{SubtleCrypto.prototype.digest=window.backupOriginalDigest;}')
             page.locator('[data-backup-export]:visible').click()
             checkpoint(engine+': actual ZIP download link')
+            prior_downloads=set(downloads.iterdir())
             with page.expect_download() as item:page.locator('#backupDownload').click()
-            checkpoint(engine+': ZIP download event received; save file')
-            archive=folder/'portable.shorts.zip';item.value.save_as(archive)
+            checkpoint(engine+': ZIP download event received; verify real downloaded bytes')
+            # Read the actual browser download directory with a bounded deadline.
+            # WebKit can emit its download event but never settle save_as(). No
+            # in-memory substitute is accepted: a complete CRC-valid file must
+            # have been written by the browser before we copy it for import.
+            archive=folder/'portable.shorts.zip';deadline=time.monotonic()+30
+            while True:
+                candidates=[file for file in downloads.iterdir() if file not in prior_downloads and file.is_file()]
+                content=None
+                for file in candidates:
+                    try:
+                        data=file.read_bytes()
+                        with zipfile.ZipFile(io.BytesIO(data)) as actual:
+                            if actual.testzip() is None:content=data;break
+                    except (OSError,ValueError,EOFError,zipfile.BadZipFile):pass
+                if content is not None:archive.write_bytes(content);break
+                assert time.monotonic()<deadline,('Browser did not complete ZIP download',[(file.name,file.stat().st_size) for file in candidates])
+                page.wait_for_timeout(100)
             assert item.value.suggested_filename.endswith('.shorts.zip')
             page.locator('#backupCancel').click()
             expect(page.locator('#videoTitle')).to_have_value('Правка ПОСЛЕ фиксации ZIP')

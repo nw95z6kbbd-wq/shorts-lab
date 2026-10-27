@@ -16,7 +16,7 @@ import traceback
 import urllib.error
 import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from backup_native import check_native_backup
+from backup_native import check_native_backup, wait_native_video
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -224,12 +224,13 @@ def run():
             assert 'music.wav' in script('return document.getElementById("videoMusicInfo").textContent;')
             if script('return ShortsVideoRecorder.capabilities(true).supported;'):
                 def record_restored_ui():
+                    # Exercise the restored preview/audio through a trusted user
+                    # action before recording, as in the portable ZIP scenario.
+                    click('#playGeneratedPreview')
+                    wait_for('document.getElementById("videoPreviewTime").textContent.startsWith("0:01")')
+                    click('#playGeneratedPreview')
                     click('#recordVideo')
-                    wait_for('!document.getElementById("downloadVideo").hidden || document.getElementById("videoRenderStatus").textContent.includes("не завершена")',seconds=25)
-                    if script('return document.getElementById("downloadVideo").hidden;'):
-                        return {'error':script('return document.getElementById("videoError").textContent;')}
-                    wait_for('document.getElementById("generatedVideo").readyState>=1')
-                    return script('const v=document.getElementById("generatedVideo");return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:document.getElementById("videoFileInfo").textContent};')
+                    return wait_native_video(command)
                 def full_restored_video(result):
                     return result.get('width')==720 and result.get('height')==1280 and isinstance(result.get('duration'),(int,float)) and 5<result['duration']<7.5
                 metadata=record_restored_ui()

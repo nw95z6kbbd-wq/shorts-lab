@@ -14,6 +14,26 @@ import zipfile
 from backup_assets import media_payload
 
 
+def wait_native_video(command):
+    """Observe the real output without repeatedly entering Safari's JS debugger.
+
+    WebDriver polling during capture competes with Canvas/encoder scheduling on
+    hosted Macs. A single async command waits on actual DOM/media events; it does
+    not replace the recorder, fake time or accept a shortened recording.
+    """
+    return command('POST','/execute/async',{'script':r'''
+      const done=arguments[arguments.length-1],download=document.getElementById('downloadVideo'),video=document.getElementById('generatedVideo'),status=document.getElementById('videoRenderStatus');let finished=false;
+      const observer=new MutationObserver(check),timer=setTimeout(()=>finish({error:'Native Safari recording timed out',status:status.textContent}),25000);
+      function finish(result){if(finished)return;finished=true;clearTimeout(timer);observer.disconnect();video.removeEventListener('loadedmetadata',check);video.removeEventListener('error',check);done(result);}
+      function check(){
+        if(!download.hidden&&video.readyState>=1)finish({width:video.videoWidth,height:video.videoHeight,duration:video.duration,info:document.getElementById('videoFileInfo').textContent});
+        else if(status.textContent.includes('не завершена'))finish({error:document.getElementById('videoError').textContent});
+        else if(!download.hidden&&video.error)finish({error:'Safari could not decode the recorded video'});
+      }
+      observer.observe(download,{attributes:true,attributeFilter:['hidden']});observer.observe(status,{childList:true,subtree:true,characterData:true});video.addEventListener('loadedmetadata',check);video.addEventListener('error',check);check();
+    ''','args':[]})
+
+
 def check_native_backup(root,_source_base,script,command,click,wait_for):
     # Do not seed the origin of the preceding UI suite. WebKit can retain that
     # document's pagehide autosave/connection in its navigation cache. Use a new
@@ -83,8 +103,8 @@ def _check_native_backup(root,source_base,script,command,click,wait_for):
         assert 'voice.wav' in script('return videoAudioInfo.textContent;') and 'music.wav' in script('return videoMusicInfo.textContent;')
         click('#playGeneratedPreview');wait_for('document.getElementById("videoPreviewTime").textContent.startsWith("0:01")');click('#playGeneratedPreview')
         assert script('return ShortsVideoRecorder.capabilities(true,"webm").supported;'),'Native Safari lacks recording capability; actual restored export not verified'
-        click('#recordVideo');wait_for('!document.getElementById("downloadVideo").hidden',seconds=25);wait_for('document.getElementById("generatedVideo").readyState>=1')
-        metadata=script('const v=generatedVideo;return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:videoFileInfo.textContent};')
+        click('#recordVideo');metadata=wait_native_video(command)
+        assert not metadata.get('error'),metadata
         assert metadata['width']==720 and metadata['height']==1280 and 5<metadata['duration']<7.5 and 'голос + музыка' in metadata['info'],metadata
         samples=async_script('''const v=generatedVideo,c=document.createElement('canvas');c.width=c.height=1;const x=c.getContext('2d'),result=[];v.pause();for(const t of [.5,2.7,4.8]){await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Video seek timeout')),4000);v.onseeked=()=>{clearTimeout(timer);resolve();};v.currentTime=t;});x.drawImage(v,300,400,100,100,0,0,1,1);result.push(Array.from(x.getImageData(0,0,1,1).data).slice(0,3));}return result;''')
         r,b,g=samples;assert r[0]>r[2]*1.5 and b[2]>b[0]*1.5 and g[1]>g[0]*1.5,samples
