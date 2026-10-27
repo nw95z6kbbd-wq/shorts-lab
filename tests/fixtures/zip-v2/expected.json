@@ -1,0 +1,182 @@
+{
+  "projects": {
+    "editor": {
+      "version": 2,
+      "id": "b199ea40-16fd-461c-a3a0-60f3958993fa",
+      "name": "Независимая Студия ZIP",
+      "script": "Ручной сценарий. Вторую сцену я отредактировал отдельно.",
+      "sourceScript": "Ручной сценарий. Вторую сцену я отредактировал отдельно.",
+      "scenes": [
+        {
+          "id": "dc4de2cc-d15e-4db0-8847-9a7cbb45b3c3",
+          "text": "Ручной сценарий.",
+          "durationMs": 12501,
+          "visual": "image",
+          "imageId": "zip-fixture-image-0",
+          "imageName": "red.png",
+          "camera": "pan-right",
+          "transition": "slide"
+        },
+        {
+          "id": "9054779c-2394-42fc-b184-ad84439cd508",
+          "text": "Отдельная правка ручной сцены",
+          "durationMs": null,
+          "visual": "animated",
+          "imageId": "zip-fixture-image-1",
+          "imageName": "blue.jpg",
+          "camera": "zoom-out",
+          "transition": "none"
+        },
+        {
+          "id": "studio-private-scene",
+          "text": "Отдельный исходник Студии",
+          "durationMs": 70001,
+          "visual": "image",
+          "imageId": "zip-studio-image",
+          "imageName": "studio-green.webp",
+          "camera": "pan-right",
+          "transition": "slide"
+        }
+      ],
+      "selectedSceneId": "9054779c-2394-42fc-b184-ad84439cd508",
+      "style": {
+        "caption": "outline",
+        "size": "large",
+        "theme": "minimal"
+      },
+      "updatedAt": "2026-10-27T19:12:49.620Z",
+      "timing": "manual",
+      "audio": {
+        "voice": {
+          "assetId": "zip-fixture-voice",
+          "name": "voice.wav",
+          "volume": 0.93
+        },
+        "music": {
+          "assetId": "zip-studio-music",
+          "name": "studio-music.wav",
+          "volume": 0.17,
+          "fadeInMs": 1234,
+          "fadeOutMs": 2345
+        }
+      },
+      "subtitles": {
+        "enabled": false,
+        "mode": "chunks"
+      },
+      "exportSettings": {
+        "format": "webm",
+        "profile": "shorts-720p"
+      }
+    },
+    "video": {
+      "version": 1,
+      "idea": "Мистическая история про заброшенный дом",
+      "title": "Видео ZIP с исходниками",
+      "scenes": [
+        {
+          "id": "943df640-c40c-49c9-8bc9-e3f7bd8914c2",
+          "text": "Этот заброшенный дом помнил то, что я забыл.",
+          "durationSeconds": 2,
+          "visual": "image",
+          "imageId": "zip-fixture-image-0",
+          "imageName": "red.png",
+          "camera": "zoom-in",
+          "transition": "crossfade"
+        },
+        {
+          "id": "571ab131-82b4-41be-b8b1-11b280ab9a18",
+          "text": "Ночью в пустом окне вдруг зажёгся свет.",
+          "durationSeconds": 2,
+          "visual": "image",
+          "imageId": "zip-fixture-image-1",
+          "imageName": "blue.jpg",
+          "camera": "pan-left",
+          "transition": "slide"
+        },
+        {
+          "id": "b8aae284-3b11-4b6b-a062-cee6aeaa31e2",
+          "text": "За дверью кто-то тихо назвал моё имя.",
+          "durationSeconds": 2,
+          "visual": "image",
+          "imageId": "zip-fixture-image-2",
+          "imageName": "green.webp",
+          "camera": "zoom-out",
+          "transition": "zoom"
+        }
+      ],
+      "durationSeconds": 18,
+      "theme": "neon",
+      "caption": "classic",
+      "volume": 0.65,
+      "format": "webm",
+      "edited": true,
+      "timing": "manual",
+      "musicVolume": 0.45,
+      "musicFadeIn": 0.4,
+      "musicFadeOut": 0.7,
+      "voiceAssetId": "zip-fixture-voice",
+      "voiceName": "voice.wav",
+      "musicAssetId": "zip-fixture-music",
+      "musicName": "music.wav"
+    }
+  },
+  "assets": [
+    {
+      "id": "zip-fixture-image-0",
+      "name": "red.png",
+      "kind": "image",
+      "type": "image/png",
+      "size": 878,
+      "sha256": "8120687e00cdfcd17401a29c96709e894451d3e363fcfca62259f47d0dca736d"
+    },
+    {
+      "id": "zip-fixture-image-1",
+      "name": "blue.jpg",
+      "kind": "image",
+      "type": "image/jpeg",
+      "size": 2658,
+      "sha256": "f133152bd5efb023fd5d3fb3991742e5ec89c887012329814fea33dc2138fcb2"
+    },
+    {
+      "id": "zip-fixture-image-2",
+      "name": "green.webp",
+      "kind": "image",
+      "type": "image/webp",
+      "size": 514,
+      "sha256": "9603ded173f515e89a4a114bd9fc2bff1bd28d2dc62b945a9bec722f8b75520f"
+    },
+    {
+      "id": "zip-fixture-voice",
+      "name": "voice.wav",
+      "kind": "voice",
+      "type": "audio/wav",
+      "size": 192044,
+      "sha256": "c40da827c5189aa5c6696c06b1478ad9618d510c835d3b517a6072890357820c"
+    },
+    {
+      "id": "zip-fixture-music",
+      "name": "music.wav",
+      "kind": "music",
+      "type": "audio/wav",
+      "size": 192044,
+      "sha256": "cc897e5d7b7dcc71e3b4fdf9400a1ca9289a91094efe2411c4bdb44fcbbaf70d"
+    },
+    {
+      "id": "zip-studio-image",
+      "name": "studio-green.webp",
+      "kind": "image",
+      "type": "image/webp",
+      "size": 514,
+      "sha256": "9603ded173f515e89a4a114bd9fc2bff1bd28d2dc62b945a9bec722f8b75520f"
+    },
+    {
+      "id": "zip-studio-music",
+      "name": "studio-music.wav",
+      "kind": "music",
+      "type": "audio/wav",
+      "size": 192044,
+      "sha256": "cc897e5d7b7dcc71e3b4fdf9400a1ca9289a91094efe2411c4bdb44fcbbaf70d"
+    }
+  ]
+}

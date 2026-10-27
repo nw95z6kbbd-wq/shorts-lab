@@ -27,7 +27,8 @@
       await ready();progress('Фиксируем оба черновика и исходные файлы…',0);
       // Both snapshots are taken in the same JS turn. A loading/recording video
       // is rejected; all Blob references are acquired before background editing.
-      const projects=F.states({editor:window.ShortsEditor.backupSnapshot(),video:window.ShortsVideoBackup.snapshot()},[],false);
+      const projects=F.states({editor:window.ShortsEditor.backupSnapshot(),video:window.ShortsVideoBackup.snapshot()});
+      const version=F.versionFor(projects);
       const assets=await window.ShortsStorage.captureBackup(projects,Z.LIMITS.archive);
       $('backupBackground').hidden=false;
       const media=new Map([...F.usage(projects)].map(([id,kind])=>[id,{...assets.get(id),kind}]));
@@ -35,7 +36,7 @@
       const blob=await F.exportArchive(projects,assets,window.ShortsProduct.version,p=>progress('Подготовка ZIP: '+Math.round(p*100)+'%',.15+.8*p));
       if(cancelled)throw new DOMException('Отмена','AbortError');
       downloadUrl=URL.createObjectURL(blob);$('backupDownload').href=downloadUrl;$('backupDownload').download=window.ShortsCore.fileName(projects.editor.name)+'.shorts.zip';$('backupDownload').hidden=false;
-      progress('ZIP готов: оба черновика и исходные файлы зафиксированы при создании копии. Позднейшие правки в неё не входят. Нажмите «Скачать ZIP-копию».',1);$('backupFresh').hidden=false;$('backupBackground').hidden=true;$('backupCancel').textContent='Закрыть';
+      progress('ZIP '+version+' готов: оба черновика и исходные файлы зафиксированы при создании копии. Позднейшие правки в неё не входят. Нажмите «Скачать ZIP-копию».',1);$('backupFresh').hidden=false;$('backupBackground').hidden=true;$('backupCancel').textContent='Закрыть';
     } catch(cause) { if(cause.name!=='AbortError')error(cause); }
     finally { running=false;if(cancelled){retire(downloadUrl);downloadUrl='';prepared=null;status('ZIP отменён.');} }
   }
@@ -53,7 +54,7 @@
       const bundle=await F.importArchive(file,p=>progress('Проверяем ZIP: '+Math.round(p*60)+'%',p*.6));
       await validateMedia(bundle);if(cancelled)throw new DOMException('Отмена','AbortError');
       prepared=await F.remap(bundle);if(cancelled){prepared=null;throw new DOMException('Отмена','AbortError');}
-      $('backupMessage').textContent='Будут заменены ОБА текущих черновика, включая несохранённые правки (сейчас: «'+$('projectName').value+'» и «'+$('videoTitle').value+'»). В ZIP: Студия «'+bundle.projects.editor.name+'»; видео: «'+bundle.projects.video.title+'». Исходников: '+bundle.assets.size+'. После успешной записи страница перезагрузится. Сначала скачайте текущую ZIP-копию, если она нужна.';
+      $('backupMessage').textContent='ZIP '+bundle.manifest.version+'. Будут заменены ОБА текущих черновика, включая несохранённые правки (сейчас: «'+$('projectName').value+'» и «'+$('videoTitle').value+'»). В ZIP: Студия «'+bundle.projects.editor.name+'»; видео: «'+bundle.projects.video.title+'». Исходников: '+bundle.assets.size+'. После успешной записи страница перезагрузится. Сначала скачайте текущую ZIP-копию, если она нужна.';
       for(const warning of bundle.warnings){const item=document.createElement('li');item.textContent=warning;$('backupWarnings').append(item);}
       $('backupProgress').hidden=true;$('backupConfirm').hidden=false;status('ZIP проверен. Ожидается подтверждение замены.');
     } catch(cause){if(cause.name!=='AbortError')error(cause);}

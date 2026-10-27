@@ -50,8 +50,8 @@ test('frozen ZIP produced by untouched 1.4.0 imports with original bytes and bot
 test('ZIP v1 explicitly rejects DTO 2, including metadata-only drafts, instead of silently producing partial backup',async()=>{
  for(const editor of [studio(),C.upgradeProject(baseline.editor)]){
   const projects={editor,video:baseline.video},before=JSON.stringify(projects);
-  await assert.rejects(F.exportArchive(projects,new Map(),'1.4.0'),/ZIP.*1.*Студии/);
-  assert.throws(()=>F.states(projects),/ZIP.*1.*Студии/);assert.equal(JSON.stringify(projects),before);
+  await assert.rejects(F.exportArchive(projects,new Map(),'1.4.0',undefined,1),/ZIP.*1.*Студии/);
+  assert.throws(()=>F.states(projects,[],true,1),/ZIP.*1.*Студии/);assert.equal(JSON.stringify(projects),before);
  }
 });
 

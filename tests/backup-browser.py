@@ -38,7 +38,7 @@ def checkpoint(stage):
 
 
 def run():
-    engine=os.environ.get('BACKUP_BROWSER','chromium')
+    engine=os.environ.get('BACKUP_BROWSER','chromium');editor_version=int(os.environ.get('BACKUP_STUDIO_VERSION','1'))
     server=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(media.checks.Handler,directory=str(ROOT)))
     threading.Thread(target=server.serve_forever,daemon=True).start()
     base=f'http://127.0.0.1:{server.server_port}/shorts-lab/';url=base+os.environ.get('BACKUP_ENTRY','')
@@ -56,20 +56,24 @@ def run():
                 checkpoint(engine+': storage gate '+str(fail))
                 assert gate.evaluate('fail=>testBackupStorageGate(fail)',fail);gate_context.close()
             print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP adapter]: late autosave cannot overwrite restored heads; failed import resumes original queued saving',flush=True)
+            capture_context=browser.new_context();capture=capture_context.new_page();capture.goto(base+'tests/fixtures/backup-seed.html')
+            for name in ('core.js','video-core.js','project-db.js','storage.js'):capture.add_script_tag(content=(ROOT/'js'/name).read_text())
+            for name in ('ux-fixture.js','backup-storage-fixture.js'):capture.add_script_tag(content=(ROOT/'tests'/name).read_text())
+            assert capture.evaluate('testBackupCaptureBothModes()');capture_context.close()
             context=browser.new_context(viewport={'width':1440,'height':1000},accept_downloads=True);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
             def seed(page):
                 page.goto(base+'tests/fixtures/backup-seed.html')
                 for name in ('core.js','video-core.js','project-db.js','storage.js'):
                     page.add_script_tag(content=(ROOT/'js'/name).read_text())
                 page.add_script_tag(content=(ROOT/'tests/backup-fixture.js').read_text())
-                page.evaluate('files=>seedBackupFixture(files)',payload)
+                page.evaluate('([files,version])=>seedBackupFixture(files,version)',[payload,editor_version])
                 page.goto(url);page.wait_for_function('window.ShortsVideoRestored')
                 page.add_script_tag(content=(ROOT/'tests/backup-fixture.js').read_text())
             checkpoint(engine+': original media seed')
             seed(page)
             page.add_script_tag(content=(ROOT/'tests/backup-db-fixture.js').read_text())
             checkpoint(engine+': atomic repository')
-            assert page.evaluate('testAtomicBackupRepository()')
+            assert page.evaluate('version=>testAtomicBackupRepository(version)',editor_version)
             print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP repository]: two-slot rollback on quota/abort, previous media, missing originals, content collision, repeated and concurrent imports',flush=True)
             page.locator('#openVideoMode').click()
             page.add_script_tag(content=(ROOT/'tests/ux-fixture.js').read_text())
@@ -99,6 +103,8 @@ def run():
             with zipfile.ZipFile(archive) as z:
                 assert z.testzip() is None
                 manifest=json.loads(z.read('manifest.json'));project=json.loads(z.read('project.json'))
+                assert manifest['version']==project['version']==editor_version
+                assert project['editor']['version']==editor_version and project['video']['version']==1
                 assert project['video']['title']==expected['video']['title']
                 assert set(z.namelist())=={'manifest.json','project.json',*(a['path'] for a in manifest['assets'])}
                 for source in payload:
@@ -146,15 +152,16 @@ def run():
 
             def target():return getattr(p,engine).launch_persistent_context(str(folder/'target-profile'),viewport={'width':1440,'height':1000},accept_downloads=True,**launch)
             checkpoint(engine+': new persistent profile import')
-            destination=target();dest=destination.new_page();dest.on('pageerror',lambda e:errors.append(str(e)));dest.goto(url);dest.wait_for_function('window.ShortsVideoRestored')
+            destination=target();dest=destination.new_page();dest.on('pageerror',lambda e:errors.append(str(e)))
+            seed(dest)  # Failed imports must protect populated heads AND actual originals.
             dest.add_script_tag(content=(ROOT/'tests/backup-fixture.js').read_text())
-            def db_snapshot():return dest.evaluate('async()=>{const r=ShortsProjectDB.createRepository(),v=[await r.read("editor"),await r.read("video")];r.close();return v;}')
+            def db_snapshot():return dest.evaluate('backupRepositorySnapshot()')
             baseline=db_snapshot()
             def choose(content):dest.locator('#backupFile').set_input_files({'name':'restore.shorts.zip','mimeType':'application/zip','buffer':content})
             def validated():expect(dest.locator('#backupConfirm')).to_be_visible(timeout=30000)
             choose(archive.read_bytes());validated();dest.locator('#backupCancel').click();expect(dest.locator('#backupDialog')).to_be_hidden();assert db_snapshot()==baseline
             # Every malformed archive must leave both actual persisted slots unchanged.
-            future=dict(rawfiles);m=json.loads(future['manifest.json']);m['version']=2;future['manifest.json']=json.dumps(m).encode()
+            future=dict(rawfiles);m=json.loads(future['manifest.json']);m['version']=3;future['manifest.json']=json.dumps(m).encode()
             missing=dict(rawfiles);del missing[next(name for name in missing if name.startswith('assets/'))]
             badhash=dict(rawfiles);m=json.loads(badhash['manifest.json']);m['project']['sha256']='0'*64;badhash['manifest.json']=json.dumps(m).encode()
             badpath=dict(rawfiles);name=next(n for n in badpath if n.startswith('assets/'));badpath['../escape.bin']=badpath.pop(name)
@@ -170,6 +177,9 @@ def run():
             with dest.expect_navigation(wait_until='load'):dest.locator('#backupConfirm').click()
             dest.wait_for_function('window.ShortsVideoRestored');dest.add_script_tag(content=(ROOT/'tests/backup-fixture.js').read_text())
             assert dest.evaluate('backupFixtureSnapshot()')==expected
+            restored_repository=db_snapshot()
+            assert [h['previous']['state'] for h in restored_repository['heads']]==[h['state'] for h in baseline['heads']]
+            assert all(a in restored_repository['assets'] for a in baseline['assets']),'successful restore retains old recovery originals'
             dest.locator('#openVideoMode').click();expect(dest.locator('.scene-image-thumb')).to_have_count(3)
             dest.add_script_tag(content=(ROOT/'tests/render-plan-fixture.js').read_text());dest.evaluate('installRenderPlanProbe()')
             expect(dest.locator('#videoAudioInfo')).to_contain_text('voice.wav');expect(dest.locator('#videoMusicInfo')).to_contain_text('music.wav')
@@ -213,7 +223,7 @@ def run():
                 assert dest.locator('#downloadVideo').get_attribute('href')==ready_href and dest.locator('#videoFileInfo').inner_text()==ready_info
                 print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP restored export]: actual 9:16 WebM, PNG/JPG/WebP order, voice+music frequencies/fades and no black frames',flush=True)
             else:print(f'LIMITATION [{engine}]: Canvas/MediaRecorder codec unavailable; real ZIP persistence/preview verified; exported files checked in Chromium/native Safari',flush=True)
-            print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP transfer]: clean independent browser storage, both modes/settings, repeat import without ID collisions, complete browser process restart, previews and original audio',flush=True)
+            print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP {editor_version} transfer]: clean independent browser storage, both modes/settings, repeat import without ID collisions, complete browser process restart, previews and original audio',flush=True)
             destination.close();context.close();browser.close();assert not errors,errors
     finally:server.shutdown();server.server_close()
 
