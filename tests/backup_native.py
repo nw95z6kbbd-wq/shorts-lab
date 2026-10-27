@@ -24,13 +24,16 @@ def wait_native_video(command):
     response=command('POST','/execute/async',{'script':r'''
       const done=arguments[arguments.length-1],download=document.getElementById('downloadVideo'),video=document.getElementById('generatedVideo'),status=document.getElementById('videoRenderStatus');let finished=false;
       const observer=new MutationObserver(check),timer=setTimeout(()=>finish({error:'Native Safari recording timed out',status:status.textContent}),25000);
-      function finish(result){if(finished)return;finished=true;clearTimeout(timer);observer.disconnect();video.removeEventListener('loadedmetadata',check);video.removeEventListener('error',check);done({recording:result});}
+      function finish(result){if(finished)return;finished=true;clearTimeout(timer);observer.disconnect();for(const event of ['loadedmetadata','durationchange','loadeddata'])video.removeEventListener(event,check);video.removeEventListener('error',check);done({recording:result});}
       function check(){
-        if(!download.hidden&&video.readyState>=1)finish({width:video.videoWidth,height:video.videoHeight,duration:video.duration,info:document.getElementById('videoFileInfo').textContent});
+        // Safari can emit loadedmetadata with duration=0 while the WebM
+        // demuxer is still updating it. Wait for actual usable metadata;
+        // the caller still asserts the exact duration/dimensions and frames.
+        if(!download.hidden&&video.readyState>=1&&video.videoWidth>0&&video.videoHeight>0&&Number.isFinite(video.duration)&&video.duration>0)finish({width:video.videoWidth,height:video.videoHeight,duration:video.duration,info:document.getElementById('videoFileInfo').textContent});
         else if(status.textContent.includes('не завершена'))finish({error:document.getElementById('videoError').textContent});
         else if(!download.hidden&&video.error)finish({error:'Safari could not decode the recorded video'});
       }
-      observer.observe(download,{attributes:true,attributeFilter:['hidden']});observer.observe(status,{childList:true,subtree:true,characterData:true});video.addEventListener('loadedmetadata',check);video.addEventListener('error',check);check();
+      observer.observe(download,{attributes:true,attributeFilter:['hidden']});observer.observe(status,{childList:true,subtree:true,characterData:true});for(const event of ['loadedmetadata','durationchange','loadeddata'])video.addEventListener(event,check);video.addEventListener('error',check);check();
     ''','args':[]})
     # A top-level `error` is a W3C transport error to the driver client. Recorder
     # errors are data for the existing MP4 -> WebM fallback, not driver failures.

@@ -1,6 +1,6 @@
 // Test-only fault/latency fixture. The app still uses real IndexedDB transactions.
 window.holdUXTransaction = () => new Promise((resolve, reject) => {
-  const request = indexedDB.open('shorts-studio.projects', 1);
+  const request = indexedDB.open('shorts-studio.projects', ShortsProjectDB.DATABASE_VERSION);
   request.onerror = () => reject(request.error);
   request.onsuccess = () => {
     const db = request.result, tx = db.transaction(['projects', 'assets'], 'readwrite');

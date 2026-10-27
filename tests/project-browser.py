@@ -126,7 +126,7 @@ def run():
                 expect(page.locator('#videoTitle')).to_have_value('Правка первой вкладки')
                 print(f'PASS [{engine}]: cross-tab conflict, quota error and recovery of previous correct state',flush=True)
                 # Losing saved audio must block export rather than silently produce silence.
-                page.evaluate('''async()=>{const r=await ShortsProjectDB.createRepository().read('video');await new Promise((resolve,reject)=>{const q=indexedDB.open('shorts-studio.projects',1);q.onsuccess=()=>{const db=q.result,t=db.transaction('assets','readwrite');t.objectStore('assets').delete(r.state.voiceAssetId);t.oncomplete=()=>{db.close();resolve();};t.onerror=()=>reject(t.error);};});}''')
+                page.evaluate('''async()=>{const r=await ShortsProjectDB.createRepository().read('video');await new Promise((resolve,reject)=>{const q=indexedDB.open('shorts-studio.projects',ShortsProjectDB.DATABASE_VERSION);q.onsuccess=()=>{const db=q.result,t=db.transaction('assets','readwrite');t.objectStore('assets').delete(r.state.voiceAssetId);t.oncomplete=()=>{db.close();resolve();};t.onerror=()=>reject(t.error);};});}''')
                 page.reload();page.wait_for_function('window.ShortsVideoRestored');page.locator('#createVideoMode').click()
                 expect(page.locator('#recordVideo')).to_be_disabled();expect(page.locator('#videoPlanError')).to_contain_text('Голос')
                 assert not errors,errors

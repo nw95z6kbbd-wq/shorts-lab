@@ -348,7 +348,7 @@ window.ShortsEditorReady = (async function () {
   }
 
   function hasWork() {
-    return Boolean(project.script.trim() || project.scenes.some(scene => scene.text.trim()));
+    return project.version === C.STUDIO_VERSION || Boolean(project.script.trim() || project.scenes.some(scene => scene.text.trim()));
   }
 
   function loadDemo() {

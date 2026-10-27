@@ -112,8 +112,84 @@
     };
   }
 
+  const STUDIO_VERSION = 2;
+  const unsupported = message => Object.assign(new Error(message), { code: 'UNSUPPORTED' });
+  function fields(value, keys) {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) throw new Error('Повреждена структура проекта Студии.');
+    if (Object.keys(value).some(key => !keys.includes(key))) throw unsupported('Проект содержит неподдерживаемые поля. Обновите Shorts Studio; данные не заменены.');
+  }
+  function choice(value, allowed, fallback) {
+    if (value === undefined) return fallback;
+    if (!allowed.includes(value)) throw unsupported('Неподдерживаемое значение настройки Студии.');
+    return value;
+  }
+  function assetId(value) {
+    if (value == null) return null;
+    if (typeof value !== 'string' || !value || value.length > 200 || /[\u0000-\u0020\u007f]/.test(value) || /^(blob:|data:)|:\/\//i.test(value)) throw new Error('Повреждена постоянная ссылка на исходный файл.');
+    return value;
+  }
+  function milliseconds(value, fallback, minimum = 0) {
+    if (value === undefined) return fallback;
+    if (!Number.isSafeInteger(value) || value < minimum) throw new Error('Длительность должна быть целым числом миллисекунд.');
+    return value;
+  }
+  function volume(value, fallback) {
+    if (value === undefined) return fallback;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) throw new Error('Громкость должна быть от 0 до 1.');
+    return value;
+  }
+  function mediaName(value) {
+    if (value === undefined) return '';
+    if (typeof value !== 'string' || value.length > 200) throw new Error('Повреждено имя исходного файла.');
+    return value;
+  }
+  function studioScene(scene) {
+    fields(scene, ['id', 'text', 'durationMs', 'visual', 'imageId', 'imageName', 'camera', 'transition']);
+    assetId(scene.id);
+    if (!scene.id) throw new Error('У сцены нет постоянного идентификатора.');
+    return { id: scene.id, text: scene.text,
+      durationMs: scene.durationMs == null ? null : milliseconds(scene.durationMs, null, 1),
+      visual: choice(scene.visual, ['animated', 'image'], 'animated'), imageId: assetId(scene.imageId), imageName: mediaName(scene.imageName),
+      camera: choice(scene.camera, ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'static'], 'zoom-in'),
+      transition: choice(scene.transition, ['crossfade', 'slide', 'zoom', 'none'], 'crossfade') };
+  }
+  function parseStudio(data) {
+    fields(data, ['version', 'id', 'name', 'script', 'sourceScript', 'scenes', 'selectedSceneId', 'style', 'updatedAt', 'timing', 'audio', 'subtitles', 'exportSettings']);
+    assetId(data.id);
+    if (!data.id || typeof data.sourceScript !== 'string' || data.sourceScript.length > 1000000 || typeof data.updatedAt !== 'string') throw new Error('Повреждены данные проекта Студии.');
+    const base = parseProject({ ...data, version: 1 });
+    const seen = new Set();
+    const scenes = data.scenes.map(scene => {
+      const result = studioScene(scene);
+      if (seen.has(result.id)) throw new Error('Повторяющийся идентификатор сцены.');
+      seen.add(result.id); return result;
+    });
+    fields(data.style, ['caption', 'size', 'theme']);
+    for (const key of Object.keys(base.style)) if (data.style[key] !== base.style[key]) throw unsupported('Неподдерживаемое оформление Студии.');
+    const audio = data.audio || {}; fields(audio, ['voice', 'music']);
+    const track = (role, level) => {
+      const raw = audio[role] || {};
+      fields(raw, ['assetId', 'name', 'volume', ...(role === 'music' ? ['fadeInMs', 'fadeOutMs'] : [])]);
+      return { assetId: assetId(raw.assetId), name: mediaName(raw.name), volume: volume(raw.volume, level),
+        ...(role === 'music' ? { fadeInMs: milliseconds(raw.fadeInMs, 1000), fadeOutMs: milliseconds(raw.fadeOutMs, 1000) } : {}) };
+    };
+    const subtitles = data.subtitles || {}; fields(subtitles, ['enabled', 'mode']);
+    if (subtitles.enabled !== undefined && typeof subtitles.enabled !== 'boolean') throw new Error('Повреждена настройка субтитров.');
+    const settings = data.exportSettings || {}; fields(settings, ['format', 'profile']);
+    return { ...base, version: STUDIO_VERSION, scenes,
+      timing: choice(data.timing, ['reading', 'manual'], 'reading'), audio: { voice: track('voice', .7), music: track('music', .25) },
+      subtitles: { enabled: subtitles.enabled ?? true, mode: choice(subtitles.mode, ['scene', 'chunks'], 'scene') },
+      exportSettings: { format: choice(settings.format, ['auto', 'webm'], 'auto'), profile: choice(settings.profile, ['shorts-720p'], 'shorts-720p') } };
+  }
+  // Explicit, pure conversion only. Reading a v1 project never upgrades/writes it.
+  function upgradeProject(value) {
+    const project = parseProject(value);
+    return project.version === STUDIO_VERSION ? project : parseStudio({ ...project, version: STUDIO_VERSION });
+  }
   function parseProject(value) {
     const data = typeof value === 'string' ? JSON.parse(value) : value;
+    if (data?.version != null && ![1, STUDIO_VERSION].includes(data.version)) throw unsupported('Неизвестная версия проекта Студии. Обновите приложение; автоматическая замена отключена.');
+    if (data?.version === STUDIO_VERSION) return parseStudio(data);
     if (!data || data.version !== 1 || typeof data.name !== 'string' || data.name.length > 80 ||
         typeof data.script !== 'string' || data.script.length > 1000000 || !Array.isArray(data.scenes) || data.scenes.length > 5000) {
       throw new Error('Файл не является проектом Shorts Studio версии 1.');
@@ -145,5 +221,5 @@
   }
 
   return { WORDS_PER_MINUTE, DEMO_SCRIPT, id, countWords, durationMs, splitSentences, createScenes, timeline,
-    totalDuration, srtTime, clockTime, plural, wordLabel, wrapSubtitle, generateSrt, createProject, parseProject, fileName };
+    totalDuration, srtTime, clockTime, plural, wordLabel, wrapSubtitle, generateSrt, createProject, parseProject, upgradeProject, STUDIO_VERSION, fileName };
 });
