@@ -33,6 +33,10 @@ def profile_zip(files, compression=zipfile.ZIP_STORED):
     return bytes(data)
 
 
+def checkpoint(stage):
+    print('::notice title=ZIP browser checkpoint::'+stage,flush=True)
+
+
 def run():
     engine=os.environ.get('BACKUP_BROWSER','chromium')
     server=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(media.checks.Handler,directory=str(ROOT)))
@@ -44,12 +48,14 @@ def run():
             folder=Path(tmp);payload=media_payload(folder)
             launch={} if engine=='webkit' else {'executable_path':os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'),'args':['--no-sandbox']}
             browser=getattr(p,engine).launch(**launch)
+            checkpoint(engine+': adapters before fixtures')
             for fail in (False,True):
                 gate_context=browser.new_context();gate=gate_context.new_page();gate.goto(base+'tests/fixtures/backup-seed.html')
                 for name in ('core.js','video-core.js','project-db.js','storage.js'):gate.add_script_tag(content=(ROOT/'js'/name).read_text())
                 for name in ('ux-fixture.js','backup-storage-fixture.js'):gate.add_script_tag(content=(ROOT/'tests'/name).read_text())
+                checkpoint(engine+': storage gate '+str(fail))
                 assert gate.evaluate('fail=>testBackupStorageGate(fail)',fail);gate_context.close()
-            print(f'PASS [{engine} ZIP adapter]: late autosave cannot overwrite restored heads; failed import resumes original queued saving',flush=True)
+            print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP adapter]: late autosave cannot overwrite restored heads; failed import resumes original queued saving',flush=True)
             context=browser.new_context(viewport={'width':1440,'height':1000},accept_downloads=True);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
             def seed(page):
                 page.goto(base+'tests/fixtures/backup-seed.html')
@@ -59,10 +65,12 @@ def run():
                 page.evaluate('files=>seedBackupFixture(files)',payload)
                 page.goto(url);page.wait_for_function('window.ShortsVideoRestored')
                 page.add_script_tag(content=(ROOT/'tests/backup-fixture.js').read_text())
+            checkpoint(engine+': original media seed')
             seed(page)
             page.add_script_tag(content=(ROOT/'tests/backup-db-fixture.js').read_text())
+            checkpoint(engine+': atomic repository')
             assert page.evaluate('testAtomicBackupRepository()')
-            print(f'PASS [{engine} ZIP repository]: two-slot rollback on quota/abort, previous media, missing originals, content collision, repeated and concurrent imports',flush=True)
+            print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP repository]: two-slot rollback on quota/abort, previous media, missing originals, content collision, repeated and concurrent imports',flush=True)
             page.locator('#openVideoMode').click()
             page.add_script_tag(content=(ROOT/'tests/ux-fixture.js').read_text())
             expected=page.evaluate('backupFixtureSnapshot()')
@@ -71,6 +79,7 @@ def run():
             expected['video']['title']='ZIP захватывает незавершённое сохранение'
             page.evaluate('''()=>{window.backupOriginalDigest=SubtleCrypto.prototype.digest;window.releaseBackupDigest=false;
               SubtleCrypto.prototype.digest=async function(...args){const value=await window.backupOriginalDigest.apply(this,args);window.backupDigestHeld=true;while(!window.releaseBackupDigest)await new Promise(r=>setTimeout(r,10));return value;};}''')
+            checkpoint(engine+': pending-save export')
             page.locator('[data-backup-export]:visible').click()
             page.wait_for_timeout(650);expect(page.locator('#backupDownload')).to_be_hidden()
             page.evaluate('window.uxHold=false')
@@ -81,7 +90,9 @@ def run():
             page.wait_for_function('Boolean(document.getElementById("backupDownload").getAttribute("href"))')
             page.evaluate('()=>{SubtleCrypto.prototype.digest=window.backupOriginalDigest;}')
             page.locator('[data-backup-export]:visible').click()
+            checkpoint(engine+': actual ZIP download link')
             with page.expect_download() as item:page.locator('#backupDownload').click()
+            checkpoint(engine+': ZIP download event received; save file')
             archive=folder/'portable.shorts.zip';item.value.save_as(archive)
             assert item.value.suggested_filename.endswith('.shorts.zip')
             page.locator('#backupCancel').click()
@@ -95,7 +106,7 @@ def run():
                     a=next(a for a in manifest['assets'] if a['name']==source['name']);original=base64.b64decode(source['base64'])
                     assert z.read(a['path'])==original and a['sha256']==hashlib.sha256(original).hexdigest()
                 rawfiles={name:z.read(name) for name in z.namelist()}
-            print(f'PASS [{engine} ZIP export]: real independent ZIP read by Python, exact PNG/JPG/WebP and WAV bytes/hashes, pending save and immutable background snapshot',flush=True)
+            print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP export]: real independent ZIP read by Python, exact PNG/JPG/WebP and WAV bytes/hashes, pending save and immutable background snapshot',flush=True)
 
             for recoverable in (False,True):
                 historical=browser.new_context();hp=historical.new_page();hp.goto(base+'tests/fixtures/backup-seed.html')
@@ -115,9 +126,10 @@ def run():
                 if recoverable:
                     assert hp.evaluate("""async()=>await new Promise(resolve=>{const q=indexedDB.open('shorts-studio.media.v1',1);q.onsuccess=()=>{const db=q.result,t=db.transaction('images','readonly'),g=t.objectStore('images').get('historical-image');g.onsuccess=()=>resolve(Boolean(g.result?.file?.size));t.oncomplete=()=>db.close();};})""")
                 historical.close()
-            print(f'PASS [{engine} ZIP legacy]: absent historical originals fail honestly; remaining legacy PNG can be backed up read-only; no old record/marker/media deletion',flush=True)
+            print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP legacy]: absent historical originals fail honestly; remaining legacy PNG can be backed up read-only; no old record/marker/media deletion',flush=True)
 
             def target():return getattr(p,engine).launch_persistent_context(str(folder/'target-profile'),viewport={'width':1440,'height':1000},accept_downloads=True,**launch)
+            checkpoint(engine+': new persistent profile import')
             destination=target();dest=destination.new_page();dest.on('pageerror',lambda e:errors.append(str(e)));dest.goto(url);dest.wait_for_function('window.ShortsVideoRestored')
             dest.add_script_tag(content=(ROOT/'tests/backup-fixture.js').read_text())
             def db_snapshot():return dest.evaluate('async()=>{const r=ShortsProjectDB.createRepository(),v=[await r.read("editor"),await r.read("video")];r.close();return v;}')
@@ -137,7 +149,7 @@ def run():
             dest.evaluate('''()=>{window.zipPut=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(value){if(this.name==='projects'&&value.id==='video')throw new DOMException('full','QuotaExceededError');return window.zipPut.call(this,value);};}''')
             dest.locator('#backupConfirm').click();expect(dest.locator('#backupError')).to_be_visible();assert db_snapshot()==baseline
             dest.evaluate('()=>{IDBObjectStore.prototype.put=window.zipPut;}');dest.locator('#backupCancel').click()
-            print(f'PASS [{engine} ZIP import safety]: explicit cancellation, invalid/future/missing/corrupt/unsafe/compressed archives and mid-write quota keep both original slots intact',flush=True)
+            print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP import safety]: explicit cancellation, invalid/future/missing/corrupt/unsafe/compressed archives and mid-write quota keep both original slots intact',flush=True)
             choose(archive.read_bytes());validated()
             with dest.expect_navigation(wait_until='load'):dest.locator('#backupConfirm').click()
             dest.wait_for_function('window.ShortsVideoRestored');dest.add_script_tag(content=(ROOT/'tests/backup-fixture.js').read_text())
@@ -166,6 +178,7 @@ def run():
             dest.wait_for_function('window.ShortsVideoRestored');dest.add_script_tag(content=(ROOT/'tests/backup-fixture.js').read_text())
             assert dest.evaluate('backupFixtureSnapshot()')==expected
             assert dest.evaluate('async()=>{const r=ShortsProjectDB.createRepository(),v=await r.read("video");r.close();return ShortsProjectDB.references("video",v.state);}')==original_ids
+            checkpoint(engine+': full process restart')
             destination.close();destination=target();dest=destination.new_page();dest.on('pageerror',lambda e:errors.append(str(e)));dest.goto(url);dest.wait_for_function('window.ShortsVideoRestored');dest.add_script_tag(content=(ROOT/'tests/backup-fixture.js').read_text())
             assert dest.evaluate('backupFixtureSnapshot()')==expected
             dest.locator('#openVideoMode').click();expect(dest.locator('.scene-image-thumb')).to_have_count(3)
@@ -179,9 +192,9 @@ def run():
                 ready_href=dest.locator('#downloadVideo').get_attribute('href');ready_info=dest.locator('#videoFileInfo').inner_text()
                 dest.locator('[data-backup-export]:visible').click();expect(dest.locator('#backupDownload')).to_be_visible();dest.locator('#backupCancel').click()
                 assert dest.locator('#downloadVideo').get_attribute('href')==ready_href and dest.locator('#videoFileInfo').inner_text()==ready_info
-                print(f'PASS [{engine} ZIP restored export]: actual 9:16 WebM, PNG/JPG/WebP order, voice+music frequencies/fades and no black frames',flush=True)
+                print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP restored export]: actual 9:16 WebM, PNG/JPG/WebP order, voice+music frequencies/fades and no black frames',flush=True)
             else:print(f'LIMITATION [{engine}]: Canvas/MediaRecorder codec unavailable; real ZIP persistence/preview verified; exported files checked in Chromium/native Safari',flush=True)
-            print(f'PASS [{engine} ZIP transfer]: clean independent browser storage, both modes/settings, repeat import without ID collisions, complete browser process restart, previews and original audio',flush=True)
+            print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP transfer]: clean independent browser storage, both modes/settings, repeat import without ID collisions, complete browser process restart, previews and original audio',flush=True)
             destination.close();context.close();browser.close();assert not errors,errors
     finally:server.shutdown();server.server_close()
 
