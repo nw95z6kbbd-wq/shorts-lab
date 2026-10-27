@@ -223,6 +223,12 @@ def run():
             assert 'voice.wav' in script('return document.getElementById("videoAudioInfo").textContent;')
             assert 'music.wav' in script('return document.getElementById("videoMusicInfo").textContent;')
             if script('return ShortsVideoRecorder.capabilities(true).supported;'):
+                # Regression for the observer/driver boundary: a recorder error
+                # must remain a value so the real WebM fallback can run.
+                observer_state=script('return [videoRenderStatus.textContent,videoError.textContent];')
+                script('videoRenderStatus.textContent="Запись не завершена.";videoError.textContent="Native waiter error fixture";')
+                assert wait_native_video(command)=={'error':'Native waiter error fixture'}
+                script('videoRenderStatus.textContent=arguments[0][0];videoError.textContent=arguments[0][1];',[observer_state])
                 def record_restored_ui():
                     # Exercise the restored preview/audio through a trusted user
                     # action before recording, as in the portable ZIP scenario.

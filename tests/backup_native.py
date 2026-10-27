@@ -21,10 +21,10 @@ def wait_native_video(command):
     hosted Macs. A single async command waits on actual DOM/media events; it does
     not replace the recorder, fake time or accept a shortened recording.
     """
-    return command('POST','/execute/async',{'script':r'''
+    response=command('POST','/execute/async',{'script':r'''
       const done=arguments[arguments.length-1],download=document.getElementById('downloadVideo'),video=document.getElementById('generatedVideo'),status=document.getElementById('videoRenderStatus');let finished=false;
       const observer=new MutationObserver(check),timer=setTimeout(()=>finish({error:'Native Safari recording timed out',status:status.textContent}),25000);
-      function finish(result){if(finished)return;finished=true;clearTimeout(timer);observer.disconnect();video.removeEventListener('loadedmetadata',check);video.removeEventListener('error',check);done(result);}
+      function finish(result){if(finished)return;finished=true;clearTimeout(timer);observer.disconnect();video.removeEventListener('loadedmetadata',check);video.removeEventListener('error',check);done({recording:result});}
       function check(){
         if(!download.hidden&&video.readyState>=1)finish({width:video.videoWidth,height:video.videoHeight,duration:video.duration,info:document.getElementById('videoFileInfo').textContent});
         else if(status.textContent.includes('не завершена'))finish({error:document.getElementById('videoError').textContent});
@@ -32,6 +32,9 @@ def wait_native_video(command):
       }
       observer.observe(download,{attributes:true,attributeFilter:['hidden']});observer.observe(status,{childList:true,subtree:true,characterData:true});video.addEventListener('loadedmetadata',check);video.addEventListener('error',check);check();
     ''','args':[]})
+    # A top-level `error` is a W3C transport error to the driver client. Recorder
+    # errors are data for the existing MP4 -> WebM fallback, not driver failures.
+    return response['recording']
 
 
 def check_native_backup(root,_source_base,script,command,click,wait_for):

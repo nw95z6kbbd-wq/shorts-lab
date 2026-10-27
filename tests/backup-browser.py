@@ -120,8 +120,13 @@ def run():
                 # sleep keeps this disk deadline bounded even if a WebKit page
                 # command is blocked by the outstanding download.
                 time.sleep(.1)
+            checkpoint(engine+': complete CRC-valid ZIP exists on disk')
             assert item.value.suggested_filename.endswith('.shorts.zip')
-            page.locator('#backupCancel').click()
+            checkpoint(engine+': downloaded filename verified; close preparation dialog')
+            try:page.locator('#backupCancel').click(timeout=10000)
+            except Exception as cause:
+                checkpoint(engine+': close-after-download failed: '+str(cause)[:1200].replace('\n',' '));raise
+            checkpoint(engine+': preparation dialog closed')
             expect(page.locator('#videoTitle')).to_have_value('Правка ПОСЛЕ фиксации ZIP')
             with zipfile.ZipFile(archive) as z:
                 assert z.testzip() is None
