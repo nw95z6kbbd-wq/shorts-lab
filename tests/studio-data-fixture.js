@@ -153,3 +153,24 @@ window.waitForStudioUiSave = async function (expected) {
     throw Error('Studio autosave did not commit the expected script and scene');
   }finally{r.close();}
 };
+
+window.seedStudioRecoveryFixture = async function (baseline, payload) {
+  const r=ShortsProjectDB.createRepository(),f=payload.find(f=>f.name==='red.png'),blob=new Blob([Uint8Array.from(atob(f.base64),c=>c.charCodeAt(0))],{type:f.type});
+  await r.migrate([{id:'editor',state:baseline.editor},{id:'video',state:baseline.video}],[{id:baseline.video.scenes[0].imageId,kind:'image',name:f.name,blob}],{editor:null,video:null});r.close();
+  const q=indexedDB.open('shorts-studio.projects',ShortsProjectDB.DATABASE_VERSION);await new Promise((resolve,reject)=>{q.onsuccess=resolve;q.onerror=()=>reject(q.error);});
+  const db=q.result;await new Promise((resolve,reject)=>{const tx=db.transaction('projects','readwrite'),s=tx.objectStore('projects');
+    for(const slot of ['editor','video']){const get=s.get(slot);get.onsuccess=()=>{const p=get.result;s.put({...p,state:{broken:true},previous:{state:p.state,revision:0,missingAssets:[]}});};}
+    tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error);
+  });db.close();
+};
+window.testStudioRecoverySafety = async function (baseline) {
+  const loaded={editor:await ShortsStorage.load('editor'),video:await ShortsStorage.load('video')};
+  for(const slot of ['editor','video']){
+    if(!loaded[slot].writable||!loaded[slot].error?.includes('предыдущая')||JSON.stringify(loaded[slot].project)!==JSON.stringify(ShortsProjectDB.normalize(slot,baseline[slot])))throw Error('Corrupt head must recover the known previous '+slot+' state');
+    const p=loaded[slot].project;
+    if(slot==='editor')p.script+='\nПравка восстановленного сценария.';else p.title='Восстановленная версия видео';
+    const result=await ShortsStorage.save(p,slot);if(!result.ok)throw Error(result.error);
+    const r=ShortsProjectDB.createRepository(),head=await r.read(slot);if(head.revision!==2||JSON.stringify(head.state)!==JSON.stringify(p))throw Error('Recovered state was not committed intact');r.close();
+  }
+  const r=ShortsProjectDB.createRepository(),a=await r.asset(baseline.video.scenes[0].imageId);r.close();if(!a?.blob?.size)throw Error('Recovery lost original image');return true;
+};

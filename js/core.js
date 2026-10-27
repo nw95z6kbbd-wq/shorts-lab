@@ -188,7 +188,7 @@
   }
   function parseProject(value) {
     const data = typeof value === 'string' ? JSON.parse(value) : value;
-    if (data && ![1, STUDIO_VERSION].includes(data.version)) throw unsupported('Неизвестная версия проекта Студии. Обновите приложение; автоматическая замена отключена.');
+    if (data?.version != null && ![1, STUDIO_VERSION].includes(data.version)) throw unsupported('Неизвестная версия проекта Студии. Обновите приложение; автоматическая замена отключена.');
     if (data?.version === STUDIO_VERSION) return parseStudio(data);
     if (!data || data.version !== 1 || typeof data.name !== 'string' || data.name.length > 80 ||
         typeof data.script !== 'string' || data.script.length > 1000000 || !Array.isArray(data.scenes) || data.scenes.length > 5000) {

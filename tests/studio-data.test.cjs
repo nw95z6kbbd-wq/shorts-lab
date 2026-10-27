@@ -54,3 +54,8 @@ test('ZIP v1 explicitly rejects DTO 2, including metadata-only drafts, instead o
   assert.throws(()=>F.states(projects),/ZIP.*1.*Студии/);assert.equal(JSON.stringify(projects),before);
  }
 });
+
+test('missing version is corruption eligible for recovery, while a declared unknown version remains unsupported',()=>{
+ for(const slot of ['editor','video'])for(const value of [null,{}, {broken:true}, {version:null}])assert.throws(()=>DB.normalize(slot,value),e=>e.code!=='UNSUPPORTED');
+ for(const slot of ['editor','video'])assert.throws(()=>DB.normalize(slot,{version:999}),{code:'UNSUPPORTED'});
+});

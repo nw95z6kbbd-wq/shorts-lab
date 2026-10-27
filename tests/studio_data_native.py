@@ -44,5 +44,15 @@ def check_native_studio_data(root,script,command):
         async_script('await ShortsEditorReady;const until=Date.now()+10000;while(!window.ShortsVideoRestored){if(Date.now()>until)throw Error("Studio reload timeout");await new Promise(r=>setTimeout(r,50));}return true;')
         script((root/'tests/studio-data-fixture.js').read_text());assert async_script('return await studioUiSnapshot();')==before
         print('::notice title=Native Safari Studio DTO reload verified::DTO 2 original settings and both independent drafts survive real UI autosave/reload; PNG/JPG/WebP/voice/music SHA-256 match original bytes.',flush=True)
+        recovery=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(Handler,directory=str(root)))
+        threading.Thread(target=recovery.serve_forever,daemon=True).start()
+        try:
+            command('POST','/url',{'url':f'http://127.0.0.1:{recovery.server_port}/tests/fixtures/backup-seed.html'})
+            for path in ['js/core.js','js/video-core.js','js/project-db.js','tests/studio-data-fixture.js']:script((root/path).read_text())
+            async_script('await seedStudioRecoveryFixture(arguments[0],arguments[1]);return true;',[baseline,media_payload()]);script((root/'js/storage.js').read_text())
+            assert async_script('return await testStudioRecoverySafety(arguments[0]);',[baseline])
+            print('::notice title=Native Safari recovery verified::Missing version in a corrupt head still recovers both known previous states, commits edits and retains the original image; explicitly future DTO versions remain blocked.',flush=True)
+        finally:recovery.shutdown();recovery.server_close()
+
 
     finally:server.shutdown();server.server_close()

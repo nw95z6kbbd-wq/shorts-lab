@@ -7,7 +7,7 @@
   function normalize(slot, value) {
     if (slot === 'editor') return ShortsCore.parseProject(value);
     if (slot !== 'video') throw failure('INVALID', 'Неизвестный раздел проекта.');
-    if (value?.version !== 1) throw failure('UNSUPPORTED', 'Неизвестная версия видеопроекта. Обновите приложение; данные не заменены.');
+    if (value?.version != null && value.version !== 1) throw failure('UNSUPPORTED', 'Неизвестная версия видеопроекта. Обновите приложение; данные не заменены.');
     const result = ShortsVideoCore.parseDraft(value);
     for (const role of ['voice', 'music']) {
       const id = value[role + 'AssetId'];
@@ -149,7 +149,20 @@
             const all = projects.getAll();
             all.onsuccess = () => {
               try {
-                const used = new Set(all.result.flatMap(p => { validateRecord(p); return [...references(p.id, p.state), ...(p.previous ? references(p.id, p.previous.state) : [])]; }));
+                const used = new Set(); let safeToCollect = true;
+                for (const p of all.result) {
+                  try {
+                    validateRecord(p);
+                    for (const id of [...references(p.id, p.state), ...(p.previous ? references(p.id, p.previous.state) : [])]) used.add(id);
+                  } catch (error) {
+                    if (error.code === 'UNSUPPORTED') throw error;
+                    // A corrupt other head can still have a readable previous.
+                    // Let it be recovered independently, retaining ALL originals
+                    // until every snapshot can be enumerated safely.
+                    safeToCollect = false;
+                  }
+                }
+                if (!safeToCollect) return;
                 const cursor = assets.openKeyCursor();
                 cursor.onsuccess = () => { const item = cursor.result; if (item) { if (!used.has(item.key)) assets.delete(item.key); item.continue(); } };
               } catch (error) { abort(error); }
