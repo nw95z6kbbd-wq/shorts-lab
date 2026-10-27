@@ -1,4 +1,4 @@
-name: Check and deploy GitHub Pages
+name: Check Shorts Studio
 
 on:
   push:
@@ -6,12 +6,18 @@ on:
   pull_request:
     branches: [main, feat/browser-video-generator]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      upload_pages:
+        description: Prepare a Pages artifact only for an explicitly approved publication run
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: pages-${{ github.ref }}
+  group: checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -90,29 +96,15 @@ jobs:
           BACKUP_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/backup-browser.py
       - name: Check deployment under repository path
         run: python tests/pages.py
-      - name: Upload static site
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      # A normal push/PR/manual check never uploads a deployable Pages artifact.
+      - name: Validate publication request before artifact upload
+        if: inputs.upload_pages == true
+        run: node scripts/pages-publication.cjs
+      - name: Upload static site for explicit publication
+        if: inputs.upload_pages == true
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
-
-  deploy:
-    name: Deploy to GitHub Pages
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [check, webkit, safari]
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-      - name: Publish site
-        id: deployment
-        uses: actions/deploy-pages@v4
 
   webkit:
     name: Product UI in WebKit and mobile emulation
