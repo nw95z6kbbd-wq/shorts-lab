@@ -16,6 +16,7 @@ import traceback
 import urllib.error
 import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from backup_native import check_native_backup, wait_native_video
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -222,13 +223,20 @@ def run():
             assert 'voice.wav' in script('return document.getElementById("videoAudioInfo").textContent;')
             assert 'music.wav' in script('return document.getElementById("videoMusicInfo").textContent;')
             if script('return ShortsVideoRecorder.capabilities(true).supported;'):
+                # Regression for the observer/driver boundary: a recorder error
+                # must remain a value so the real WebM fallback can run.
+                observer_state=script('return [videoRenderStatus.textContent,videoError.textContent];')
+                script('videoRenderStatus.textContent="Запись не завершена.";videoError.textContent="Native waiter error fixture";')
+                assert wait_native_video(command)=={'error':'Native waiter error fixture'}
+                script('videoRenderStatus.textContent=arguments[0][0];videoError.textContent=arguments[0][1];',[observer_state])
                 def record_restored_ui():
+                    # Exercise the restored preview/audio through a trusted user
+                    # action before recording, as in the portable ZIP scenario.
+                    click('#playGeneratedPreview')
+                    wait_for('document.getElementById("videoPreviewTime").textContent.startsWith("0:01")')
+                    click('#playGeneratedPreview')
                     click('#recordVideo')
-                    wait_for('!document.getElementById("downloadVideo").hidden || document.getElementById("videoRenderStatus").textContent.includes("не завершена")',seconds=25)
-                    if script('return document.getElementById("downloadVideo").hidden;'):
-                        return {'error':script('return document.getElementById("videoError").textContent;')}
-                    wait_for('document.getElementById("generatedVideo").readyState>=1')
-                    return script('const v=document.getElementById("generatedVideo");return {width:v.videoWidth,height:v.videoHeight,duration:v.duration,info:document.getElementById("videoFileInfo").textContent};')
+                    return wait_native_video(command)
                 def full_restored_video(result):
                     return result.get('width')==720 and result.get('height')==1280 and isinstance(result.get('duration'),(int,float)) and 5<result['duration']<7.5
                 metadata=record_restored_ui()
@@ -244,7 +252,13 @@ def run():
                             assert (baseline/'js'/name).read_bytes()==(ROOT/'js'/name).read_bytes(),name
                     formats=script('return ShortsVideoRecorder.capabilities(true,"webm");')
                     assert formats['supported'],{'first':metadata,'webm':formats}
-                    print('::warning title=Safari MP4 audio codec limitation::Empty or truncated MP4 is NOT accepted as success: '+json.dumps(metadata)+'. Encoder/mixer/renderer are unchanged; testing the existing WebM choice with full duration.',flush=True)
+                    print('::warning title=Safari MP4 audio codec limitation::Empty, timed-out or truncated MP4 is NOT accepted as success: '+json.dumps(metadata)+'. Encoder/mixer/renderer are unchanged; reload the saved project to release the failed encoder, then require a full-duration WebM.',flush=True)
+                    command('POST','/refresh',{})
+                    wait_for('window.ShortsVideoRestored',seconds=30)
+                    script(fixture)
+                    fallback=command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];persistenceFixtureSnapshot().then(done,e=>done({error:e.message}));','args':[]})
+                    assert fallback==saved,{'saved':saved,'fallback':fallback}
+                    prepare_canvas()
                     script('const select=document.getElementById("videoFormat");select.value="webm";select.dispatchEvent(new Event("change",{bubbles:true}));')
                     metadata=record_restored_ui()
                 assert full_restored_video(metadata),metadata
@@ -300,6 +314,7 @@ def run():
                 print('::warning title=Native Safari recording unavailable::Safari '+str(capabilities.get('browserVersion'))+'; explanatory message verified; export NOT verified: '+json.dumps(support),flush=True)
             click('#backToEditor')
             assert script('return !document.getElementById("scriptStudio").hidden;')
+            check_native_backup(ROOT,f'http://127.0.0.1:{server.server_port}/',script,command,click,wait_for)
     finally:
         if session:
             try: request('DELETE','/session/'+session)

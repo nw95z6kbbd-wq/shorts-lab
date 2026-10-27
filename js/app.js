@@ -525,6 +525,7 @@ window.ShortsEditorReady = (async function () {
   // Additive bridge: the video mode can ask to open a script without touching the active project silently.
   window.ShortsEditor = Object.freeze({
     pause: pausePlayback,
+    backupSnapshot() { pausePlayback(); return structuredClone(project); },
     confirm: confirmAction,
     useScript({ title, scenes }) {
       if (!Array.isArray(scenes) || !scenes.length || scenes.length > 12 || scenes.some(scene => typeof scene.text !== 'string')) throw new Error('Нет сцен для переноса.');

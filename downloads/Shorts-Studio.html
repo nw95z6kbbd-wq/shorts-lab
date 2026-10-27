@@ -108,6 +108,13 @@ body{overflow:hidden}
 @media(max-height:540px) and (min-width:761px){.studio-navigation{margin-top:15px;gap:12px}.studio-navigation .nav-list{margin:0;gap:3px}.ai-nav{padding-top:10px}}
 
 </style>
+  <style>
+.backup-nav{color:#c4a3ed!important}.backup-note{margin:5px 10px 10px;font-size:9px;line-height:1.6;color:#8e7f9e;min-width:0;max-width:100%;min-height:40px;height:40px;overflow:hidden}.backup-note [data-backup-status]{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#bda4d0}
+.backup-dialog{width:min(540px,calc(100vw - 28px));max-height:88vh;max-height:88dvh;overflow:auto}.backup-dialog>p{overflow-wrap:anywhere}.backup-dialog progress{width:100%;height:8px;margin-top:16px;accent-color:#a579e0}.backup-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px}.backup-dialog #backupError{border-left:2px solid #cf8d6c;padding:8px 12px;background:#36231f;color:#efc3a9}.backup-dialog ul{padding-left:18px;color:#be9fce;font-size:11px;overflow-wrap:anywhere}.backup-dialog [disabled]{opacity:.4;cursor:wait}
+@media(max-width:1050px){.mobile-filebar{flex-wrap:wrap;gap:8px 12px}.mobile-filebar .backup-note{flex:1 0 100%;margin:0;text-align:right;font-size:9px;min-width:0;max-width:100%;min-height:40px;height:40px;overflow:hidden}.mobile-filebar>span{display:none}.mobile-filebar .text-button{min-height:36px}.backup-dialog{padding:22px}}
+@media(max-width:360px){.mobile-filebar{padding-inline:14px;gap:4px 10px}.mobile-filebar .text-button{font-size:9px}.backup-dialog{padding:19px}.backup-actions>.button{flex:1 1 auto;white-space:normal}}
+
+</style>
 </head>
 <body>
   <div id="studioViewport" class="studio-viewport" role="region" aria-label="Рабочая область Shorts Studio" tabindex="0">
@@ -152,7 +159,7 @@ body{overflow:hidden}
         </nav>
       </section>
     </div>
-    <div class="sidebar-files"><div class="nav-label">ПРОЕКТ</div><button class="nav-item" id="saveProject"><svg><use href="#i-download"/></svg>Скачать проект</button><button class="nav-item" id="openProject"><svg><use href="#i-upload"/></svg>Открыть проект</button><input id="projectFile" type="file" accept=".json,application/json" hidden></div>
+    <div class="sidebar-files"><div class="nav-label">ПРОЕКТ</div><button class="nav-item backup-nav" data-backup-export><svg><use href="#i-download"/></svg>Скачать ZIP-копию</button><button class="nav-item" data-backup-import><svg><use href="#i-upload"/></svg>Восстановить ZIP</button><p class="backup-note">Оба черновика и оригиналы медиа.<span data-backup-status aria-live="polite">Храните копию вне браузера.</span></p><button class="nav-item" id="saveProject"><svg><use href="#i-download"/></svg>Скачать JSON редактора</button><button class="nav-item" id="openProject"><svg><use href="#i-upload"/></svg>Открыть JSON</button><input id="projectFile" type="file" accept=".json,application/json" hidden></div>
     <nav class="product-nav" aria-label="Сведения о Shorts Studio"><button class="nav-item" data-product-open="updates" aria-label="Что нового" title="Что нового"><svg><use href="#i-sparkles"/></svg><span class="product-nav-label">Что нового</span></button><button class="nav-item" data-product-open="about" aria-label="О Shorts Studio" title="О Shorts Studio"><svg><use href="#i-info"/></svg><span class="product-nav-label">О Shorts Studio</span></button><span class="product-version-pill product-mobile-version" data-product-version>—</span></nav>
     <div class="sidebar-bottom"><div class="local-card"><span class="local-icon"><svg><use href="#i-monitor"/></svg></span><strong>Ваше творчество — у вас</strong><p>Работает в браузере.<br>Без регистрации и облака.</p><span class="local-status"><span></span>Локальный режим</span></div><div class="sidebar-version">SHORTS STUDIO <span class="product-sidebar-version" data-product-version>—</span></div></div>
   </aside>
@@ -160,7 +167,7 @@ body{overflow:hidden}
   <div class="workspace">
     <header class="topbar"><div class="breadcrumb"><span>Студия</span><span class="breadcrumb-divider">/</span><span id="videoBreadcrumb" hidden>Видео по идее</span><label for="projectName" class="sr-only">Название проекта</label><input id="projectName" maxlength="80" value="Мой Short" autocomplete="off"></div><span id="editorSaveState" hidden>Восстановление…</span></header>
 
-    <div class="mobile-filebar" aria-label="Файлы проекта"><span>ФАЙЛ ПРОЕКТА</span><button class="text-button" id="saveProjectMobile"><svg><use href="#i-download"/></svg>Скачать проект</button><button class="text-button" id="openProjectMobile"><svg><use href="#i-upload"/></svg>Открыть проект</button></div>
+    <div class="mobile-filebar" aria-label="Файлы проекта"><span>ФАЙЛ ПРОЕКТА</span><button class="text-button" id="saveProjectMobile" aria-label="Скачать JSON редактора"><svg><use href="#i-download"/></svg>JSON ↓</button><button class="text-button" id="openProjectMobile" aria-label="Открыть JSON редактора"><svg><use href="#i-upload"/></svg>JSON ↑</button><button class="text-button backup-nav" data-backup-export>ZIP-копия</button><button class="text-button" data-backup-import>Из ZIP</button><p class="backup-note">ZIP: оба черновика и оригиналы медиа. <span data-backup-status aria-live="polite">Храните копию вне браузера.</span></p></div>
     <main id="mainContent">
       <aside class="product-update-notice" id="productUpdateNotice" aria-label="Доступна история обновлений" hidden><span class="update-spark" aria-hidden="true">✦</span><div class="notice-message"><strong>Shorts Studio <span data-product-version>—</span> — ваша студия растёт</strong><p>Узнайте, какие возможности уже доступны.</p></div><button class="text-button" data-product-open="updates">Посмотреть изменения</button><button id="productDismissNotice" class="product-notice-close" aria-label="Закрыть уведомление об обновлении">×</button></aside>
       <section class="page-heading"><div><div class="eyebrow"><span></span>МЕНЬШЕ МИНУТЫ. БОЛЬШЕ СМЫСЛА.</div><h1 id="studioTitle">Ваша следующая история<span>.</span></h1><p id="studioDescription">Превратите идею в Short, который досмотрят до конца.</p></div><div class="heading-actions"><button class="button button-secondary video-mode-button" id="createVideoMode"><svg><use href="#i-sparkles"/></svg>Создать видео по идее</button><button class="button button-secondary" id="backToEditor" hidden><svg><use href="#i-prev"/></svg>К редактору</button><button class="button button-secondary" id="newProject"><svg><use href="#i-plus"/></svg>Новый проект</button><button class="button button-primary" id="exportSrt"><svg><use href="#i-download"/></svg>Экспорт SRT</button></div></section>
@@ -218,6 +225,15 @@ body{overflow:hidden}
   </div>
     <div class="save-status" id="saveStatus" role="status" aria-live="polite" aria-atomic="true" hidden><svg aria-hidden="true"><use href="#i-clock"/></svg><span id="saveStatusText"></span></div>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <input id="backupFile" type="file" accept=".zip,application/zip" hidden>
+  <dialog id="backupDialog" class="backup-dialog" aria-labelledby="backupTitle">
+    <h2 id="backupTitle">Резервная ZIP-копия</h2>
+    <p>ZIP хранит редактируемые черновики обоих режимов и исходные изображения, голос и музыку. MP4/WebM — готовое видео. Данные браузера могут быть очищены: сохраняйте ZIP на другом устройстве или диске.</p>
+    <p id="backupMessage" role="status" aria-live="polite"></p>
+    <progress id="backupProgress" max="100" value="0" aria-label="Подготовка резервной копии"></progress>
+    <p id="backupError" role="alert" hidden></p><ul id="backupWarnings"></ul>
+    <div class="backup-actions"><a id="backupDownload" class="button button-primary" hidden>Скачать ZIP-копию</a><button id="backupConfirm" class="button button-primary" hidden>Заменить оба черновика</button><button id="backupOpen" class="button button-primary" hidden>Открыть восстановленные проекты</button><button id="backupFresh" class="button button-secondary" hidden>Новая ZIP-копия</button><button id="backupBackground" class="button button-secondary" hidden>Продолжить в фоне</button><button id="backupCancel" class="button button-secondary">Отмена</button></div>
+  </dialog>
   <dialog id="confirmDialog"><form method="dialog"><span class="dialog-icon"><svg><use href="#i-info"/></svg></span><h2 id="dialogTitle">Продолжить?</h2><p id="dialogDescription"></p><div class="dialog-actions"><button class="button button-secondary" value="cancel" autofocus>Отмена</button><button class="button button-primary" id="dialogConfirm" value="confirm">Продолжить</button></div></form></dialog>
   <dialog id="productDialog" class="product-dialog" aria-labelledby="productDialogTitle">
     <div class="product-dialog-header"><div><div class="product-dialog-eyebrow">SHORTS STUDIO · СДЕЛАНО ДЛЯ ВАШИХ ИСТОРИЙ</div><h2 id="productDialogTitle">Что нового</h2></div><button id="productClose" class="product-dialog-close" aria-label="Закрыть информацию о продукте">×</button></div>
@@ -392,6 +408,18 @@ body{overflow:hidden}
   const releaseKinds = Object.freeze({ highlight: 'Знаковое обновление', standard: 'Обновление', patch: 'Патч' });
   const releases = [
     {
+      version: '1.4.0', date: null, status: 'unreleased', importance: 'highlight',
+      title: 'ZIP-копии и перенос проектов',
+      summary: 'Оба черновика и исходные медиа можно сохранить вне браузера и восстановить на другом устройстве.',
+      pullRequests: [10], commit: null,
+      changes: [
+        'Независимая ZIP-копия ручной Студии и видеорежима: сценарии, сцены, оригинальные изображения, голос, музыка и настройки.',
+        'Проверка структуры, контрольных сумм и наличия исходников; одинаковые файлы в архиве не дублируются.',
+        'Восстановление после подтверждения: оба черновика и медиа записываются одной транзакцией, ошибки и конфликты не приводят к частичной замене.',
+        'ZIP v1 без сжатия, до 64 МиБ. Готовое видео и прежний JSON редактора скачиваются отдельно. Локальное хранилище по-прежнему зависит от браузера.'
+      ]
+    },
+    {
       // Pages deployment 7342489878 succeeded at 2026-10-26T20:15:19Z
       // (2026-10-27 01:15:19 Asia/Yekaterinburg), Actions run 40393148314.
       version: '1.3.1', date: '2026-10-27', status: 'published', importance: 'patch',
@@ -470,7 +498,8 @@ body{overflow:hidden}
       'Локальные сценарные шаблоны по идее и анимация без платных API.',
       'Изображения сцен, движение камеры, переходы и ручной таймлайн.',
       'Голос и музыка с отдельной громкостью и плавными краями музыки.',
-      'Настоящий вертикальный MP4 или WebM прямо в браузере.'
+      'Настоящий вертикальный MP4 или WebM прямо в браузере.',
+      'ZIP-копии обоих черновиков с оригиналами изображений и аудио для переноса.'
     ])
   });
 });
@@ -869,11 +898,74 @@ body{overflow:hidden}
         };
       });
     }
+    // ZIP operations are additive: same stores/schema and no legacy cleanup.
+    // Read originals in one transaction, serially bounding temporary clones.
+    function backupAssets(ids, limit) {
+      return transaction(['assets'], 'readonly', (tx, done, abort) => {
+        const result = []; let index = 0, total = 0;
+        function next() {
+          if (index === ids.length) { done(result); return; }
+          const request = tx.objectStore('assets').get(ids[index++]);
+          request.onsuccess = () => {
+            const asset = request.result;
+            if (asset) {
+              total += asset.bytes?.byteLength || asset.blob?.size || 0;
+              if (total > limit) { abort(failure('LIMIT', 'Материалы превышают предел ZIP-копии 64 МиБ.')); return; }
+              result.push(asset);
+            }
+            next();
+          };
+        }
+        next();
+      });
+    }
+    async function restoreBackup(input, expected, files) {
+      const states = { editor: normalize('editor', input.editor), video: normalize('video', input.video) };
+      const required = new Set(references('video', states.video)), media = await prepare(files);
+      if (media.length !== required.size || new Set(media.map(file=>file.id)).size !== media.length || media.some(file=>!required.has(file.id))) throw failure('MISSING', 'Неполный набор исходных файлов восстановления.');
+      return transaction(['projects','assets'], 'readwrite', (tx, done, abort) => {
+        const projects = tx.objectStore('projects'), assets = tx.objectStore('assets'), request = projects.getAll();
+        request.onsuccess = () => {
+          try {
+            const current = new Map(request.result.map(record=>[record.id,record])), result = [];
+            for (const slot of ['editor','video']) if ((current.get(slot)?.revision || 0) !== expected[slot]) throw failure('CONFLICT', 'Проект изменён в другой вкладке. Восстановление отменено, прежние данные не заменены.');
+            for (const file of media) {
+              const get = assets.get(file.id);
+              get.onsuccess = () => {
+                try {
+                  const prior = get.result;
+                  if (!prior) { assets.add(file); return; }
+                  // Content-addressed import IDs may be reused, never overwritten.
+                  if (!prior.bytes || prior.type !== file.type || prior.name !== file.name || prior.kind !== file.kind) throw failure('COLLISION', 'Конфликт идентификаторов материалов. Восстановление отменено.');
+                  const a=new Uint8Array(prior.bytes),b=new Uint8Array(file.bytes);
+                  if(a.length!==b.length)throw failure('COLLISION','Конфликт размеров материалов.');
+                  const aa=new Uint32Array(a.buffer,0,Math.floor(a.length/4)),bb=new Uint32Array(b.buffer,0,Math.floor(b.length/4));
+                  for(let i=0;i<aa.length;i++)if(aa[i]!==bb[i])throw failure('COLLISION','Конфликт содержимого материалов.');
+                  for(let i=aa.length*4;i<a.length;i++)if(a[i]!==b[i])throw failure('COLLISION','Конфликт содержимого материалов.');
+                } catch (error) { abort(error); }
+              };
+            }
+            for (const slot of ['editor','video']) {
+              const old = current.get(slot); let previous = null;
+              if (old) {
+                try { previous={state:normalize(slot,old.state),revision:old.revision,missingAssets:old.missingAssets || []}; }
+                catch (_) { if(!old.previous)throw failure('CORRUPT','Предыдущий проект повреждён. Автоматическая замена запрещена.');normalize(slot,old.previous.state);previous=old.previous; }
+              }
+              const record={id:slot,schemaVersion:1,revision:expected[slot]+1,state:states[slot],previous,missingAssets:[],updatedAt:new Date().toISOString()};
+              projects.put(record);result.push(record);
+            }
+            // No asset deletion here. A failed transaction rolls back both heads
+            // and new originals; successful replacement retains previous media.
+            done(result);
+          } catch (error) { abort(error); }
+        };
+      });
+    }
     return Object.freeze({ read: slot => read('projects', slot), async asset(id) {
       const asset = await read('assets', id);
       if (asset?.bytes) return { ...asset, blob: new Blob([asset.bytes], { type: asset.type || '' }) };
       return asset;
-    }, migration: () => read('meta', 'legacy-v1'), save, migrate, close() { connection?.close(); connection = null; } });
+    }, migration: () => read('meta', 'legacy-v1'), save, migrate, backupAssets, restoreBackup, close() { connection?.close(); connection = null; } });
   }
   window.ShortsProjectDB = Object.freeze({ createRepository, normalize, references });
 })();
@@ -886,7 +978,7 @@ body{overflow:hidden}
   const DB = window.ShortsProjectDB, repo = DB.createRepository();
   const keys = { editor: 'shorts-studio.project.v1', video: 'shorts-studio.video.v1' };
   const sessions = new Map(), pending = new Map(), legacyAssets = new Map(), legacy = {}, warnings = {};
-  let unavailable = null;
+  let unavailable = null, restoring = false, restoreOutcome;
   let channel;
   try { channel = new BroadcastChannel('shorts-studio.projects'); } catch (_) {}
   const writer = ShortsCore.id();
@@ -976,6 +1068,7 @@ body{overflow:hidden}
     } catch (error) { unavailable = error; return { project: null, writable: false, error: 'Не удалось открыть сохранённый проект. Автоматическая замена отключена. ' + message(error) }; }
   }
   function save(project, slot = 'editor') {
+    if (restoring) { const frozen=structuredClone(project);return restoreOutcome.then(success=>success?{ok:false,error:'Восстановление ZIP завершено; открываются новые данные.'}:save(frozen,slot)); }
     const session = sessions.get(slot), snapshot = structuredClone(project);
     const files = DB.references(slot, snapshot).map(id => pending.get(id)).filter(Boolean);
     const perform = async () => {
@@ -998,13 +1091,278 @@ body{overflow:hidden}
       window.dispatchEvent(new CustomEvent('shorts:storage-conflict', { detail: { slot: data.slot } }));
     }
   };
-  window.ShortsStorage = Object.freeze({ ready, load, save,
+  async function captureBackup(projects, limit) {
+    await ready;
+    const ids = DB.references('video', projects.video), files = new Map(); let total = 0;
+    const add = file => { if(!file?.blob?.size || files.has(file.id))return;total+=file.blob.size;if(total>limit)throw Object.assign(new Error('Материалы превышают 64 МиБ.'),{code:'LIMIT'});files.set(file.id,file); };
+    for (const id of ids) { if(pending.has(id))add(pending.get(id));else if(legacyAssets.has(id))add(legacyAssets.get(id)); }
+    const needed=ids.filter(id=>!files.has(id));
+    try {
+      const originals=await repo.backupAssets(needed,limit-total);
+      for(const file of originals){const {bytes,...metadata}=file;add({...metadata,blob:bytes?new Blob([bytes],{type:file.type || ''}):file.blob});}
+    } catch(error) { if(error.code==='LIMIT')throw error; if(!unavailable)throw error; }
+    const missing=ids.filter(id=>!files.has(id));
+    // Some historical images still exist only in the legacy DB. Read them without
+    // changing migration markers or deleting the incomplete new records.
+    if(missing.length)for(const file of await legacyImages(missing))add(file);
+    for(const id of ids)if(!files.has(id))throw new Error('Нет исходного файла '+id+'. Исторические записи не удалены; выберите оригинал повторно.');
+    return files;
+  }
+  async function restoreBackup(projects, files) {
+    await ready;
+    if(restoring || unavailable)throw new Error(unavailable?message(unavailable):'Восстановление уже выполняется.');
+    restoring=true;let settle;restoreOutcome=new Promise(resolve=>{settle=resolve;});
+    try {
+      await Promise.all([...sessions.values()].map(session=>session.queue));
+      const expected={};
+      for(const slot of ['editor','video']) {
+        const session=sessions.get(slot);
+        if(!session || session.conflict)throw new Error('Конфликт вкладок: перезагрузите страницу перед восстановлением. Текущие данные не заменены.');
+        expected[slot]=session.revision;
+      }
+      const records=await repo.restoreBackup(projects,expected,files);
+      for(const record of records) { sessions.get(record.id).revision=record.revision;try{channel?.postMessage({writer,slot:record.id,revision:record.revision});}catch(_){/* CAS still protects other tabs. */} }
+      // Keep the gate closed through pagehide until the fresh controllers load.
+      settle(true);return records;
+    } catch(error) { restoring=false;settle(false);throw new Error(message(error)); }
+  }
+  window.ShortsStorage = Object.freeze({ ready, load, save, captureBackup, restoreBackup,
     stage(id, blob, name, kind) { pending.set(id, { id, blob, name, kind }); },
     async asset(id) { await ready; if (pending.has(id)) return pending.get(id); if (unavailable) { if (legacyAssets.has(id)) return legacyAssets.get(id); throw unavailable; } return repo.asset(id); },
     discard(id) { pending.delete(id); },
     pending: id => pending.has(id)
   });
 })();
+
+</script>
+<script>
+(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.ShortsZip = factory();
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+  // Intentionally narrow ZIP32/STORE profile: no decompressor, ZIP64, encryption,
+  // descriptors, executable paths or extraction to a filesystem.
+  const LIMITS = Object.freeze({ archive: 64 * 1048576, file: 32 * 1048576, json: 8 * 1048576, manifest: 65536, entries: 32 });
+  const fail = text => { throw new Error(text); };
+  const encoder = new TextEncoder(), decoder = new TextDecoder('utf-8', { fatal: true });
+  const safePath = path => /^(manifest\.json|project\.json|assets\/[a-f0-9]{64}\.bin)$/.test(path);
+  const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+  const table = Uint32Array.from({ length: 256 }, (_, n) => {
+    for (let i = 0; i < 8; i++) n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1;
+    return n >>> 0;
+  });
+  async function crc32(bytes) {
+    let crc = 0xffffffff;
+    for (let start = 0; start < bytes.length; start += 1048576) {
+      for (let i = start; i < Math.min(bytes.length, start + 1048576); i++) crc = table[(crc ^ bytes[i]) & 255] ^ (crc >>> 8);
+      await tick();
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+  const data = async blob => new Uint8Array(await blob.arrayBuffer());
+  function header(size) { const bytes = new Uint8Array(size); return { bytes, view: new DataView(bytes.buffer) }; }
+  function sized(size, max) { if (!Number.isSafeInteger(size) || size < 0 || size > max) fail('ZIP превышает допустимый объём. Предел архива — 64 МиБ, файла — 32 МиБ.'); }
+  async function create(entries, progress = () => {}) {
+    if (!entries.length || entries.length > LIMITS.entries) fail('Недопустимое число файлов ZIP.');
+    const paths = new Set(), body = [], directory = []; let offset = 0, dirSize = 0;
+    for (const [index, entry] of entries.entries()) {
+      if (!safePath(entry.path) || paths.has(entry.path)) fail('Опасный или повторяющийся путь ZIP.');
+      paths.add(entry.path); sized(entry.blob.size, LIMITS.file);
+      const name = encoder.encode(entry.path), bytes = await data(entry.blob), crc = await crc32(bytes);
+      const local = header(30); local.view.setUint32(0, 0x04034b50, true); local.view.setUint16(4, 20, true); local.view.setUint16(6, 0x800, true);
+      local.view.setUint16(12,33,true); local.view.setUint32(14, crc, true); local.view.setUint32(18, bytes.length, true); local.view.setUint32(22, bytes.length, true); local.view.setUint16(26, name.length, true);
+      const central = header(46); central.view.setUint32(0, 0x02014b50, true); central.view.setUint16(4, 20, true); central.view.setUint16(6, 20, true); central.view.setUint16(8, 0x800, true);
+      central.view.setUint16(14,33,true); central.view.setUint32(16, crc, true); central.view.setUint32(20, bytes.length, true); central.view.setUint32(24, bytes.length, true); central.view.setUint16(28, name.length, true); central.view.setUint32(42, offset, true);
+      // Payload stays a Blob part, not a second whole-archive ArrayBuffer.
+      body.push(local.bytes,name,typeof File!=='undefined' && entry.blob instanceof File?new Blob([bytes]):entry.blob); directory.push(central.bytes, name);
+      offset += 30 + name.length + bytes.length; dirSize += 46 + name.length;
+      sized(offset + dirSize + 22, LIMITS.archive); progress((index + 1) / entries.length); await tick();
+    }
+    const end = header(22); end.view.setUint32(0, 0x06054b50, true); end.view.setUint16(8, entries.length, true); end.view.setUint16(10, entries.length, true); end.view.setUint32(12, dirSize, true); end.view.setUint32(16, offset, true);
+    return new Blob([...body, ...directory, end.bytes], { type: 'application/zip' });
+  }
+  async function read(file) {
+    sized(file.size, LIMITS.archive); if (file.size < 22) fail('Повреждённый ZIP: нет каталога.');
+    // Only our comment-free, single-disk profile. This prevents ambiguous appended
+    // archives and avoids scanning arbitrary payload for forged end records.
+    const tail = await data(file.slice(-22)), end = new DataView(tail.buffer);
+    if (end.getUint32(0, true) !== 0x06054b50 || end.getUint16(4, true) || end.getUint16(6, true) || end.getUint16(20, true)) fail('Неподдерживаемый или повреждённый ZIP. Нужен исходный архив Shorts Studio.');
+    const count = end.getUint16(10, true), dirSize = end.getUint32(12, true), dirOffset = end.getUint32(16, true);
+    if (!count || count > LIMITS.entries || count !== end.getUint16(8, true) || dirOffset + dirSize !== file.size - 22 || dirSize > 16384) fail('Недопустимый каталог или число файлов ZIP.');
+    const bytes = await data(file.slice(dirOffset, dirOffset + dirSize)), view = new DataView(bytes.buffer), entries = new Map();
+    let cursor = 0, localEnd = 0, total = 0;
+    for (let i = 0; i < count; i++) {
+      if (cursor + 46 > bytes.length || view.getUint32(cursor, true) !== 0x02014b50) fail('Повреждённый каталог ZIP.');
+      const flags = view.getUint16(cursor + 8, true), method = view.getUint16(cursor + 10, true);
+      const packed = view.getUint32(cursor + 20, true), size = view.getUint32(cursor + 24, true), n = view.getUint16(cursor + 28, true);
+      const extra = view.getUint16(cursor + 30, true), comment = view.getUint16(cursor + 32, true), start = view.getUint32(cursor + 42, true), crc = view.getUint32(cursor + 16, true);
+      if (view.getUint16(cursor+6,true)!==20 || method || flags !== 0x800 || extra || comment || view.getUint16(cursor+36,true) || view.getUint16(cursor + 34, true) || view.getUint32(cursor + 38, true)) fail('ZIP использует сжатие, шифрование, ссылки или расширения. Поддерживается только исходный ZIP Shorts Studio (STORE).');
+      sized(size, LIMITS.file); total += size; sized(total, LIMITS.archive);
+      if (size !== packed || !n || cursor + 46 + n > bytes.length || start !== localEnd) fail('Повреждённые размеры или пересекающиеся файлы ZIP.');
+      const name = decoder.decode(bytes.subarray(cursor + 46, cursor + 46 + n));
+      if (!safePath(name) || entries.has(name)) fail('Опасный или повторяющийся путь ZIP.');
+      const localBytes = await data(file.slice(start, start + 30 + n));
+      if (localBytes.length !== 30 + n) fail('Обрезанный заголовок ZIP.');
+      const local = new DataView(localBytes.buffer);
+      if (local.getUint32(0, true) !== 0x04034b50 || local.getUint16(4,true)!==20 || local.getUint16(6, true) !== flags || local.getUint16(8, true) !== method || local.getUint32(14, true) !== crc || local.getUint32(18, true) !== size || local.getUint32(22, true) !== size || local.getUint16(26, true) !== n || local.getUint16(28, true) || decoder.decode(localBytes.subarray(30)) !== name) fail('Локальный заголовок ZIP не совпадает с каталогом.');
+      localEnd = start + 30 + n + size; if (localEnd > dirOffset) fail('Данные файла выходят за границы ZIP.');
+      const blob = file.slice(start + 30 + n, localEnd);
+      entries.set(name, { blob, size, crc }); cursor += 46 + n;
+    }
+    if (cursor !== bytes.length || localEnd !== dirOffset) fail('Лишние или неполные данные ZIP.');
+    return { entries, async bytes(path, max = LIMITS.file) {
+      const entry = entries.get(path); if (!entry) fail('В архиве отсутствует файл: ' + path);
+      sized(entry.size, max); const bytes = await data(entry.blob);
+      if (await crc32(bytes) !== entry.crc) fail('Нарушена целостность ZIP: ' + path);
+      return bytes;
+    } };
+  }
+  return Object.freeze({ LIMITS, safePath, crc32, create, read, tick });
+});
+
+</script>
+<script>
+(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && module.exports) module.exports = factory;
+  else root.ShortsBackupFormat = factory(root.ShortsZip, root.ShortsProjectDB);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Z, DB) {
+  'use strict';
+  const FORMAT = 'shorts-studio-backup', VERSION = 1, encoder = new TextEncoder(), decoder = new TextDecoder('utf-8', { fatal: true });
+  const fail = message => { throw new Error(message); };
+  const hashPattern = /^[a-f0-9]{64}$/;
+  // Small offline fallback for contexts without SubtleCrypto (including some
+  // file:// configurations). Processes blocks in bounded, yielding batches.
+  async function sha256(bytes, forceFallback = false) {
+    if (!forceFallback && globalThis.crypto?.subtle) {
+      try{return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('');}catch(_){/* Offline/file contexts may deny SubtleCrypto; bounded fallback below. */}
+    }
+    const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+    const H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19], W = new Uint32Array(64);
+    const rotate = (n, r) => (n >>> r) | (n << (32 - r));
+    const tail = new Uint8Array(bytes.length % 64 < 56 ? 64 : 128); tail.set(bytes.subarray(bytes.length - bytes.length % 64)); tail[bytes.length % 64] = 128;
+    const tailView = new DataView(tail.buffer); tailView.setUint32(tail.length - 8, Math.floor(bytes.length / 0x20000000)); tailView.setUint32(tail.length - 4, bytes.length * 8);
+    const full = bytes.length - bytes.length % 64, view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    for (let offset = 0; offset < full + tail.length; offset += 64) {
+      const part = offset < full ? view : tailView, pos = offset < full ? offset : offset - full;
+      for (let i = 0; i < 16; i++) W[i] = part.getUint32(pos + i * 4);
+      for (let i = 16; i < 64; i++) {
+        const x = W[i - 15], y = W[i - 2];
+        W[i] = W[i - 16] + (rotate(x,7)^rotate(x,18)^(x>>>3)) + W[i - 7] + (rotate(y,17)^rotate(y,19)^(y>>>10));
+      }
+      let [a,b,c,d,e,f,g,h] = H;
+      for (let i = 0; i < 64; i++) {
+        const t = (h + (rotate(e,6)^rotate(e,11)^rotate(e,25)) + ((e&f)^(~e&g)) + K[i] + W[i]) | 0;
+        const u = ((rotate(a,2)^rotate(a,13)^rotate(a,22)) + ((a&b)^(a&c)^(b&c))) | 0;
+        h=g;g=f;f=e;e=(d+t)|0;d=c;c=b;b=a;a=(t+u)|0;
+      }
+      [a,b,c,d,e,f,g,h].forEach((n,i) => { H[i]=(H[i]+n)>>>0; });
+      if (!(offset % 1048576)) await Z.tick();
+    }
+    return H.map(n => n.toString(16).padStart(8,'0')).join('');
+  }
+  function id(value) { if (typeof value !== 'string' || !value || value.length > 200) fail('Некорректный идентификатор проекта или материала.'); return value; }
+  function known(raw, normal, warnings, path = '') {
+    if (Array.isArray(normal)) {
+      if (!Array.isArray(raw) || raw.length !== normal.length) fail('Повреждён список: ' + path);
+      normal.forEach((value,i) => known(raw[i], value, warnings, path + '[' + i + ']')); return;
+    }
+    if (normal && typeof normal === 'object') {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail('Повреждён объект: ' + path);
+      for (const key of Object.keys(raw)) if (!Object.hasOwn(normal, key) && warnings.length < 20) warnings.push('Неизвестное поле пропущено: ' + path + '.' + key.slice(0,80));
+      for (const key of Object.keys(normal)) if (Object.hasOwn(raw,key)) known(raw[key], normal[key], warnings, path + '.' + key);
+      return;
+    }
+    if (raw !== normal) fail('Неподдерживаемое значение поля: ' + path);
+  }
+  function states(input, warnings = [], strict = true) {
+    if (!input || !input.editor || !input.video) fail('В копии должны быть оба независимых черновика.');
+    const result = {};
+    for (const slot of ['editor','video']) {
+      const state = input[slot], seen = new Set();
+      if (!Array.isArray(state.scenes)) fail('Повреждён список сцен.');
+      for (const scene of state.scenes) { if(!scene || typeof scene!=='object')fail('Повреждены данные сцены.');id(scene.id); if (seen.has(scene.id)) fail('Повторяющийся идентификатор сцены.'); seen.add(scene.id); }
+      if (slot === 'editor') id(state.id);
+      result[slot] = DB.normalize(slot, state); if(strict)known(state, result[slot], warnings, slot);
+    }
+    return result;
+  }
+  function usage(state) {
+    const result = new Map();
+    function use(key, kind) { if (!key) return; id(key); if (result.has(key) && (result.get(key)==='image') !== (kind==='image')) fail('Один материал используется как изображение и аудио.'); result.set(key, kind); }
+    state.video.scenes.forEach(scene => { if (scene.visual === 'image' && !scene.imageId) fail('В сцене нет исходного изображения. Выберите файл повторно.'); use(scene.imageId,'image'); });
+    use(state.video.voiceAssetId,'voice'); use(state.video.musicAssetId,'music'); return result;
+  }
+  const jsonBlob = value => new Blob([JSON.stringify(value)], { type: 'application/json' });
+  async function exportArchive(input, assets, producerVersion, progress = () => {}) {
+    const projects = states(input,[],false), required = usage(projects), files = new Map(), records = []; let logicalSize = 0;
+    const project = jsonBlob({ format: FORMAT, version: VERSION, ...projects });
+    if (project.size > Z.LIMITS.json) fail('Текст проекта превышает предел ZIP-копии: 8 МиБ.');
+    const projectHash = await sha256(new Uint8Array(await project.arrayBuffer()));
+    for (const [key, kind] of required) {
+      const asset = assets.get(key);
+      if (!asset?.blob?.size) fail('Нет исходного файла: ' + key + '. Старые записи не удалены. Найдите оригинал и выберите его повторно.');
+      if (asset.blob.size > Z.LIMITS.file) fail('Исходный файл превышает 32 МиБ. Данные проекта не изменены.');
+      logicalSize += asset.blob.size;
+      if (logicalSize + project.size > Z.LIMITS.archive) fail('Материалы проекта превышают 64 МиБ. Копия не создана, исходные данные сохранены.');
+      if (String(asset.name || '').length>1024 || /[\\/\x00-\x1f\x7f]/.test(String(asset.name || ''))) fail('Имя исходного файла содержит неподдерживаемые символы. Исходные данные не изменены.');
+      const bytes=new Uint8Array(await asset.blob.arrayBuffer());
+      const original=typeof File!=='undefined' && asset.blob instanceof File?new Blob([bytes],{type:asset.blob.type}):asset.blob;
+      const hash=await sha256(bytes),path='assets/'+hash+'.bin';
+      files.set(path, original); records.push({ id: key, kind, name: String(asset.name || ''), type: asset.blob.type, path, size: asset.blob.size, sha256: hash });
+      progress(.3 * records.length / Math.max(1, required.size)); await Z.tick();
+    }
+    const manifest = jsonBlob({ format: FORMAT, version: VERSION, producer: { name: 'Shorts Studio', version: producerVersion }, createdAt: new Date().toISOString(), project: { path: 'project.json', size: project.size, sha256: projectHash }, assets: records });
+    if (manifest.size > Z.LIMITS.manifest) fail('Слишком большой manifest ZIP.');
+    return Z.create([{ path:'manifest.json',blob:manifest },{ path:'project.json',blob:project }, ...[...files].map(([path,blob])=>({path,blob}))], p=>progress(.3+.7*p));
+  }
+  function parse(bytes, label) { try { return JSON.parse(decoder.decode(bytes)); } catch (_) { fail('Повреждён JSON: ' + label); } }
+  function format(value) { if (value?.format !== FORMAT || value.version !== VERSION) fail('Неизвестный формат или будущая версия ZIP-копии. Нужна совместимая версия Shorts Studio.'); }
+  async function importArchive(file, progress = () => {}) {
+    const zip = await Z.read(file), manifest = parse(await zip.bytes('manifest.json', Z.LIMITS.manifest),'manifest.json'); format(manifest);
+    if (!Array.isArray(manifest.assets) || manifest.assets.length > 14 || manifest.project?.path !== 'project.json' || !hashPattern.test(manifest.project.sha256)) fail('Некорректный manifest копии.');
+    const warnings = [], expected = new Set(['manifest.json','project.json']), ids = new Set(); let logicalSize = 0;
+    for (const asset of manifest.assets) {
+      if(!asset || typeof asset!=='object')fail('Повреждена запись материала.');id(asset.id);
+      if (ids.has(asset.id) || !['image','voice','music'].includes(asset.kind) || !hashPattern.test(asset.sha256) || asset.path !== 'assets/'+asset.sha256+'.bin' || typeof asset.name !== 'string' || asset.name.length > 1024 || /[\\/\x00-\x1f\x7f]/.test(asset.name) || typeof asset.type !== 'string' || asset.type.length > 120 || /[^\x20-\x7e]/.test(asset.type) || !Number.isSafeInteger(asset.size) || asset.size <= 0 || asset.size > Z.LIMITS.file) fail('Некорректные сведения об исходном файле.');
+      ids.add(asset.id); expected.add(asset.path); logicalSize += asset.size;
+    }
+    if (logicalSize > Z.LIMITS.archive) fail('Распакованный объём материалов превышает 64 МиБ.');
+    if (zip.entries.size !== expected.size || [...zip.entries.keys()].some(path=>!expected.has(path))) fail('В ZIP есть лишние или отсутствующие файлы.');
+    const bytes = await zip.bytes('project.json',Z.LIMITS.json);
+    if (bytes.length !== manifest.project.size || await sha256(bytes) !== manifest.project.sha256) fail('Нарушена целостность project.json.');
+    const project = parse(bytes,'project.json'); format(project);
+    for (const key of Object.keys(project)) if (!['format','version','editor','video'].includes(key) && warnings.length < 20) warnings.push('Неизвестное поле проекта пропущено: '+key.slice(0,80));
+    const projects = states(project,warnings), required = usage(projects), blobs = new Map(), assets = new Map();
+    if (required.size !== ids.size || [...required].some(([key,kind])=>!ids.has(key) || (kind==='image') !== (manifest.assets.find(a=>a.id===key).kind==='image'))) fail('Список исходников не соответствует ссылкам сцен и звука.');
+    for (const [index, asset] of manifest.assets.entries()) {
+      let blob = blobs.get(asset.path);
+      if (!blob) {
+        const bytes = await zip.bytes(asset.path);
+        if (await sha256(bytes) !== asset.sha256) fail('Нарушена контрольная сумма материала: '+asset.name);
+        blob = new Blob([bytes]); blobs.set(asset.path,blob);
+      }
+      if (blob.size !== asset.size) fail('Размер материала не совпадает с manifest.');
+      assets.set(asset.id,{...asset,blob:blob.slice(0,blob.size,asset.type)}); progress((index+1)/Math.max(1,manifest.assets.length)); await Z.tick();
+    }
+    return { projects, assets, warnings, manifest };
+  }
+  async function remap(bundle) {
+    const projects = structuredClone(bundle.projects), assets = [], ids = new Map();
+    const used=new Set();
+    for (const [old, asset] of bundle.assets) {
+      const tag=await sha256(encoder.encode(JSON.stringify([asset.kind,asset.name,asset.type])));
+      const key='backup-'+asset.sha256+'-'+tag.slice(0,24);ids.set(old,key);
+      if(!used.has(key)){assets.push({id:key,blob:asset.blob,name:asset.name,kind:asset.kind});used.add(key);}
+    }
+    projects.video.scenes.forEach(scene=>{if(scene.imageId)scene.imageId=ids.get(scene.imageId);});
+    for (const role of ['voice','music']) if(projects.video[role+'AssetId'])projects.video[role+'AssetId']=ids.get(projects.video[role+'AssetId']);
+    return { projects, assets };
+  }
+  return Object.freeze({ FORMAT, VERSION, sha256, states, usage, exportArchive, importArchive, remap });
+});
 
 </script>
 <script>
@@ -1566,6 +1924,7 @@ window.ShortsEditorReady = (async function () {
   // Additive bridge: the video mode can ask to open a script without touching the active project silently.
   window.ShortsEditor = Object.freeze({
     pause: pausePlayback,
+    backupSnapshot() { pausePlayback(); return structuredClone(project); },
     confirm: confirmAction,
     useScript({ title, scenes }) {
       if (!Array.isArray(scenes) || !scenes.length || scenes.length > 12 || scenes.some(scene => typeof scene.text !== 'string')) throw new Error('Нет сцен для переноса.');
@@ -2566,6 +2925,16 @@ window.ShortsEditorReady = (async function () {
     saveEpoch++; $('videoDraftStatus').textContent = 'Ошибка сохранения';
     error('Проект изменён в другой вкладке. Автосохранение остановлено; ваши правки остаются здесь. Перед перезагрузкой скачайте нужное видео или скопируйте текст.');
   });
+  // Read-only bridge for a coherent portable snapshot; no recorder/mixer changes.
+  function backupIdle() { if (busy || decoding) throw new Error('Дождитесь завершения записи или загрузки медиа перед ZIP-копией/восстановлением.');stopPreview(); }
+  window.ShortsVideoBackup = Object.freeze({
+    assertIdle: backupIdle,
+    snapshot() {
+      backupIdle();
+      if ($('videoIdea').value.length > V.IDEA_LIMIT) throw new Error('Сначала исправьте превышение лимита идеи: несохранённый текст нельзя молча исключить из ZIP.');
+      stopPreview();return structuredClone({...draft,edited:manuallyEdited});
+    }
+  });
   renderForm();
   document.body.inert = false;
   await restoreMedia();
@@ -2804,6 +3173,99 @@ window.ShortsEditorReady = (async function () {
   window.visualViewport?.addEventListener('resize', schedulePlacement);
   window.visualViewport?.addEventListener('scroll', schedulePlacement);
   showSaveState(); showResult();
+})();
+
+</script>
+<script>
+(function () {
+  'use strict';
+  const $=id=>document.getElementById(id), F=window.ShortsBackupFormat, Z=window.ShortsZip;
+  const dialog=$('backupDialog');let running=false, mode='', cancelled=false, committed=false, background=false, downloadUrl='', prepared=null, opener, hasView=false;
+  const retired=new Set();
+  function retire(url) { if(!url)return;retired.add(url);setTimeout(()=>{URL.revokeObjectURL(url);retired.delete(url);},30000); }
+  function status(text) { document.querySelectorAll('[data-backup-status]').forEach(node=>{node.textContent=text;node.title=text;}); }
+  function returnFocus(){const target=opener?.getClientRects().length?opener:[...document.querySelectorAll(mode==='import'?'[data-backup-import]':'[data-backup-export]')].find(node=>node.getClientRects().length);target?.focus();}
+  function show() { background=false;if(!dialog.open)dialog.showModal(); }
+  function reset(title) {
+    retire(downloadUrl);downloadUrl='';prepared=null;hasView=true;cancelled=false;committed=false;background=false;
+    $('backupTitle').textContent=title;$('backupError').hidden=true;$('backupWarnings').replaceChildren();$('backupProgress').hidden=false;$('backupProgress').value=0;
+    for(const id of ['backupDownload','backupConfirm','backupBackground','backupFresh','backupOpen'])$(id).hidden=true;
+    $('backupCancel').disabled=false;$('backupCancel').textContent='Отмена';show();
+  }
+  function progress(text,value) { if(cancelled)throw new DOMException('Операция отменена.','AbortError');$('backupMessage').textContent=text;$('backupProgress').value=Math.round(value*100);status(text); }
+  function error(cause) {
+    $('backupError').textContent=(cause instanceof RangeError?'Недостаточно памяти для ZIP. Используйте меньший проект или другое устройство.':cause.message || 'Браузер не смог подготовить ZIP.')+' Исходные данные не удалены.';
+    $('backupError').hidden=false;$('backupConfirm').hidden=true;$('backupProgress').hidden=true;$('backupCancel').textContent='Закрыть';$('backupBackground').hidden=true;status('Ошибка ZIP — откройте панель для подробностей.');
+  }
+  async function ready() { await window.ShortsEditorReady;if(!window.ShortsVideoRestored)throw new Error('Дождитесь восстановления исходных медиа после открытия страницы.');window.ShortsVideoBackup.assertIdle(); }
+  async function exportZip(button) {
+    opener=button;
+    if(running || hasView){show();return;}
+    reset('Резервная ZIP-копия');running=true;mode='export';
+    try {
+      await ready();progress('Фиксируем оба черновика и исходные файлы…',0);
+      // Both snapshots are taken in the same JS turn. A loading/recording video
+      // is rejected; all Blob references are acquired before background editing.
+      const projects=F.states({editor:window.ShortsEditor.backupSnapshot(),video:window.ShortsVideoBackup.snapshot()},[],false);
+      const assets=await window.ShortsStorage.captureBackup(projects,Z.LIMITS.archive);
+      $('backupBackground').hidden=false;
+      const media=new Map([...F.usage(projects)].map(([id,kind])=>[id,{...assets.get(id),kind}]));
+      await validateMedia({assets:media});
+      const blob=await F.exportArchive(projects,assets,window.ShortsProduct.version,p=>progress('Подготовка ZIP: '+Math.round(p*100)+'%',.15+.8*p));
+      if(cancelled)throw new DOMException('Отмена','AbortError');
+      downloadUrl=URL.createObjectURL(blob);$('backupDownload').href=downloadUrl;$('backupDownload').download=window.ShortsCore.fileName(projects.editor.name)+'.shorts.zip';$('backupDownload').hidden=false;
+      progress('ZIP готов: оба черновика и исходные файлы зафиксированы при создании копии. Позднейшие правки в неё не входят. Нажмите «Скачать ZIP-копию».',1);$('backupFresh').hidden=false;$('backupBackground').hidden=true;$('backupCancel').textContent='Закрыть';
+    } catch(cause) { if(cause.name!=='AbortError')error(cause); }
+    finally { running=false;if(cancelled){retire(downloadUrl);downloadUrl='';prepared=null;status('ZIP отменён.');} }
+  }
+  async function validateMedia(bundle) {
+    for(const asset of bundle.assets.values()) {
+      progress('Проверяем исходники: '+asset.name, mode==='export'?.1:.65);
+      if(asset.kind==='image') {const decoded=await window.ShortsVideoMedia.decodeImage(asset.blob);decoded.dispose();}
+      else await window.ShortsVideoRecorder.decodeAudio(asset.blob);
+    }
+  }
+  async function importZip(file, button) {
+    if(running)return;opener=button;reset('Восстановление из ZIP');running=true;mode='import';
+    try {
+      await ready();window.ShortsEditor.pause();progress('Проверяем структуру и контрольные суммы ZIP…',0);
+      const bundle=await F.importArchive(file,p=>progress('Проверяем ZIP: '+Math.round(p*60)+'%',p*.6));
+      await validateMedia(bundle);if(cancelled)throw new DOMException('Отмена','AbortError');
+      prepared=await F.remap(bundle);if(cancelled){prepared=null;throw new DOMException('Отмена','AbortError');}
+      $('backupMessage').textContent='Будут заменены ОБА текущих черновика, включая несохранённые правки (сейчас: «'+$('projectName').value+'» и «'+$('videoTitle').value+'»). В ZIP: Студия «'+bundle.projects.editor.name+'»; видео: «'+bundle.projects.video.title+'». Исходников: '+bundle.assets.size+'. После успешной записи страница перезагрузится. Сначала скачайте текущую ZIP-копию, если она нужна.';
+      for(const warning of bundle.warnings){const item=document.createElement('li');item.textContent=warning;$('backupWarnings').append(item);}
+      $('backupProgress').hidden=true;$('backupConfirm').hidden=false;status('ZIP проверен. Ожидается подтверждение замены.');
+    } catch(cause){if(cause.name!=='AbortError')error(cause);}
+    finally{running=false;if(cancelled){prepared=null;status('Восстановление отменено.');}}
+  }
+  $('backupConfirm').addEventListener('click',async()=>{
+    if(!prepared || running)return;running=true;
+    try {
+      await ready();$('backupConfirm').hidden=true;$('backupCancel').disabled=true;$('backupProgress').hidden=false;progress('Атомарно записываем оба черновика и медиа…',.85);
+      await window.ShortsStorage.restoreBackup(prepared.projects,prepared.assets);committed=true;
+      progress('Оба черновика восстановлены. Открываем сохранённые данные…',1);
+      // Gate stays closed through pagehide, so old controller timers cannot write
+      // stale projects over the committed imported originals.
+      $('backupOpen').hidden=false;
+      try{location.reload();}catch(_){$('backupMessage').textContent='Данные уже записаны. Нажмите «Открыть восстановленные проекты» или перезагрузите страницу.';}
+    } catch(cause){$('backupCancel').disabled=false;prepared=null;error(cause);}
+    finally{running=false;}
+  });
+  document.querySelectorAll('[data-backup-export]').forEach(button=>button.addEventListener('click',()=>exportZip(button)));
+  document.querySelectorAll('[data-backup-import]').forEach(button=>button.addEventListener('click',()=>{if(running){show();return;}opener=button;$('backupFile').click();}));
+  $('backupFile').addEventListener('change',()=>{const file=$('backupFile').files[0];$('backupFile').value='';if(file)importZip(file,opener);});
+  $('backupOpen').addEventListener('click',()=>location.reload());
+  $('backupFresh').addEventListener('click',()=>{hasView=false;exportZip(opener);});
+  $('backupBackground').addEventListener('click',()=>{background=true;dialog.close();});
+  $('backupCancel').addEventListener('click',()=>{if(!committed)dialog.close();});
+  dialog.addEventListener('cancel',event=>{if(committed || $('backupCancel').disabled)event.preventDefault();});
+  dialog.addEventListener('close',()=>{
+    if(dialog.open)return; // Ignore an earlier close event after immediate reopen.
+    if(background){background=false;returnFocus();return;}
+    if(committed)return;hasView=false;cancelled=true;prepared=null;retire(downloadUrl);downloadUrl='';
+    if(!running)status('ZIP-копия включает оба режима.');returnFocus();
+  });
+  window.addEventListener('pagehide',()=>{if(downloadUrl)URL.revokeObjectURL(downloadUrl);for(const url of retired)URL.revokeObjectURL(url);});
 })();
 
 </script>

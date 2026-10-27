@@ -1,0 +1,66 @@
+name: Publish GitHub Pages
+
+# No push, PR, tag, Release or workflow_run trigger. Checking main is not a release.
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Full 40-character SHA of the main commit approved for publication
+        required: true
+        type: string
+      confirmation:
+        description: Type PUBLISH to request publication of that exact commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-publication
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Validate explicit publication request
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate owner, main, confirmation, SHA and first attempt
+        run: node scripts/pages-publication.cjs
+
+  checks:
+    name: Verify the exact publication commit
+    needs: authorize
+    uses: ./.github/workflows/pages.yml
+    with:
+      upload_pages: true
+
+  deploy:
+    name: Deploy explicitly approved site
+    needs: [authorize, checks]
+    # Re-running even a previously approved publication must not publish again.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Revalidate the immutable publication request
+        run: node scripts/pages-publication.cjs
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Publish site
+        id: deployment
+        uses: actions/deploy-pages@v4

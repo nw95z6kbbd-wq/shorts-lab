@@ -1,4 +1,4 @@
-name: Check and deploy GitHub Pages
+name: Check Shorts Studio
 
 on:
   push:
@@ -6,19 +6,25 @@ on:
   pull_request:
     branches: [main, feat/browser-video-generator]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      upload_pages:
+        description: Prepare a Pages artifact only for an explicitly approved publication run
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: pages-${{ github.ref }}
+  group: checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   check:
     name: Check app and prepare static site
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -84,31 +90,21 @@ jobs:
           PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
           UX_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/ux-browser.py
           PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
+      - name: Check portable ZIP backups and restored video
+        run: |
+          python tests/check-errors.py tests/backup-browser.py
+          BACKUP_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/backup-browser.py
       - name: Check deployment under repository path
         run: python tests/pages.py
-      - name: Upload static site
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      # A normal push/PR/manual check never uploads a deployable Pages artifact.
+      - name: Validate publication request before artifact upload
+        if: inputs.upload_pages == true
+        run: node scripts/pages-publication.cjs
+      - name: Upload static site for explicit publication
+        if: inputs.upload_pages == true
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
-
-  deploy:
-    name: Deploy to GitHub Pages
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [check, webkit, safari]
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-      - name: Publish site
-        id: deployment
-        uses: actions/deploy-pages@v4
 
   webkit:
     name: Product UI in WebKit and mobile emulation
@@ -156,22 +152,41 @@ jobs:
               browser.close()
               print('Bundled WebKit launched successfully; Playwright ' + version('playwright'))
           PY
-      - name: Check source and standalone product UI in WebKit
+      - name: Prepare WebKit static files
+        run: python scripts/prepare-site.py
+      - name: Check portable ZIP backups in WebKit
+        timeout-minutes: 3
         run: |
-          python scripts/prepare-site.py
+          BACKUP_BROWSER=webkit python tests/check-errors.py tests/backup-browser.py
+      - name: Check standalone ZIP backups in WebKit
+        timeout-minutes: 3
+        run: |
+          BACKUP_BROWSER=webkit BACKUP_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/backup-browser.py
+      - name: Check source product UI in WebKit
+        timeout-minutes: 4
+        run: |
           PRODUCT_BROWSER=webkit python tests/check-errors.py tests/product-browser.py
           UX_BROWSER=webkit python tests/check-errors.py tests/ux-browser.py
+      - name: Check standalone product UI in WebKit
+        timeout-minutes: 4
+        run: |
           PRODUCT_BROWSER=webkit PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
           UX_BROWSER=webkit UX_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/ux-browser.py
+      - name: Check IndexedDB and migration in WebKit
+        timeout-minutes: 3
+        run: |
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-db-browser.py
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-migration-browser.py
+      - name: Check project restart in WebKit
+        timeout-minutes: 3
+        run: |
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-browser.py
           PERSISTENCE_BROWSER=webkit PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
 
   safari:
     name: Native Safari on macOS
     runs-on: macos-15-intel
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:

@@ -473,6 +473,16 @@
     saveEpoch++; $('videoDraftStatus').textContent = 'Ошибка сохранения';
     error('Проект изменён в другой вкладке. Автосохранение остановлено; ваши правки остаются здесь. Перед перезагрузкой скачайте нужное видео или скопируйте текст.');
   });
+  // Read-only bridge for a coherent portable snapshot; no recorder/mixer changes.
+  function backupIdle() { if (busy || decoding) throw new Error('Дождитесь завершения записи или загрузки медиа перед ZIP-копией/восстановлением.');stopPreview(); }
+  window.ShortsVideoBackup = Object.freeze({
+    assertIdle: backupIdle,
+    snapshot() {
+      backupIdle();
+      if ($('videoIdea').value.length > V.IDEA_LIMIT) throw new Error('Сначала исправьте превышение лимита идеи: несохранённый текст нельзя молча исключить из ZIP.');
+      stopPreview();return structuredClone({...draft,edited:manuallyEdited});
+    }
+  });
   renderForm();
   document.body.inert = false;
   await restoreMedia();

@@ -4,7 +4,7 @@
   const DB = window.ShortsProjectDB, repo = DB.createRepository();
   const keys = { editor: 'shorts-studio.project.v1', video: 'shorts-studio.video.v1' };
   const sessions = new Map(), pending = new Map(), legacyAssets = new Map(), legacy = {}, warnings = {};
-  let unavailable = null;
+  let unavailable = null, restoring = false, restoreOutcome;
   let channel;
   try { channel = new BroadcastChannel('shorts-studio.projects'); } catch (_) {}
   const writer = ShortsCore.id();
@@ -94,6 +94,7 @@
     } catch (error) { unavailable = error; return { project: null, writable: false, error: 'Не удалось открыть сохранённый проект. Автоматическая замена отключена. ' + message(error) }; }
   }
   function save(project, slot = 'editor') {
+    if (restoring) { const frozen=structuredClone(project);return restoreOutcome.then(success=>success?{ok:false,error:'Восстановление ZIP завершено; открываются новые данные.'}:save(frozen,slot)); }
     const session = sessions.get(slot), snapshot = structuredClone(project);
     const files = DB.references(slot, snapshot).map(id => pending.get(id)).filter(Boolean);
     const perform = async () => {
@@ -116,7 +117,42 @@
       window.dispatchEvent(new CustomEvent('shorts:storage-conflict', { detail: { slot: data.slot } }));
     }
   };
-  window.ShortsStorage = Object.freeze({ ready, load, save,
+  async function captureBackup(projects, limit) {
+    await ready;
+    const ids = DB.references('video', projects.video), files = new Map(); let total = 0;
+    const add = file => { if(!file?.blob?.size || files.has(file.id))return;total+=file.blob.size;if(total>limit)throw Object.assign(new Error('Материалы превышают 64 МиБ.'),{code:'LIMIT'});files.set(file.id,file); };
+    for (const id of ids) { if(pending.has(id))add(pending.get(id));else if(legacyAssets.has(id))add(legacyAssets.get(id)); }
+    const needed=ids.filter(id=>!files.has(id));
+    try {
+      const originals=await repo.backupAssets(needed,limit-total);
+      for(const file of originals){const {bytes,...metadata}=file;add({...metadata,blob:bytes?new Blob([bytes],{type:file.type || ''}):file.blob});}
+    } catch(error) { if(error.code==='LIMIT')throw error; if(!unavailable)throw error; }
+    const missing=ids.filter(id=>!files.has(id));
+    // Some historical images still exist only in the legacy DB. Read them without
+    // changing migration markers or deleting the incomplete new records.
+    if(missing.length)for(const file of await legacyImages(missing))add(file);
+    for(const id of ids)if(!files.has(id))throw new Error('Нет исходного файла '+id+'. Исторические записи не удалены; выберите оригинал повторно.');
+    return files;
+  }
+  async function restoreBackup(projects, files) {
+    await ready;
+    if(restoring || unavailable)throw new Error(unavailable?message(unavailable):'Восстановление уже выполняется.');
+    restoring=true;let settle;restoreOutcome=new Promise(resolve=>{settle=resolve;});
+    try {
+      await Promise.all([...sessions.values()].map(session=>session.queue));
+      const expected={};
+      for(const slot of ['editor','video']) {
+        const session=sessions.get(slot);
+        if(!session || session.conflict)throw new Error('Конфликт вкладок: перезагрузите страницу перед восстановлением. Текущие данные не заменены.');
+        expected[slot]=session.revision;
+      }
+      const records=await repo.restoreBackup(projects,expected,files);
+      for(const record of records) { sessions.get(record.id).revision=record.revision;try{channel?.postMessage({writer,slot:record.id,revision:record.revision});}catch(_){/* CAS still protects other tabs. */} }
+      // Keep the gate closed through pagehide until the fresh controllers load.
+      settle(true);return records;
+    } catch(error) { restoring=false;settle(false);throw new Error(message(error)); }
+  }
+  window.ShortsStorage = Object.freeze({ ready, load, save, captureBackup, restoreBackup,
     stage(id, blob, name, kind) { pending.set(id, { id, blob, name, kind }); },
     async asset(id) { await ready; if (pending.has(id)) return pending.get(id); if (unavailable) { if (legacyAssets.has(id)) return legacyAssets.get(id); throw unavailable; } return repo.asset(id); },
     discard(id) { pending.delete(id); },
