@@ -3,7 +3,10 @@
 window.testStudioDataSafety = async function (baseline, payload) {
   const C=ShortsCore,D=ShortsProjectDB,clone=v=>JSON.parse(JSON.stringify(v));
   const assert=(v,label)=>{if(!v)throw Error('Studio data safety: '+label);};
-  const equal=(a,b,label)=>assert(JSON.stringify(a)===JSON.stringify(b),label);
+  // Safari WebDriver may reorder argument object keys. Compare every value and
+  // key structurally, retaining array order, rather than JSON property order.
+  const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+  const equal=(a,b,label)=>assert(JSON.stringify(canonical(a))===JSON.stringify(canonical(b)),label);
   const rejects=async(fn,code)=>{let caught;try{await fn();}catch(e){caught=e;}assert(caught&&(caught.code===code||caught.name===code),'expected '+code+', got '+(caught?.code||caught?.name));};
   const names=[],repositories=[];
   const repo=name=>{const r=D.createRepository(name);repositories.push(r);return r;};
