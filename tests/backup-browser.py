@@ -112,8 +112,14 @@ def run():
                             if actual.testzip() is None:content=data;break
                     except (OSError,ValueError,EOFError,zipfile.BadZipFile):pass
                 if content is not None:archive.write_bytes(content);break
-                assert time.monotonic()<deadline,('Browser did not complete ZIP download',[(file.name,file.stat().st_size) for file in candidates])
-                page.wait_for_timeout(100)
+                if time.monotonic()>=deadline:
+                    diagnostic='Browser did not complete ZIP download: '+str([(file.name,file.stat().st_size) for file in candidates])
+                    checkpoint(engine+': '+diagnostic)
+                    raise AssertionError(diagnostic)
+                # Browser/network/driver processes run independently. A Python
+                # sleep keeps this disk deadline bounded even if a WebKit page
+                # command is blocked by the outstanding download.
+                time.sleep(.1)
             assert item.value.suggested_filename.endswith('.shorts.zip')
             page.locator('#backupCancel').click()
             expect(page.locator('#videoTitle')).to_have_value('Правка ПОСЛЕ фиксации ZIP')

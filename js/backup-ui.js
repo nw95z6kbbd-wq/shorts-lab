@@ -32,7 +32,12 @@
       $('backupBackground').hidden=false;
       const media=new Map([...F.usage(projects)].map(([id,kind])=>[id,{...assets.get(id),kind}]));
       await validateMedia({assets:media});
-      const blob=await F.exportArchive(projects,assets,window.ShortsProduct.version,p=>progress('Подготовка ZIP: '+Math.round(p*100)+'%',p));
+      const archive=await F.exportArchive(projects,assets,window.ShortsProduct.version,p=>progress('Подготовка ZIP: '+Math.round(p*100)+'%',.15+.8*p));
+      // WebKit's download process can stall on a Blob assembled from nested
+      // Blob parts. Give the download URL one materialized, bounded byte buffer.
+      // This changes neither ZIP bytes nor originals; budget one extra archive.
+      progress('Подготавливаем совместимое скачивание ZIP…',.97);
+      const blob=new Blob([await archive.arrayBuffer()],{type:'application/zip'});
       if(cancelled)throw new DOMException('Отмена','AbortError');
       downloadUrl=URL.createObjectURL(blob);$('backupDownload').href=downloadUrl;$('backupDownload').download=window.ShortsCore.fileName(projects.editor.name)+'.shorts.zip';$('backupDownload').hidden=false;
       progress('ZIP готов: оба черновика и исходные файлы зафиксированы при создании копии. Позднейшие правки в неё не входят. Нажмите «Скачать ZIP-копию».',1);$('backupFresh').hidden=false;$('backupBackground').hidden=true;$('backupCancel').textContent='Закрыть';
@@ -41,7 +46,7 @@
   }
   async function validateMedia(bundle) {
     for(const asset of bundle.assets.values()) {
-      progress('Проверяем исходники: '+asset.name, .65);
+      progress('Проверяем исходники: '+asset.name, mode==='export'?.1:.65);
       if(asset.kind==='image') {const decoded=await window.ShortsVideoMedia.decodeImage(asset.blob);decoded.dispose();}
       else await window.ShortsVideoRecorder.decodeAudio(asset.blob);
     }
