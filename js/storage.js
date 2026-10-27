@@ -84,8 +84,10 @@
       const record = await repo.read(slot); session.revision = record?.revision || 0;
       let project = null, recovery = '';
       if (record) {
+        DB.validateRecord(record);
         try { project = DB.normalize(slot, record.state); }
         catch (error) {
+          if (error.code === 'UNSUPPORTED') throw error;
           if (!record.previous) throw error;
           project = DB.normalize(slot, record.previous.state); recovery = 'Текущее сохранение повреждено. Восстановлена предыдущая корректная версия.';
         }
@@ -96,7 +98,9 @@
   function save(project, slot = 'editor') {
     if (restoring) { const frozen=structuredClone(project);return restoreOutcome.then(success=>success?{ok:false,error:'Восстановление ZIP завершено; открываются новые данные.'}:save(frozen,slot)); }
     const session = sessions.get(slot), snapshot = structuredClone(project);
-    const files = DB.references(slot, snapshot).map(id => pending.get(id)).filter(Boolean);
+    let files;
+    try { files = DB.references(slot, snapshot).map(id => pending.get(id)).filter(Boolean); }
+    catch (error) { return Promise.resolve({ ok: false, error: message(error) }); }
     const perform = async () => {
       try {
         if (unavailable) throw unavailable;
@@ -119,6 +123,7 @@
   };
   async function captureBackup(projects, limit) {
     await ready;
+    if (projects.editor?.version !== 1) throw new Error('ZIP формата 1 не поддерживает новую модель Студии. Неполная копия не создана; исходные данные не изменены.');
     const ids = DB.references('video', projects.video), files = new Map(); let total = 0;
     const add = file => { if(!file?.blob?.size || files.has(file.id))return;total+=file.blob.size;if(total>limit)throw Object.assign(new Error('Материалы превышают 64 МиБ.'),{code:'LIMIT'});files.set(file.id,file); };
     for (const id of ids) { if(pending.has(id))add(pending.get(id));else if(legacyAssets.has(id))add(legacyAssets.get(id)); }

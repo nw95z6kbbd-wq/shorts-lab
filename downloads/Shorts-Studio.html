@@ -359,8 +359,84 @@ body{overflow:hidden}
     };
   }
 
+  const STUDIO_VERSION = 2;
+  const unsupported = message => Object.assign(new Error(message), { code: 'UNSUPPORTED' });
+  function fields(value, keys) {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) throw new Error('Повреждена структура проекта Студии.');
+    if (Object.keys(value).some(key => !keys.includes(key))) throw unsupported('Проект содержит неподдерживаемые поля. Обновите Shorts Studio; данные не заменены.');
+  }
+  function choice(value, allowed, fallback) {
+    if (value === undefined) return fallback;
+    if (!allowed.includes(value)) throw unsupported('Неподдерживаемое значение настройки Студии.');
+    return value;
+  }
+  function assetId(value) {
+    if (value == null) return null;
+    if (typeof value !== 'string' || !value || value.length > 200 || /[\u0000-\u0020\u007f]/.test(value) || /^(blob:|data:)|:\/\//i.test(value)) throw new Error('Повреждена постоянная ссылка на исходный файл.');
+    return value;
+  }
+  function milliseconds(value, fallback, minimum = 0) {
+    if (value === undefined) return fallback;
+    if (!Number.isSafeInteger(value) || value < minimum) throw new Error('Длительность должна быть целым числом миллисекунд.');
+    return value;
+  }
+  function volume(value, fallback) {
+    if (value === undefined) return fallback;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) throw new Error('Громкость должна быть от 0 до 1.');
+    return value;
+  }
+  function mediaName(value) {
+    if (value === undefined) return '';
+    if (typeof value !== 'string' || value.length > 200) throw new Error('Повреждено имя исходного файла.');
+    return value;
+  }
+  function studioScene(scene) {
+    fields(scene, ['id', 'text', 'durationMs', 'visual', 'imageId', 'imageName', 'camera', 'transition']);
+    assetId(scene.id);
+    if (!scene.id) throw new Error('У сцены нет постоянного идентификатора.');
+    return { id: scene.id, text: scene.text,
+      durationMs: scene.durationMs == null ? null : milliseconds(scene.durationMs, null, 1),
+      visual: choice(scene.visual, ['animated', 'image'], 'animated'), imageId: assetId(scene.imageId), imageName: mediaName(scene.imageName),
+      camera: choice(scene.camera, ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'static'], 'zoom-in'),
+      transition: choice(scene.transition, ['crossfade', 'slide', 'zoom', 'none'], 'crossfade') };
+  }
+  function parseStudio(data) {
+    fields(data, ['version', 'id', 'name', 'script', 'sourceScript', 'scenes', 'selectedSceneId', 'style', 'updatedAt', 'timing', 'audio', 'subtitles', 'exportSettings']);
+    assetId(data.id);
+    if (!data.id || typeof data.sourceScript !== 'string' || data.sourceScript.length > 1000000 || typeof data.updatedAt !== 'string') throw new Error('Повреждены данные проекта Студии.');
+    const base = parseProject({ ...data, version: 1 });
+    const seen = new Set();
+    const scenes = data.scenes.map(scene => {
+      const result = studioScene(scene);
+      if (seen.has(result.id)) throw new Error('Повторяющийся идентификатор сцены.');
+      seen.add(result.id); return result;
+    });
+    fields(data.style, ['caption', 'size', 'theme']);
+    for (const key of Object.keys(base.style)) if (data.style[key] !== base.style[key]) throw unsupported('Неподдерживаемое оформление Студии.');
+    const audio = data.audio || {}; fields(audio, ['voice', 'music']);
+    const track = (role, level) => {
+      const raw = audio[role] || {};
+      fields(raw, ['assetId', 'name', 'volume', ...(role === 'music' ? ['fadeInMs', 'fadeOutMs'] : [])]);
+      return { assetId: assetId(raw.assetId), name: mediaName(raw.name), volume: volume(raw.volume, level),
+        ...(role === 'music' ? { fadeInMs: milliseconds(raw.fadeInMs, 1000), fadeOutMs: milliseconds(raw.fadeOutMs, 1000) } : {}) };
+    };
+    const subtitles = data.subtitles || {}; fields(subtitles, ['enabled', 'mode']);
+    if (subtitles.enabled !== undefined && typeof subtitles.enabled !== 'boolean') throw new Error('Повреждена настройка субтитров.');
+    const settings = data.exportSettings || {}; fields(settings, ['format', 'profile']);
+    return { ...base, version: STUDIO_VERSION, scenes,
+      timing: choice(data.timing, ['reading', 'manual'], 'reading'), audio: { voice: track('voice', .7), music: track('music', .25) },
+      subtitles: { enabled: subtitles.enabled ?? true, mode: choice(subtitles.mode, ['scene', 'chunks'], 'scene') },
+      exportSettings: { format: choice(settings.format, ['auto', 'webm'], 'auto'), profile: choice(settings.profile, ['shorts-720p'], 'shorts-720p') } };
+  }
+  // Explicit, pure conversion only. Reading a v1 project never upgrades/writes it.
+  function upgradeProject(value) {
+    const project = parseProject(value);
+    return project.version === STUDIO_VERSION ? project : parseStudio({ ...project, version: STUDIO_VERSION });
+  }
   function parseProject(value) {
     const data = typeof value === 'string' ? JSON.parse(value) : value;
+    if (data && ![1, STUDIO_VERSION].includes(data.version)) throw unsupported('Неизвестная версия проекта Студии. Обновите приложение; автоматическая замена отключена.');
+    if (data?.version === STUDIO_VERSION) return parseStudio(data);
     if (!data || data.version !== 1 || typeof data.name !== 'string' || data.name.length > 80 ||
         typeof data.script !== 'string' || data.script.length > 1000000 || !Array.isArray(data.scenes) || data.scenes.length > 5000) {
       throw new Error('Файл не является проектом Shorts Studio версии 1.');
@@ -392,7 +468,7 @@ body{overflow:hidden}
   }
 
   return { WORDS_PER_MINUTE, DEMO_SCRIPT, id, countWords, durationMs, splitSentences, createScenes, timeline,
-    totalDuration, srtTime, clockTime, plural, wordLabel, wrapSubtitle, generateSrt, createProject, parseProject, fileName };
+    totalDuration, srtTime, clockTime, plural, wordLabel, wrapSubtitle, generateSrt, createProject, parseProject, upgradeProject, STUDIO_VERSION, fileName };
 });
 
 </script>
@@ -768,10 +844,13 @@ body{overflow:hidden}
 (function () {
   'use strict';
   const NAME = 'shorts-studio.projects';
+  // Physical writer fence: the shipped v1 client always opens version 1.
+  const DATABASE_VERSION = 2;
   const failure = (code, message) => Object.assign(new Error(message), { code });
   function normalize(slot, value) {
     if (slot === 'editor') return ShortsCore.parseProject(value);
     if (slot !== 'video') throw failure('INVALID', 'Неизвестный раздел проекта.');
+    if (value?.version !== 1) throw failure('UNSUPPORTED', 'Неизвестная версия видеопроекта. Обновите приложение; данные не заменены.');
     const result = ShortsVideoCore.parseDraft(value);
     for (const role of ['voice', 'music']) {
       const id = value[role + 'AssetId'];
@@ -781,9 +860,53 @@ body{overflow:hidden}
     }
     return result;
   }
-  function references(slot, state) {
-    if (slot === 'editor') return [];
-    return [...new Set([...state.scenes.map(scene => scene.imageId), state.voiceAssetId, state.musicAssetId].filter(Boolean))];
+  function assetUses(slot, input) {
+    const state = normalize(slot, input), uses = new Map();
+    function use(id, kind) {
+      if (!id) return;
+      if (uses.has(id) && (uses.get(id) === 'image') !== (kind === 'image')) throw failure('INVALID', 'Один исходник используется как изображение и аудио.');
+      uses.set(id, kind);
+    }
+    if (slot === 'editor' && state.version === 1) return uses;
+    state.scenes.forEach(scene => use(scene.imageId, 'image'));
+    for (const role of ['voice', 'music']) use(slot === 'editor' ? state.audio[role].assetId : state[role + 'AssetId'], role);
+    return uses;
+  }
+  function references(slot, state) { return [...assetUses(slot, state).keys()]; }
+  function validateRecord(record) {
+    if (!record) return;
+    if (record.schemaVersion !== 1) throw failure('UNSUPPORTED', 'Неизвестный формат записи хранилища. Обновите приложение.');
+    // Never replace a future head with a readable but outdated recovery state.
+    try { normalize(record.id, record.state); } catch (error) { if (error.code === 'UNSUPPORTED') throw error; }
+    if (record.previous) normalize(record.id, record.previous.state);
+  }
+  function previousState(slot, current) {
+    if (!current) return null;
+    validateRecord(current);
+    try { return { state: normalize(slot, current.state), revision: current.revision, missingAssets: current.missingAssets || [] }; }
+    catch (error) {
+      if (error.code === 'UNSUPPORTED') throw error;
+      if (!current.previous) throw failure('CORRUPT', 'Сохранённый проект повреждён. Автоматическая замена отключена.');
+      normalize(slot, current.previous.state); return current.previous;
+    }
+  }
+  function sameOriginal(prior, file) {
+    if (!prior.bytes || prior.type !== file.type || prior.name !== file.name || prior.kind !== file.kind) return false;
+    const a = new Uint8Array(prior.bytes), b = new Uint8Array(file.bytes);
+    if (a.length !== b.length) return false;
+    const aa = new Uint32Array(a.buffer, 0, Math.floor(a.length / 4)), bb = new Uint32Array(b.buffer, 0, Math.floor(b.length / 4));
+    for (let i = 0; i < aa.length; i++) if (aa[i] !== bb[i]) return false;
+    for (let i = aa.length * 4; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+  function addOriginal(assets, file, abort) {
+    const request = assets.get(file.id);
+    request.onsuccess = () => {
+      try {
+        if (!request.result) assets.add(file);
+        else if (!sameOriginal(request.result, file)) throw failure('COLLISION', 'Конфликт идентификатора исходника. Прежний файл и проект не изменены.');
+      } catch (error) { abort(error); }
+    };
   }
   function createRepository(name = NAME) {
     let connection, opening;
@@ -799,9 +922,12 @@ body{overflow:hidden}
         };
         const timer = setTimeout(() => finish(failure('TIMEOUT', 'Хранилище не ответило. Закройте другие вкладки Shorts Studio и повторно откройте страницу.')), 8000);
         try {
-          request = indexedDB.open(name, 1);
+          request = indexedDB.open(name, DATABASE_VERSION);
           request.onupgradeneeded = () => {
-            for (const store of ['projects', 'assets', 'meta']) request.result.createObjectStore(store, { keyPath: 'id' });
+            // A blocked/timed-out open cannot be cancelled. Abort a late upgrade
+            // instead of changing the DB after the caller was told it failed.
+            if (ended) { request.transaction.abort(); return; }
+            for (const store of ['projects', 'assets', 'meta']) if (!request.result.objectStoreNames.contains(store)) request.result.createObjectStore(store, { keyPath: 'id' });
           };
           request.onblocked = () => finish(failure('BLOCKED', 'Обновление хранилища заблокировано другой вкладкой. Закройте её и перезагрузите страницу.'));
           request.onerror = () => finish(request.error || failure('UNAVAILABLE', 'IndexedDB недоступна.'));
@@ -852,25 +978,24 @@ body{overflow:hidden}
           try {
             const current = request.result;
             if ((current?.revision || 0) !== expectedRevision) { abort(failure('CONFLICT', 'Проект изменён в другой вкладке. Ваши правки остаются в этой вкладке. Перезагрузите страницу после сохранения нужного текста или видео.')); return; }
-            for (const file of supplied) assets.put(file);
+            validateRecord(current);
+            for (const file of supplied) addOriginal(assets, file, abort);
             const missing = current?.missingAssets || [];
             for (const id of ids) {
               const check = assets.getKey(id);
-              check.onsuccess = () => { if (!check.result && !missing.includes(id)) abort(failure('MISSING', 'Не удалось сохранить один из медиафайлов. Предыдущая версия проекта не изменена.')); };
+              check.onsuccess = () => { if (!check.result && !supplied.some(file => file.id === id) && !missing.includes(id)) abort(failure('MISSING', 'Не удалось сохранить один из медиафайлов. Предыдущая версия проекта не изменена.')); };
             }
-            let previous = null;
-            if (current) {
-              try { previous = { state: normalize(slot, current.state), revision: current.revision, missingAssets: current.missingAssets || [] }; }
-              catch (_) { previous = current.previous; if (!previous) throw failure('CORRUPT', 'Сохранённый проект повреждён. Автоматическая замена отключена.'); }
-            }
+            const previous = previousState(slot, current);
             const record = { id: slot, schemaVersion: 1, revision: expectedRevision + 1, state, previous, missingAssets: missing.filter(id => ids.includes(id)), updatedAt: new Date().toISOString() };
             projects.put(record); done(record);
             // Retain both current and previous snapshots; never touch the legacy DB.
             const all = projects.getAll();
             all.onsuccess = () => {
-              const used = new Set(all.result.flatMap(p => [...references(p.id, p.state), ...(p.previous ? references(p.id, p.previous.state) : [])]));
-              const cursor = assets.openKeyCursor();
-              cursor.onsuccess = () => { const item = cursor.result; if (item) { if (!used.has(item.key)) assets.delete(item.key); item.continue(); } };
+              try {
+                const used = new Set(all.result.flatMap(p => { validateRecord(p); return [...references(p.id, p.state), ...(p.previous ? references(p.id, p.previous.state) : [])]; }));
+                const cursor = assets.openKeyCursor();
+                cursor.onsuccess = () => { const item = cursor.result; if (item) { if (!used.has(item.key)) assets.delete(item.key); item.continue(); } };
+              } catch (error) { abort(error); }
             };
           } catch (error) { abort(error); }
         };
@@ -898,7 +1023,7 @@ body{overflow:hidden}
         };
       });
     }
-    // ZIP operations are additive: same stores/schema and no legacy cleanup.
+    // Backup operations do not delete legacy data or change record envelopes.
     // Read originals in one transaction, serially bounding temporary clones.
     function backupAssets(ids, limit) {
       return transaction(['assets'], 'readonly', (tx, done, abort) => {
@@ -921,36 +1046,18 @@ body{overflow:hidden}
     }
     async function restoreBackup(input, expected, files) {
       const states = { editor: normalize('editor', input.editor), video: normalize('video', input.video) };
-      const required = new Set(references('video', states.video)), media = await prepare(files);
+      const required = new Set([...references('editor', states.editor), ...references('video', states.video)]), media = await prepare(files);
       if (media.length !== required.size || new Set(media.map(file=>file.id)).size !== media.length || media.some(file=>!required.has(file.id))) throw failure('MISSING', 'Неполный набор исходных файлов восстановления.');
       return transaction(['projects','assets'], 'readwrite', (tx, done, abort) => {
         const projects = tx.objectStore('projects'), assets = tx.objectStore('assets'), request = projects.getAll();
         request.onsuccess = () => {
           try {
             const current = new Map(request.result.map(record=>[record.id,record])), result = [];
+            for (const record of request.result) validateRecord(record);
             for (const slot of ['editor','video']) if ((current.get(slot)?.revision || 0) !== expected[slot]) throw failure('CONFLICT', 'Проект изменён в другой вкладке. Восстановление отменено, прежние данные не заменены.');
-            for (const file of media) {
-              const get = assets.get(file.id);
-              get.onsuccess = () => {
-                try {
-                  const prior = get.result;
-                  if (!prior) { assets.add(file); return; }
-                  // Content-addressed import IDs may be reused, never overwritten.
-                  if (!prior.bytes || prior.type !== file.type || prior.name !== file.name || prior.kind !== file.kind) throw failure('COLLISION', 'Конфликт идентификаторов материалов. Восстановление отменено.');
-                  const a=new Uint8Array(prior.bytes),b=new Uint8Array(file.bytes);
-                  if(a.length!==b.length)throw failure('COLLISION','Конфликт размеров материалов.');
-                  const aa=new Uint32Array(a.buffer,0,Math.floor(a.length/4)),bb=new Uint32Array(b.buffer,0,Math.floor(b.length/4));
-                  for(let i=0;i<aa.length;i++)if(aa[i]!==bb[i])throw failure('COLLISION','Конфликт содержимого материалов.');
-                  for(let i=aa.length*4;i<a.length;i++)if(a[i]!==b[i])throw failure('COLLISION','Конфликт содержимого материалов.');
-                } catch (error) { abort(error); }
-              };
-            }
+            for (const file of media) addOriginal(assets, file, abort);
             for (const slot of ['editor','video']) {
-              const old = current.get(slot); let previous = null;
-              if (old) {
-                try { previous={state:normalize(slot,old.state),revision:old.revision,missingAssets:old.missingAssets || []}; }
-                catch (_) { if(!old.previous)throw failure('CORRUPT','Предыдущий проект повреждён. Автоматическая замена запрещена.');normalize(slot,old.previous.state);previous=old.previous; }
-              }
+              const previous = previousState(slot, current.get(slot));
               const record={id:slot,schemaVersion:1,revision:expected[slot]+1,state:states[slot],previous,missingAssets:[],updatedAt:new Date().toISOString()};
               projects.put(record);result.push(record);
             }
@@ -967,7 +1074,7 @@ body{overflow:hidden}
       return asset;
     }, migration: () => read('meta', 'legacy-v1'), save, migrate, backupAssets, restoreBackup, close() { connection?.close(); connection = null; } });
   }
-  window.ShortsProjectDB = Object.freeze({ createRepository, normalize, references });
+  window.ShortsProjectDB = Object.freeze({ DATABASE_VERSION, createRepository, normalize, assetUses, references, validateRecord });
 })();
 
 </script>
@@ -1058,8 +1165,10 @@ body{overflow:hidden}
       const record = await repo.read(slot); session.revision = record?.revision || 0;
       let project = null, recovery = '';
       if (record) {
+        DB.validateRecord(record);
         try { project = DB.normalize(slot, record.state); }
         catch (error) {
+          if (error.code === 'UNSUPPORTED') throw error;
           if (!record.previous) throw error;
           project = DB.normalize(slot, record.previous.state); recovery = 'Текущее сохранение повреждено. Восстановлена предыдущая корректная версия.';
         }
@@ -1070,7 +1179,9 @@ body{overflow:hidden}
   function save(project, slot = 'editor') {
     if (restoring) { const frozen=structuredClone(project);return restoreOutcome.then(success=>success?{ok:false,error:'Восстановление ZIP завершено; открываются новые данные.'}:save(frozen,slot)); }
     const session = sessions.get(slot), snapshot = structuredClone(project);
-    const files = DB.references(slot, snapshot).map(id => pending.get(id)).filter(Boolean);
+    let files;
+    try { files = DB.references(slot, snapshot).map(id => pending.get(id)).filter(Boolean); }
+    catch (error) { return Promise.resolve({ ok: false, error: message(error) }); }
     const perform = async () => {
       try {
         if (unavailable) throw unavailable;
@@ -1093,6 +1204,7 @@ body{overflow:hidden}
   };
   async function captureBackup(projects, limit) {
     await ready;
+    if (projects.editor?.version !== 1) throw new Error('ZIP формата 1 не поддерживает новую модель Студии. Неполная копия не создана; исходные данные не изменены.');
     const ids = DB.references('video', projects.video), files = new Map(); let total = 0;
     const add = file => { if(!file?.blob?.size || files.has(file.id))return;total+=file.blob.size;if(total>limit)throw Object.assign(new Error('Материалы превышают 64 МиБ.'),{code:'LIMIT'});files.set(file.id,file); };
     for (const id of ids) { if(pending.has(id))add(pending.get(id));else if(legacyAssets.has(id))add(legacyAssets.get(id)); }
@@ -1279,6 +1391,7 @@ body{overflow:hidden}
   }
   function states(input, warnings = [], strict = true) {
     if (!input || !input.editor || !input.video) fail('В копии должны быть оба независимых черновика.');
+    if (input.editor.version !== 1) fail('ZIP формата 1 не поддерживает новую модель Студии. Неполная копия не создана; нужен новый формат резервирования. Исходные данные не изменены.');
     const result = {};
     for (const slot of ['editor','video']) {
       const state = input[slot], seen = new Set();
@@ -1292,8 +1405,9 @@ body{overflow:hidden}
   function usage(state) {
     const result = new Map();
     function use(key, kind) { if (!key) return; id(key); if (result.has(key) && (result.get(key)==='image') !== (kind==='image')) fail('Один материал используется как изображение и аудио.'); result.set(key, kind); }
-    state.video.scenes.forEach(scene => { if (scene.visual === 'image' && !scene.imageId) fail('В сцене нет исходного изображения. Выберите файл повторно.'); use(scene.imageId,'image'); });
-    use(state.video.voiceAssetId,'voice'); use(state.video.musicAssetId,'music'); return result;
+    state.video.scenes.forEach(scene => { if (scene.visual === 'image' && !scene.imageId) fail('В сцене нет исходного изображения. Выберите файл повторно.'); });
+    for (const slot of ['editor', 'video']) for (const [key, kind] of DB.assetUses(slot, state[slot])) use(key, kind);
+    return result;
   }
   const jsonBlob = value => new Blob([JSON.stringify(value)], { type: 'application/json' });
   async function exportArchive(input, assets, producerVersion, progress = () => {}) {
@@ -1747,7 +1861,7 @@ window.ShortsEditorReady = (async function () {
   }
 
   function hasWork() {
-    return Boolean(project.script.trim() || project.scenes.some(scene => scene.text.trim()));
+    return project.version === C.STUDIO_VERSION || Boolean(project.script.trim() || project.scenes.some(scene => scene.text.trim()));
   }
 
   function loadDemo() {

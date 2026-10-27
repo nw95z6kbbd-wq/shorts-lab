@@ -1,10 +1,13 @@
 (function () {
   'use strict';
   const NAME = 'shorts-studio.projects';
+  // Physical writer fence: the shipped v1 client always opens version 1.
+  const DATABASE_VERSION = 2;
   const failure = (code, message) => Object.assign(new Error(message), { code });
   function normalize(slot, value) {
     if (slot === 'editor') return ShortsCore.parseProject(value);
     if (slot !== 'video') throw failure('INVALID', 'Неизвестный раздел проекта.');
+    if (value?.version !== 1) throw failure('UNSUPPORTED', 'Неизвестная версия видеопроекта. Обновите приложение; данные не заменены.');
     const result = ShortsVideoCore.parseDraft(value);
     for (const role of ['voice', 'music']) {
       const id = value[role + 'AssetId'];
@@ -14,9 +17,53 @@
     }
     return result;
   }
-  function references(slot, state) {
-    if (slot === 'editor') return [];
-    return [...new Set([...state.scenes.map(scene => scene.imageId), state.voiceAssetId, state.musicAssetId].filter(Boolean))];
+  function assetUses(slot, input) {
+    const state = normalize(slot, input), uses = new Map();
+    function use(id, kind) {
+      if (!id) return;
+      if (uses.has(id) && (uses.get(id) === 'image') !== (kind === 'image')) throw failure('INVALID', 'Один исходник используется как изображение и аудио.');
+      uses.set(id, kind);
+    }
+    if (slot === 'editor' && state.version === 1) return uses;
+    state.scenes.forEach(scene => use(scene.imageId, 'image'));
+    for (const role of ['voice', 'music']) use(slot === 'editor' ? state.audio[role].assetId : state[role + 'AssetId'], role);
+    return uses;
+  }
+  function references(slot, state) { return [...assetUses(slot, state).keys()]; }
+  function validateRecord(record) {
+    if (!record) return;
+    if (record.schemaVersion !== 1) throw failure('UNSUPPORTED', 'Неизвестный формат записи хранилища. Обновите приложение.');
+    // Never replace a future head with a readable but outdated recovery state.
+    try { normalize(record.id, record.state); } catch (error) { if (error.code === 'UNSUPPORTED') throw error; }
+    if (record.previous) normalize(record.id, record.previous.state);
+  }
+  function previousState(slot, current) {
+    if (!current) return null;
+    validateRecord(current);
+    try { return { state: normalize(slot, current.state), revision: current.revision, missingAssets: current.missingAssets || [] }; }
+    catch (error) {
+      if (error.code === 'UNSUPPORTED') throw error;
+      if (!current.previous) throw failure('CORRUPT', 'Сохранённый проект повреждён. Автоматическая замена отключена.');
+      normalize(slot, current.previous.state); return current.previous;
+    }
+  }
+  function sameOriginal(prior, file) {
+    if (!prior.bytes || prior.type !== file.type || prior.name !== file.name || prior.kind !== file.kind) return false;
+    const a = new Uint8Array(prior.bytes), b = new Uint8Array(file.bytes);
+    if (a.length !== b.length) return false;
+    const aa = new Uint32Array(a.buffer, 0, Math.floor(a.length / 4)), bb = new Uint32Array(b.buffer, 0, Math.floor(b.length / 4));
+    for (let i = 0; i < aa.length; i++) if (aa[i] !== bb[i]) return false;
+    for (let i = aa.length * 4; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+  function addOriginal(assets, file, abort) {
+    const request = assets.get(file.id);
+    request.onsuccess = () => {
+      try {
+        if (!request.result) assets.add(file);
+        else if (!sameOriginal(request.result, file)) throw failure('COLLISION', 'Конфликт идентификатора исходника. Прежний файл и проект не изменены.');
+      } catch (error) { abort(error); }
+    };
   }
   function createRepository(name = NAME) {
     let connection, opening;
@@ -32,9 +79,12 @@
         };
         const timer = setTimeout(() => finish(failure('TIMEOUT', 'Хранилище не ответило. Закройте другие вкладки Shorts Studio и повторно откройте страницу.')), 8000);
         try {
-          request = indexedDB.open(name, 1);
+          request = indexedDB.open(name, DATABASE_VERSION);
           request.onupgradeneeded = () => {
-            for (const store of ['projects', 'assets', 'meta']) request.result.createObjectStore(store, { keyPath: 'id' });
+            // A blocked/timed-out open cannot be cancelled. Abort a late upgrade
+            // instead of changing the DB after the caller was told it failed.
+            if (ended) { request.transaction.abort(); return; }
+            for (const store of ['projects', 'assets', 'meta']) if (!request.result.objectStoreNames.contains(store)) request.result.createObjectStore(store, { keyPath: 'id' });
           };
           request.onblocked = () => finish(failure('BLOCKED', 'Обновление хранилища заблокировано другой вкладкой. Закройте её и перезагрузите страницу.'));
           request.onerror = () => finish(request.error || failure('UNAVAILABLE', 'IndexedDB недоступна.'));
@@ -85,25 +135,24 @@
           try {
             const current = request.result;
             if ((current?.revision || 0) !== expectedRevision) { abort(failure('CONFLICT', 'Проект изменён в другой вкладке. Ваши правки остаются в этой вкладке. Перезагрузите страницу после сохранения нужного текста или видео.')); return; }
-            for (const file of supplied) assets.put(file);
+            validateRecord(current);
+            for (const file of supplied) addOriginal(assets, file, abort);
             const missing = current?.missingAssets || [];
             for (const id of ids) {
               const check = assets.getKey(id);
-              check.onsuccess = () => { if (!check.result && !missing.includes(id)) abort(failure('MISSING', 'Не удалось сохранить один из медиафайлов. Предыдущая версия проекта не изменена.')); };
+              check.onsuccess = () => { if (!check.result && !supplied.some(file => file.id === id) && !missing.includes(id)) abort(failure('MISSING', 'Не удалось сохранить один из медиафайлов. Предыдущая версия проекта не изменена.')); };
             }
-            let previous = null;
-            if (current) {
-              try { previous = { state: normalize(slot, current.state), revision: current.revision, missingAssets: current.missingAssets || [] }; }
-              catch (_) { previous = current.previous; if (!previous) throw failure('CORRUPT', 'Сохранённый проект повреждён. Автоматическая замена отключена.'); }
-            }
+            const previous = previousState(slot, current);
             const record = { id: slot, schemaVersion: 1, revision: expectedRevision + 1, state, previous, missingAssets: missing.filter(id => ids.includes(id)), updatedAt: new Date().toISOString() };
             projects.put(record); done(record);
             // Retain both current and previous snapshots; never touch the legacy DB.
             const all = projects.getAll();
             all.onsuccess = () => {
-              const used = new Set(all.result.flatMap(p => [...references(p.id, p.state), ...(p.previous ? references(p.id, p.previous.state) : [])]));
-              const cursor = assets.openKeyCursor();
-              cursor.onsuccess = () => { const item = cursor.result; if (item) { if (!used.has(item.key)) assets.delete(item.key); item.continue(); } };
+              try {
+                const used = new Set(all.result.flatMap(p => { validateRecord(p); return [...references(p.id, p.state), ...(p.previous ? references(p.id, p.previous.state) : [])]; }));
+                const cursor = assets.openKeyCursor();
+                cursor.onsuccess = () => { const item = cursor.result; if (item) { if (!used.has(item.key)) assets.delete(item.key); item.continue(); } };
+              } catch (error) { abort(error); }
             };
           } catch (error) { abort(error); }
         };
@@ -131,7 +180,7 @@
         };
       });
     }
-    // ZIP operations are additive: same stores/schema and no legacy cleanup.
+    // Backup operations do not delete legacy data or change record envelopes.
     // Read originals in one transaction, serially bounding temporary clones.
     function backupAssets(ids, limit) {
       return transaction(['assets'], 'readonly', (tx, done, abort) => {
@@ -154,36 +203,18 @@
     }
     async function restoreBackup(input, expected, files) {
       const states = { editor: normalize('editor', input.editor), video: normalize('video', input.video) };
-      const required = new Set(references('video', states.video)), media = await prepare(files);
+      const required = new Set([...references('editor', states.editor), ...references('video', states.video)]), media = await prepare(files);
       if (media.length !== required.size || new Set(media.map(file=>file.id)).size !== media.length || media.some(file=>!required.has(file.id))) throw failure('MISSING', 'Неполный набор исходных файлов восстановления.');
       return transaction(['projects','assets'], 'readwrite', (tx, done, abort) => {
         const projects = tx.objectStore('projects'), assets = tx.objectStore('assets'), request = projects.getAll();
         request.onsuccess = () => {
           try {
             const current = new Map(request.result.map(record=>[record.id,record])), result = [];
+            for (const record of request.result) validateRecord(record);
             for (const slot of ['editor','video']) if ((current.get(slot)?.revision || 0) !== expected[slot]) throw failure('CONFLICT', 'Проект изменён в другой вкладке. Восстановление отменено, прежние данные не заменены.');
-            for (const file of media) {
-              const get = assets.get(file.id);
-              get.onsuccess = () => {
-                try {
-                  const prior = get.result;
-                  if (!prior) { assets.add(file); return; }
-                  // Content-addressed import IDs may be reused, never overwritten.
-                  if (!prior.bytes || prior.type !== file.type || prior.name !== file.name || prior.kind !== file.kind) throw failure('COLLISION', 'Конфликт идентификаторов материалов. Восстановление отменено.');
-                  const a=new Uint8Array(prior.bytes),b=new Uint8Array(file.bytes);
-                  if(a.length!==b.length)throw failure('COLLISION','Конфликт размеров материалов.');
-                  const aa=new Uint32Array(a.buffer,0,Math.floor(a.length/4)),bb=new Uint32Array(b.buffer,0,Math.floor(b.length/4));
-                  for(let i=0;i<aa.length;i++)if(aa[i]!==bb[i])throw failure('COLLISION','Конфликт содержимого материалов.');
-                  for(let i=aa.length*4;i<a.length;i++)if(a[i]!==b[i])throw failure('COLLISION','Конфликт содержимого материалов.');
-                } catch (error) { abort(error); }
-              };
-            }
+            for (const file of media) addOriginal(assets, file, abort);
             for (const slot of ['editor','video']) {
-              const old = current.get(slot); let previous = null;
-              if (old) {
-                try { previous={state:normalize(slot,old.state),revision:old.revision,missingAssets:old.missingAssets || []}; }
-                catch (_) { if(!old.previous)throw failure('CORRUPT','Предыдущий проект повреждён. Автоматическая замена запрещена.');normalize(slot,old.previous.state);previous=old.previous; }
-              }
+              const previous = previousState(slot, current.get(slot));
               const record={id:slot,schemaVersion:1,revision:expected[slot]+1,state:states[slot],previous,missingAssets:[],updatedAt:new Date().toISOString()};
               projects.put(record);result.push(record);
             }
@@ -200,5 +231,5 @@
       return asset;
     }, migration: () => read('meta', 'legacy-v1'), save, migrate, backupAssets, restoreBackup, close() { connection?.close(); connection = null; } });
   }
-  window.ShortsProjectDB = Object.freeze({ createRepository, normalize, references });
+  window.ShortsProjectDB = Object.freeze({ DATABASE_VERSION, createRepository, normalize, assetUses, references, validateRecord });
 })();

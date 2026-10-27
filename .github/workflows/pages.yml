@@ -55,6 +55,8 @@ jobs:
           fi
       - name: Check editor functionality
         run: |
+          python tests/check-errors.py tests/studio-data-browser.py
+          python tests/check-errors.py tests/studio-ui-browser.py
           python tests/check-errors.py tests/project-db-browser.py
           python tests/check-errors.py tests/project-migration-browser.py
           python tests/check-errors.py tests/browser.py
@@ -90,6 +92,7 @@ jobs:
           PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
           UX_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/ux-browser.py
           PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
+          STUDIO_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/studio-ui-browser.py
       - name: Check portable ZIP backups and restored video
         run: |
           python tests/check-errors.py tests/backup-browser.py
@@ -175,6 +178,9 @@ jobs:
       - name: Check IndexedDB and migration in WebKit
         timeout-minutes: 3
         run: |
+          PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/studio-data-browser.py
+          PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/studio-ui-browser.py
+          PERSISTENCE_BROWSER=webkit STUDIO_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/studio-ui-browser.py
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-db-browser.py
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-migration-browser.py
       - name: Check project restart in WebKit

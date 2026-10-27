@@ -53,6 +53,7 @@
   }
   function states(input, warnings = [], strict = true) {
     if (!input || !input.editor || !input.video) fail('В копии должны быть оба независимых черновика.');
+    if (input.editor.version !== 1) fail('ZIP формата 1 не поддерживает новую модель Студии. Неполная копия не создана; нужен новый формат резервирования. Исходные данные не изменены.');
     const result = {};
     for (const slot of ['editor','video']) {
       const state = input[slot], seen = new Set();
@@ -66,8 +67,9 @@
   function usage(state) {
     const result = new Map();
     function use(key, kind) { if (!key) return; id(key); if (result.has(key) && (result.get(key)==='image') !== (kind==='image')) fail('Один материал используется как изображение и аудио.'); result.set(key, kind); }
-    state.video.scenes.forEach(scene => { if (scene.visual === 'image' && !scene.imageId) fail('В сцене нет исходного изображения. Выберите файл повторно.'); use(scene.imageId,'image'); });
-    use(state.video.voiceAssetId,'voice'); use(state.video.musicAssetId,'music'); return result;
+    state.video.scenes.forEach(scene => { if (scene.visual === 'image' && !scene.imageId) fail('В сцене нет исходного изображения. Выберите файл повторно.'); });
+    for (const slot of ['editor', 'video']) for (const [key, kind] of DB.assetUses(slot, state[slot])) use(key, kind);
+    return result;
   }
   const jsonBlob = value => new Blob([JSON.stringify(value)], { type: 'application/json' });
   async function exportArchive(input, assets, producerVersion, progress = () => {}) {
