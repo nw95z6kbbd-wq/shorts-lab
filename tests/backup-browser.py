@@ -9,11 +9,7 @@ import os
 from pathlib import Path
 import shutil
 import struct
-import sys
-import traceback
-import greenlet
 import tempfile
-import time
 import threading
 import zipfile
 from http.server import ThreadingHTTPServer
@@ -37,22 +33,12 @@ def profile_zip(files, compression=zipfile.ZIP_STORED):
     return bytes(data)
 
 
-latest_stage='starting'
 def checkpoint(stage):
-    global latest_stage
-    latest_stage=stage
     print('ZIP checkpoint: '+stage,flush=True)
-
-
-def watchdog(caller,main_thread):
-    frames=[caller.gr_frame,sys._current_frames().get(main_thread)]
-    detail=latest_stage+'\n'+'\n'.join(''.join(traceback.format_stack(frame,limit=12)) for frame in frames if frame)
-    print('::warning title=ZIP blocked-call stack::'+detail.replace('%','%25').replace('\r','%0D').replace('\n','%0A'),flush=True)
 
 
 def run():
     engine=os.environ.get('BACKUP_BROWSER','chromium')
-    watchdog_timer=threading.Timer(75,watchdog,args=(greenlet.getcurrent(),threading.get_ident()));watchdog_timer.daemon=True;watchdog_timer.start()
     server=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(media.checks.Handler,directory=str(ROOT)))
     threading.Thread(target=server.serve_forever,daemon=True).start()
     base=f'http://127.0.0.1:{server.server_port}/shorts-lab/';url=base+os.environ.get('BACKUP_ENTRY','')
@@ -60,9 +46,7 @@ def run():
     try:
         with tempfile.TemporaryDirectory(prefix='shorts-zip-') as tmp,sync_playwright() as p:
             folder=Path(tmp);payload=media_payload(folder)
-            downloads=folder/'browser-downloads';downloads.mkdir()
-            launch={'downloads_path':str(downloads)}
-            if engine!='webkit':launch.update(executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'),args=['--no-sandbox'])
+            launch={} if engine=='webkit' else {'executable_path':os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'),'args':['--no-sandbox']}
             browser=getattr(p,engine).launch(**launch)
             checkpoint(engine+': adapters before fixtures')
             for fail in (False,True):
@@ -107,47 +91,10 @@ def run():
             page.evaluate('()=>{SubtleCrypto.prototype.digest=window.backupOriginalDigest;}')
             page.locator('[data-backup-export]:visible').click()
             checkpoint(engine+': actual ZIP download link')
-            prior_downloads=set(downloads.iterdir())
             with page.expect_download() as item:page.locator('#backupDownload').click()
-            checkpoint(engine+': ZIP download event received; verify real downloaded bytes')
-            caller=greenlet.getcurrent();main_thread=threading.get_ident()
-            download_watchdog=threading.Timer(20,watchdog,args=(caller,main_thread));download_watchdog.daemon=True;download_watchdog.start()
-            seen_downloads=set()
-            # Read the actual browser download directory with a bounded deadline.
-            # WebKit can emit its download event but never settle save_as(). No
-            # in-memory substitute is accepted: a complete CRC-valid file must
-            # have been written by the browser before we copy it for import.
-            archive=folder/'portable.shorts.zip';deadline=time.monotonic()+30
-            while True:
-                candidates=[file for file in downloads.iterdir() if file not in prior_downloads and file.is_file()]
-                content=None
-                for file in candidates:
-                    size=file.stat().st_size
-                    if file not in seen_downloads:
-                        checkpoint(engine+': download candidate '+file.name+' size '+str(size));seen_downloads.add(file)
-                    if size>64*1048576:raise AssertionError('Browser download exceeded ZIP limit: '+str(size))
-                    try:
-                        data=file.read_bytes()
-                        with zipfile.ZipFile(io.BytesIO(data)) as actual:
-                            if actual.testzip() is None:content=data;break
-                    except (OSError,ValueError,EOFError,zipfile.BadZipFile):pass
-                if content is not None:archive.write_bytes(content);break
-                if time.monotonic()>=deadline:
-                    diagnostic='Browser did not complete ZIP download: '+str([(file.name,file.stat().st_size) for file in candidates])
-                    checkpoint(engine+': '+diagnostic)
-                    raise AssertionError(diagnostic)
-                # Browser/network/driver processes run independently. A Python
-                # sleep keeps this disk deadline bounded even if a WebKit page
-                # command is blocked by the outstanding download.
-                time.sleep(.1)
-            download_watchdog.cancel()
-            checkpoint(engine+': complete CRC-valid ZIP exists on disk')
+            archive=folder/'portable.shorts.zip';item.value.save_as(archive)
             assert item.value.suggested_filename.endswith('.shorts.zip')
-            checkpoint(engine+': downloaded filename verified; close preparation dialog')
-            try:page.locator('#backupCancel').click(timeout=10000)
-            except Exception as cause:
-                checkpoint(engine+': close-after-download failed: '+str(cause)[:1200].replace('\n',' '));raise
-            checkpoint(engine+': preparation dialog closed')
+            page.locator('#backupCancel').click()
             expect(page.locator('#videoTitle')).to_have_value('Правка ПОСЛЕ фиксации ZIP')
             with zipfile.ZipFile(archive) as z:
                 assert z.testzip() is None
@@ -161,13 +108,30 @@ def run():
             print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP export]: real independent ZIP read by Python, exact PNG/JPG/WebP and WAV bytes/hashes, pending save and immutable background snapshot',flush=True)
 
             for recoverable in (False,True):
-                historical=browser.new_context();hp=historical.new_page();hp.goto(base+'tests/fixtures/backup-seed.html')
+                # Legacy File records need a real persistent profile in WebKit.
+                # Its private Blob backend can abort while preparing file data.
+                historical=getattr(p,engine).launch_persistent_context(str(folder/('legacy-'+str(recoverable))),**launch);hp=historical.new_page();hp.goto(base+'tests/fixtures/backup-seed.html')
                 for name in ('core.js','video-core.js','project-db.js'):hp.add_script_tag(content=(ROOT/'js'/name).read_text())
+                if recoverable:
+                    hp.evaluate('const input=document.createElement("input");input.id="legacyImage";input.type="file";document.body.append(input);')
+                    hp.locator('#legacyImage').set_input_files(str(ROOT/'tests/fixtures/backup-media/red.png'))
+                checkpoint(engine+': persistent legacy fixture '+str(recoverable))
                 hp.evaluate("""async data=>{
                   const e=ShortsCore.createProject(),v=ShortsVideoCore.demo();v.scenes[0].imageId='historical-image';v.scenes[0].imageName='historical.png';v.scenes[0].visual='image';
                   const r=ShortsProjectDB.createRepository();await r.migrate([{id:'editor',state:e},{id:'video',state:v}],[],{});r.close();
-                  if(data.recoverable)await new Promise((resolve,reject)=>{const q=indexedDB.open('shorts-studio.media.v1',1);q.onupgradeneeded=()=>q.result.createObjectStore('images',{keyPath:'id'});q.onerror=()=>reject(q.error);q.onsuccess=()=>{const db=q.result,t=db.transaction('images','readwrite');t.objectStore('images').put({id:'historical-image',name:'historical.png',file:new Blob([Uint8Array.from(atob(data.base64),c=>c.charCodeAt(0))],{type:'image/png'})});t.oncomplete=()=>{db.close();resolve();};};});
-                }""",{'recoverable':recoverable,'base64':payload[0]['base64']})
+                  if(data.recoverable)await new Promise((resolve,reject)=>{
+                    let db,tx;const timer=setTimeout(()=>{try{tx?.abort();}catch(_){}finish(Error('Legacy File fixture timed out'));},8000);
+                    function finish(error){clearTimeout(timer);db?.close();error?reject(error):resolve();}
+                    const q=indexedDB.open('shorts-studio.media.v1',1);
+                    q.onupgradeneeded=()=>q.result.createObjectStore('images',{keyPath:'id'});
+                    q.onerror=()=>finish(q.error);q.onblocked=()=>finish(Error('Legacy fixture blocked'));
+                    q.onsuccess=()=>{db=q.result;try{
+                      tx=db.transaction('images','readwrite');tx.onabort=tx.onerror=()=>finish(tx.error||Error('Legacy fixture write aborted'));
+                      tx.oncomplete=()=>finish();
+                      tx.objectStore('images').put({id:'historical-image',name:'historical.png',file:document.getElementById('legacyImage').files[0]});
+                    }catch(error){finish(error);}};
+                  });
+                }""",{'recoverable':recoverable})
                 hp.goto(url);hp.wait_for_function('window.ShortsVideoRestored')
                 before=hp.evaluate('async()=>{const r=ShortsProjectDB.createRepository();const v=await r.read("video");r.close();return v;}')
                 hp.locator('[data-backup-export]:visible').click()
@@ -248,7 +212,7 @@ def run():
             else:print(f'LIMITATION [{engine}]: Canvas/MediaRecorder codec unavailable; real ZIP persistence/preview verified; exported files checked in Chromium/native Safari',flush=True)
             print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP transfer]: clean independent browser storage, both modes/settings, repeat import without ID collisions, complete browser process restart, previews and original audio',flush=True)
             destination.close();context.close();browser.close();assert not errors,errors
-    finally:watchdog_timer.cancel();server.shutdown();server.server_close()
+    finally:server.shutdown();server.server_close()
 
 
 if __name__=='__main__':run()
