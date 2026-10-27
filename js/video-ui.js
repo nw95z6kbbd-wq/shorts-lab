@@ -2,12 +2,13 @@
   'use strict';
   const C = window.ShortsCore, V = window.ShortsVideoCore, R = window.ShortsVideoRecorder;
   const M = window.ShortsVideoMedia;
+  const P = window.ShortsRenderPlan, A = window.ShortsRenderAdapters;
   const $ = id => document.getElementById(id);
   await window.ShortsEditorReady;
   const loaded = await window.ShortsStorage.load('video');
   let draft = loaded.project || V.demo(), loadError = loaded.error || '';
   let active = false, busy = false, decoding = false, manuallyEdited = draft.edited;
-  let plan, audioBuffer = null, musicBuffer = null, resultUrl = '', recorderAbort = null;
+  let plan, resources = { images: new Map() }, audioBuffer = null, musicBuffer = null, resultUrl = '', recorderAbort = null;
   let previewing = false, previewStarting = false, previewFrame = 0, previewOffset = 0, previewEpoch = 0, previewAudio;
   let audioEpoch = 0, musicEpoch = 0, saveTimer, maxSaveTimer, saveEpoch = 0, lastRenderSecond = -1;
   const assets = new Map();
@@ -136,7 +137,7 @@
       if (ctx) { ctx.fillStyle = '#171020'; ctx.fillRect(0, 0, 720, 1280); ctx.fillStyle = '#c6a7df'; ctx.font = '28px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Добавьте текст в сцены', 360, 640); }
       return;
     }
-    try { window.ShortsVideoRenderer.render($('videoCanvas'), plan, previewOffset); }
+    try { window.ShortsVideoRenderer.render($('videoCanvas'), plan, previewOffset, resources); }
     catch (cause) { plan = null; error(cause.message || 'Не удалось нарисовать предпросмотр.'); updateSupport(); }
   }
   function rebuild() {
@@ -145,9 +146,9 @@
       for (const role of ['voice', 'music']) {
         if (draft[role + 'AssetId'] && !(role === 'voice' ? audioBuffer : musicBuffer)) throw new Error(audioProblems.get(role) || 'Восстанавливаем аудио…');
       }
-      plan = V.makePlan(draft);
-      plan.images = new Map([...assets].map(([id, asset]) => [id, asset.image]));
-      if (plan.timeline.some(scene => scene.visual === 'image' && !plan.images.has(scene.imageId))) throw new Error('Для сцен с изображениями выберите файлы заново или переключите их на анимированный фон.');
+      plan = A.fromVideo(draft);
+      resources = { images: new Map([...assets].map(([id, asset]) => [id, asset.image])) };
+      if (plan.timeline.some(scene => scene.visual === 'image' && !resources.images.has(scene.imageId))) throw new Error('Для сцен с изображениями выберите файлы заново или переключите их на анимированный фон.');
     } catch (cause) { plan = null; problem = cause.message; }
     $('videoPlanError').textContent = problem; $('videoPlanError').hidden = !problem;
     $('videoTotalTime').textContent = plan ? 'Итого: ' + (plan.durationMs / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 3 }) + ' сек · ' + (draft.timing === 'manual' ? 'сумма длительностей сцен' : 'автоматическая разбивка') : 'Исправьте настройки сцен перед записью.';
@@ -282,7 +283,7 @@
     const epoch = ++previewEpoch;
     previewStarting = true; updateSupport();
     try {
-      const session = await R.playMix({ voiceBuffer: audioBuffer, musicBuffer, voiceVolume: draft.volume, musicVolume: draft.musicVolume, fadeIn: draft.musicFadeIn, fadeOut: draft.musicFadeOut, durationSeconds: plan.durationMs / 1000, offsetSeconds: previewOffset / 1000 });
+      const session = await R.playMix({ voiceBuffer: audioBuffer, musicBuffer, ...P.audioOptions(plan), offsetSeconds: previewOffset / 1000 });
       if (epoch !== previewEpoch || !active || busy) { session.stop(); return; }
       previewAudio = session; previewStarting = false; previewing = true;
       $('playGeneratedPreview').querySelector('span').textContent = 'Пауза';
@@ -307,7 +308,7 @@
     const controller = new AbortController(); recorderAbort = controller;
     try {
       const result = await R.record({
-        canvas: $('videoCanvas'), plan, audioBuffer, volume: draft.volume, musicBuffer, musicVolume: draft.musicVolume, fadeIn: draft.musicFadeIn, fadeOut: draft.musicFadeOut, format: draft.format, signal: controller.signal,
+        canvas: $('videoCanvas'), plan, resources, audioBuffer, musicBuffer, ...P.audioOptions(plan), format: plan.exportSettings.format, signal: controller.signal,
         onFormat(type) { $('videoRenderStatus').textContent = 'Запись ' + V.extensionFor(type).toUpperCase() + '…'; },
         onProgress(fraction, elapsed) {
           $('videoProgress').value = Math.round(fraction * 100);

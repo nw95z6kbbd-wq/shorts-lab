@@ -107,10 +107,12 @@ def _check_native_backup(root,source_base,script,command,click,wait_for):
         script((root/'tests/backup-fixture.js').read_text());assert async_script('return await backupFixtureSnapshot();')==expected
         click('#openVideoMode');assert script('return document.querySelectorAll(".scene-image-thumb").length;')==3
         assert 'voice.wav' in script('return videoAudioInfo.textContent;') and 'music.wav' in script('return videoMusicInfo.textContent;')
+        script((root/'tests/render-plan-fixture.js').read_text());script('installRenderPlanProbe();')
         click('#playGeneratedPreview');wait_for('document.getElementById("videoPreviewTime").textContent.startsWith("0:01")');click('#playGeneratedPreview')
         assert script('return ShortsVideoRecorder.capabilities(true,"webm").supported;'),'Native Safari lacks recording capability; actual restored export not verified'
         click('#recordVideo');metadata=wait_native_video(command)
         assert not metadata.get('error'),metadata
+        plan_probe=script('return verifyRenderPlanProbe();');assert plan_probe['source']=='video' and plan_probe['durationMs']==6000,plan_probe
         assert metadata['width']==720 and metadata['height']==1280 and 5<metadata['duration']<7.5 and 'голос + музыка' in metadata['info'],metadata
         samples=async_script('''const v=generatedVideo,c=document.createElement('canvas');c.width=c.height=1;const x=c.getContext('2d'),result=[];v.pause();for(const t of [.5,2.7,4.8]){await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Video seek timeout')),4000);v.onseeked=()=>{clearTimeout(timer);resolve();};v.currentTime=t;});x.drawImage(v,300,400,100,100,0,0,1,1);result.push(Array.from(x.getImageData(0,0,1,1).data).slice(0,3));}return result;''')
         r,b,g=samples;assert r[0]>r[2]*1.5 and b[2]>b[0]*1.5 and g[1]>g[0]*1.5,samples

@@ -57,13 +57,14 @@
     } catch (error) { mix?.stop(); await context.close().catch(() => {}); throw error; }
   }
 
-  async function record({ canvas, plan, audioBuffer = null, volume = .7, voiceBuffer = audioBuffer, musicBuffer = null, voiceVolume = volume, musicVolume = .25, fadeIn = 1, fadeOut = 1, format = 'auto', signal, onProgress = () => {}, onFormat = () => {} }) {
+  async function record({ canvas, plan, resources, audioBuffer = null, volume = .7, voiceBuffer = audioBuffer, musicBuffer = null, voiceVolume = volume, musicVolume = .25, fadeIn = 1, fadeOut = 1, format = 'auto', signal, onProgress = () => {}, onFormat = () => {} }) {
+    window.ShortsRenderPlan.assertRenderable(plan);
     const hasAudio = Boolean(voiceBuffer || musicBuffer);
     const support = capabilities(hasAudio, format);
     if (!support.supported) throw new Error('Браузер не поддерживает запись Canvas в MP4 или WebM. Откройте сайт в актуальном Chrome, Edge, Firefox или Safari. Предпросмотр и сценарий остаются доступны.');
     if (hasAudio && !support.audio) throw new Error('Запись аудио не поддерживается. Уберите аудиодорожки и попробуйте снова.');
     signal?.throwIfAborted();
-    const render = ms => window.ShortsVideoRenderer.render(canvas, plan, ms);
+    const render = ms => window.ShortsVideoRenderer.render(canvas, plan, ms, resources);
     let stream, context, mix, recorder, animationFrame, flushTimer, finalTimer;
     let abortListener, visibilityListener;
     try {

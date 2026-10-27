@@ -177,17 +177,18 @@
     ctx.restore();
   }
 
-  function visual(ctx, plan, scene, time) {
+  function visual(ctx, plan, scene, time, resources) {
     background(ctx, plan, scene.index, time / 1000 + scene.index * .7);
     if (scene.visual !== 'image') return;
-    const image = plan.images?.get(scene.imageId);
+    const image = (resources?.images || plan.images)?.get(scene.imageId);
     if (!image) throw new Error('Изображение сцены не загружено. Выберите файл заново или включите анимированный фон.');
     const progress = (time - scene.startMs) / (scene.endMs - scene.startMs);
     const rect = V.cameraRect(image.width || image.naturalWidth, image.height || image.naturalHeight, progress, scene.camera);
     ctx.drawImage(image, rect.x, rect.y, rect.width, rect.height);
   }
 
-  function render(canvas, plan, elapsedMs) {
+  function render(canvas, plan, elapsedMs, resources) {
+    window.ShortsRenderPlan.assertRenderable(plan);
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('Браузер не смог создать Canvas для видео.');
     const frame = V.frameAt(plan, elapsedMs);
@@ -196,13 +197,13 @@
     const transitionMs = Math.min(440, (frame.scene.endMs - frame.scene.startMs) / 3, previous ? (previous.endMs - previous.startMs) / 3 : 440);
     const transition = frame.scene.transition === 'none' ? 1 : ease(frame.localMs / transitionMs);
     if (frame.scene.index > 0 && transition < 1) {
-      visual(ctx, plan, previous, previous.visual === 'image' ? previous.endMs : frame.time);
+      visual(ctx, plan, previous, previous.visual === 'image' ? previous.endMs : frame.time, resources);
       let layer = transitionLayers.get(canvas);
       if (!layer) {
         layer = document.createElement('canvas'); layer.width = V.WIDTH; layer.height = V.HEIGHT;
         transitionLayers.set(canvas, layer);
       }
-      visual(layer.getContext('2d', { alpha: false }), plan, frame.scene, frame.time);
+      visual(layer.getContext('2d', { alpha: false }), plan, frame.scene, frame.time, resources);
       ctx.save();
       if (frame.scene.transition === 'slide') ctx.translate(V.WIDTH * (1 - transition), 0);
       else {
@@ -210,7 +211,7 @@
         if (frame.scene.transition === 'zoom') { const scale = 1 + .1 * (1 - transition); ctx.translate(360, 640); ctx.scale(scale, scale); ctx.translate(-360, -640); }
       }
       ctx.drawImage(layer, 0, 0, V.WIDTH, V.HEIGHT); ctx.restore();
-    } else visual(ctx, plan, frame.scene, frame.time);
+    } else visual(ctx, plan, frame.scene, frame.time, resources);
     ctx.globalAlpha = 1;
     const topShade = ctx.createLinearGradient(0, 0, 0, 350); topShade.addColorStop(0, '#080812b3'); topShade.addColorStop(1, 'transparent');
     ctx.fillStyle = topShade; ctx.fillRect(0, 0, 720, 350);
