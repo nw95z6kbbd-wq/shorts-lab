@@ -9,6 +9,9 @@ import os
 from pathlib import Path
 import shutil
 import struct
+import sys
+import traceback
+import greenlet
 import tempfile
 import time
 import threading
@@ -97,6 +100,13 @@ def run():
             prior_downloads=set(downloads.iterdir())
             with page.expect_download() as item:page.locator('#backupDownload').click()
             checkpoint(engine+': ZIP download event received; verify real downloaded bytes')
+            caller=greenlet.getcurrent();main_thread=threading.get_ident()
+            def diagnose_download():
+                frames=[caller.gr_frame,sys._current_frames().get(main_thread)]
+                text='\n'.join(''.join(traceback.format_stack(frame)) for frame in frames if frame)
+                print('::notice title=ZIP download watchdog::'+text.replace('%','%25').replace('\r','%0D').replace('\n','%0A'),flush=True)
+            download_watchdog=threading.Timer(20,diagnose_download);download_watchdog.daemon=True;download_watchdog.start()
+            seen_downloads=set()
             # Read the actual browser download directory with a bounded deadline.
             # WebKit can emit its download event but never settle save_as(). No
             # in-memory substitute is accepted: a complete CRC-valid file must
@@ -106,6 +116,10 @@ def run():
                 candidates=[file for file in downloads.iterdir() if file not in prior_downloads and file.is_file()]
                 content=None
                 for file in candidates:
+                    size=file.stat().st_size
+                    if file not in seen_downloads:
+                        checkpoint(engine+': download candidate '+file.name+' size '+str(size));seen_downloads.add(file)
+                    if size>64*1048576:raise AssertionError('Browser download exceeded ZIP limit: '+str(size))
                     try:
                         data=file.read_bytes()
                         with zipfile.ZipFile(io.BytesIO(data)) as actual:
@@ -120,6 +134,7 @@ def run():
                 # sleep keeps this disk deadline bounded even if a WebKit page
                 # command is blocked by the outstanding download.
                 time.sleep(.1)
+            download_watchdog.cancel()
             checkpoint(engine+': complete CRC-valid ZIP exists on disk')
             assert item.value.suggested_filename.endswith('.shorts.zip')
             checkpoint(engine+': downloaded filename verified; close preparation dialog')
