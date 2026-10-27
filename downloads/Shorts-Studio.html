@@ -585,6 +585,173 @@ body{overflow:hidden}
 (function (root, factory) {
   'use strict';
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'));
+  else root.ShortsRenderPlan = factory(root.ShortsCore);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (C) {
+  'use strict';
+  const KIND = 'shorts-render-plan', VERSION = 1;
+  const error = (code, text) => Object.assign(new Error(text), { code });
+  function chunks(text, size = 6) {
+    const words = String(text).trim().split(/\s+/u).filter(Boolean), result = [];
+    for (let i = 0; i < words.length; i += size) result.push(words.slice(i, i + size));
+    return result;
+  }
+  function build(spec) {
+    const video = spec.timing.policy.startsWith('video-'), manual = spec.timing.policy === 'video-manual';
+    if (!['video-auto', 'video-manual', 'editor-reading', 'editor-manual-or-reading'].includes(spec.timing.policy)) throw error('POLICY', 'Неизвестная политика длительности.');
+    if (!['video-chunks-6', 'editor-scene', 'editor-chunks-6'].includes(spec.subtitles.policy)) throw error('POLICY', 'Неизвестная политика субтитров.');
+    const omittedScenes = [];
+    const scenes = spec.scenes.filter(scene => {
+      const include = video ? manual || C.countWords(scene.text) > 0 || scene.visual === 'image' : scene.durationMs > 0;
+      if (!include) omittedScenes.push({ id: scene.id, reason: video ? 'empty-auto-scene' : 'zero-reading-duration' });
+      return include;
+    });
+    if (video && !scenes.length) throw new Error('Добавьте текст хотя бы в одну сцену.');
+    if (video && scenes.length > 12) throw new Error('В прототипе поддерживается не больше 12 сцен.');
+    let durationMs = video && !manual ? spec.timing.durationMs : scenes.reduce((sum, s) => sum + s.durationMs, 0);
+    if (video && (!Number.isFinite(durationMs) || durationMs < 500 || durationMs > 60000)) throw new Error('Общая длительность ролика должна быть от 0,5 до 60 секунд.');
+    if (!Number.isSafeInteger(durationMs) || durationMs < 0) throw error('TIMING', 'Общая длительность не помещается в целые миллисекунды.');
+    const weights = scenes.map(scene => Math.max(4, C.countWords(scene.text))), sum = weights.reduce((a, b) => a + b, 0);
+    let weight = 0, end = 0;
+    const cues = [];
+    const timeline = scenes.map((scene, index) => {
+      const weighted = spec.timing.policy === 'video-auto';
+      const startMs = weighted ? Math.round(durationMs * weight / sum) : end;
+      weight += weights[index];
+      const endMs = weighted ? Math.round(durationMs * weight / sum) : startMs + scene.durationMs;
+      end = endMs;
+      const groups = spec.subtitles.enabled === false ? [] : spec.subtitles.policy === 'editor-scene'
+        ? (C.countWords(scene.text) ? [String(scene.text).trim().split(/\s+/u).filter(Boolean)] : []) : chunks(scene.text);
+      const wordSum = groups.reduce((total, group) => total + group.length, 0);
+      let offset = 0;
+      const sceneCues = groups.map(words => {
+        const start = startMs + Math.round((endMs - startMs) * offset / wordSum);
+        offset += words.length;
+        const cue = { startMs: start, endMs: startMs + Math.round((endMs - startMs) * offset / wordSum), text: spec.subtitles.policy === 'editor-scene' ? scene.text.trim() : words.join(' '), words };
+        cues.push(cue); return cue;
+      });
+      if (spec.subtitles.policy === 'editor-chunks-6' && sceneCues.some(cue => cue.endMs <= cue.startMs)) throw error('SUBTITLES', 'Для коротких групп субтитров недостаточно миллисекунд. Увеличьте длительность сцены или явно выберите субтитры по сценам.');
+      return { id: scene.id, text: scene.text, index, startMs, endMs, cues: sceneCues,
+        visual: scene.visual || 'animated', imageId: scene.imageId || null,
+        camera: scene.camera || 'zoom-in', transition: scene.transition || 'crossfade' };
+    });
+    return { kind: KIND, version: VERSION, source: spec.source, output: { width: 720, height: 1280, fps: 24 },
+      title: spec.title, theme: spec.appearance.resolved.theme, caption: spec.appearance.resolved.caption,
+      durationMs, timeline, cues, omittedScenes, timing: spec.timing, subtitles: spec.subtitles,
+      appearance: spec.appearance, audio: spec.audio, media: spec.media, exportSettings: spec.exportSettings };
+  }
+  // The legacy public API retains its original shape, including raw theme values.
+  function legacyView(plan, draft) {
+    if (plan.source.mode !== 'video') throw error('POLICY', 'Совместимый видеоплан нельзя использовать для подмены оформления Студии.');
+    return { title: plan.title, theme: draft.theme, caption: draft.caption, durationMs: plan.durationMs, timeline: plan.timeline, cues: plan.cues };
+  }
+  function isPlan(plan) { return plan?.kind === KIND; }
+  function frameAt(plan, elapsedMs) {
+    if (isPlan(plan) && plan.version !== VERSION) throw error('UNSUPPORTED', 'Неизвестная версия RenderPlan.');
+    if (!plan?.timeline?.length || plan.durationMs <= 0) throw error('EMPTY', 'В расчётном плане нет сцен с положительной длительностью.');
+    const time = Math.max(0, Math.min(plan.durationMs - 1, Number(elapsedMs) || 0));
+    const scene = plan.timeline.find(scene => time < scene.endMs) || plan.timeline[plan.timeline.length - 1];
+    const cue = scene.cues.find(cue => time < cue.endMs) || scene.cues[scene.cues.length - 1] || null;
+    const highlight = !isPlan(plan) || plan.subtitles.highlight === 'estimated-word';
+    const activeWord = cue && highlight ? Math.min(cue.words.length - 1, Math.floor((time - cue.startMs) / (cue.endMs - cue.startMs) * cue.words.length)) : -1;
+    return { time, scene, cue, activeWord, localMs: time - scene.startMs };
+  }
+  function generateSrt(plan) {
+    return plan.cues.map((cue, index) => `${index + 1}\n${C.srtTime(cue.startMs)} --> ${C.srtTime(cue.endMs)}\n${C.wrapSubtitle(cue.text)}\n`).join('\n');
+  }
+  function assertRenderable(plan) {
+    if (!isPlan(plan)) return; // Existing public renderer/recorder callers remain valid.
+    if (plan.version !== VERSION) throw error('UNSUPPORTED', 'Неизвестная версия RenderPlan.');
+    if (!plan.timeline.length || plan.durationMs <= 0) throw error('EMPTY', 'Добавьте сцены с положительной длительностью.');
+    if (!plan.appearance.supported) throw error('APPEARANCE', 'Canvas-renderer пока не воспроизводит запрошенное оформление точно. Подмена темы отключена.');
+    if (plan.output.width !== 720 || plan.output.height !== 1280 || plan.output.fps !== 24) throw error('OUTPUT', 'Параметры RenderPlan не поддерживаются текущим renderer.');
+  }
+  function audioOptions(plan) {
+    return { voiceVolume: plan.audio.voice.volume, musicVolume: plan.audio.music.volume,
+      fadeIn: plan.audio.music.fadeInSeconds, fadeOut: plan.audio.music.fadeOutSeconds,
+      durationSeconds: plan.durationMs / 1000 };
+  }
+  return Object.freeze({ KIND, VERSION, build, chunks, legacyView, isPlan, frameAt, generateSrt, assertRenderable, audioOptions });
+});
+
+</script>
+<script>
+(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'), require('./render-plan.js'));
+  else root.ShortsRenderAdapters = factory(root.ShortsCore, root.ShortsRenderPlan);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (C, P) {
+  'use strict';
+  const videoThemes = ['mystery', 'space', 'sunrise', 'neon'], captions = ['accent', 'classic', 'outline'];
+  function ids(scenes) {
+    const seen = new Set();
+    for (const scene of scenes) {
+      if (!scene || typeof scene.id !== 'string' || !scene.id || seen.has(scene.id)) throw new Error('Для расчёта нужны постоянные уникальные идентификаторы сцен.');
+      seen.add(scene.id);
+    }
+  }
+  function media(scenes, voice, music) {
+    const used = new Map();
+    const add = (id, kind) => {
+      if (!id) return;
+      if (used.has(id) && (used.get(id) === 'image') !== (kind === 'image')) throw new Error('Исходник нельзя использовать одновременно как изображение и аудио.');
+      used.set(id, kind);
+    };
+    scenes.forEach(s => add(s.imageId, 'image')); add(voice.assetId, 'voice'); add(music.assetId, 'music');
+    return [...used].map(([assetId, kind]) => ({ assetId, kind }));
+  }
+  function audio(voice, music) {
+    return { policy: 'start-at-zero-clip-at-plan-end', voice: { ...voice, offsetMs: 0, loop: false },
+      music: { ...music, offsetMs: 0, loop: false }, shortSource: 'silence-after-source-end', durationFromAudio: false };
+  }
+  function fromVideo(draft, { legacy = false } = {}) {
+    if (!legacy) {
+      ids(draft.scenes);
+      if (draft.version !== 1 || draft.scenes.length > 12 || draft.scenes.some(s => typeof s.text !== 'string' || s.text.length > 280)) throw new Error('Не удалось прочитать сцены видеорежима.');
+    }
+    const manual = draft.timing === 'manual';
+    if (manual && draft.scenes.some(s => !Number.isFinite(s.durationSeconds) || s.durationSeconds < .5 || s.durationSeconds > 60)) throw new Error('Укажите длительность каждой сцены от 0,5 до 60 секунд.');
+    const voice = { assetId: draft.voiceAssetId || null, name: draft.voiceName || '', volume: draft.volume ?? .7 };
+    const music = { assetId: draft.musicAssetId || null, name: draft.musicName || '', volume: draft.musicVolume ?? .25,
+      fadeInSeconds: draft.musicFadeIn ?? 1, fadeOutSeconds: draft.musicFadeOut ?? 1 };
+    return P.build({ source: { mode: 'video', dtoVersion: draft.version ?? 1 }, title: draft.title,
+      scenes: draft.scenes.map(s => ({ id: s.id, text: s.text, durationMs: manual ? Math.round(s.durationSeconds * 1000) : null,
+        visual: s.visual || 'animated', imageId: s.imageId || null, camera: s.camera || 'zoom-in', transition: s.transition || 'crossfade' })),
+      timing: { policy: manual ? 'video-manual' : 'video-auto', durationMs: manual ? null : Math.round(Number(draft.durationSeconds) * 1000) },
+      subtitles: { policy: 'video-chunks-6', enabled: true, highlight: 'estimated-word', alignment: 'scene-proportional-estimate' },
+      appearance: { requested: { namespace: 'video', theme: draft.theme, caption: draft.caption, size: 'auto-fit' },
+        resolved: { renderer: 'canvas-v1', theme: draft.theme, caption: draft.caption, size: 'auto-fit', layout: 'video-v1' },
+        supported: videoThemes.includes(draft.theme) && captions.includes(draft.caption), limitations: [...(videoThemes.includes(draft.theme) ? [] : ['video-theme-not-supported']), ...(captions.includes(draft.caption) ? [] : ['video-caption-not-supported'])] },
+      audio: audio(voice, music), media: legacy ? [] : media(draft.scenes, voice, music), exportSettings: { format: draft.format || 'auto', profile: 'shorts-720p' } });
+  }
+  function fromEditor(input) {
+    const raw = typeof input === 'string' ? JSON.parse(input) : input;
+    if (!raw || !Array.isArray(raw.scenes)) throw new Error('Не удалось прочитать сцены ручной Студии.');
+    if (typeof raw.id !== 'string' || !raw.id) throw new Error('Для расчёта нужен постоянный идентификатор проекта.');
+    ids(raw.scenes); // Do not generate IDs during a deterministic calculation.
+    // A legacy import may omit updatedAt. It is irrelevant to rendering; do not
+    // let the DTO normalizer consult the wall clock for this temporary value.
+    const inputProject = raw.version === 1 && typeof raw.updatedAt !== 'string' ? { ...raw, updatedAt: '' } : raw;
+    const project = C.upgradeProject(inputProject), manual = project.timing === 'manual';
+    const voice = { ...project.audio.voice }, music = { assetId: project.audio.music.assetId, name: project.audio.music.name,
+      volume: project.audio.music.volume, fadeInSeconds: project.audio.music.fadeInMs / 1000, fadeOutSeconds: project.audio.music.fadeOutMs / 1000 };
+    const scenes = project.scenes.map(s => ({ ...s, durationMs: manual && s.durationMs !== null ? s.durationMs : C.durationMs(s.text) }));
+    return P.build({ source: { mode: 'editor', dtoVersion: raw.version, projectId: project.id }, title: project.name, scenes,
+      timing: { policy: manual ? 'editor-manual-or-reading' : 'editor-reading', wordsPerMinute: C.WORDS_PER_MINUTE },
+      subtitles: { policy: project.subtitles.mode === 'chunks' ? 'editor-chunks-6' : 'editor-scene', enabled: project.subtitles.enabled,
+        highlight: 'none', alignment: project.subtitles.mode === 'chunks' ? 'scene-proportional-estimate' : 'scene-boundaries' },
+      appearance: { requested: { namespace: 'editor', ...project.style },
+        resolved: { renderer: 'canvas-v1', theme: null, caption: null, size: null, layout: null }, supported: false,
+        limitations: ['editor-css-theme-not-supported', 'editor-css-caption-not-supported', 'editor-css-size-and-layout-not-supported'] },
+      audio: audio(voice, music), media: media(project.scenes, voice, music), exportSettings: { ...project.exportSettings } });
+  }
+  return Object.freeze({ fromEditor, fromVideo });
+});
+
+</script>
+<script>
+(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'));
   else root.ShortsVideoCore = factory(root.ShortsCore);
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (C) {
   'use strict';
@@ -670,58 +837,13 @@ body{overflow:hidden}
     };
   }
 
-  function chunks(text, size = 6) {
-    const words = String(text).trim().split(/\s+/u).filter(Boolean);
-    const result = [];
-    for (let i = 0; i < words.length; i += size) result.push(words.slice(i, i + size));
-    return result;
-  }
-
-  function makePlan(draft) {
-    const manual = draft.timing === 'manual';
-    const scenes = draft.scenes.filter(scene => manual || C.countWords(scene.text) > 0 || scene.visual === 'image');
-    if (!scenes.length) throw new Error('Добавьте текст хотя бы в одну сцену.');
-    if (scenes.length > 12) throw new Error('В прототипе поддерживается не больше 12 сцен.');
-    if (manual && scenes.some(scene => !Number.isFinite(scene.durationSeconds) || scene.durationSeconds < .5 || scene.durationSeconds > 60)) throw new Error('Укажите длительность каждой сцены от 0,5 до 60 секунд.');
-    const durationMs = manual ? scenes.reduce((sum, scene) => sum + Math.round(scene.durationSeconds * 1000), 0) : Math.round(Number(draft.durationSeconds) * 1000);
-    if (!Number.isFinite(durationMs) || durationMs < 500 || durationMs > 60000) throw new Error('Общая длительность ролика должна быть от 0,5 до 60 секунд.');
-    const weights = scenes.map(scene => Math.max(4, C.countWords(scene.text)));
-    const sum = weights.reduce((a, b) => a + b, 0);
-    let weight = 0, manualEnd = 0;
-    const cues = [];
-    const timeline = scenes.map((scene, index) => {
-      const startMs = manual ? manualEnd : Math.round(durationMs * weight / sum);
-      weight += weights[index];
-      const endMs = manual ? startMs + Math.round(scene.durationSeconds * 1000) : Math.round(durationMs * weight / sum);
-      manualEnd = endMs;
-      const groups = chunks(scene.text);
-      const wordSum = groups.reduce((sum, group) => sum + group.length, 0);
-      let wordOffset = 0;
-      const sceneCues = groups.map(words => {
-        const start = startMs + Math.round((endMs - startMs) * wordOffset / wordSum);
-        wordOffset += words.length;
-        const cue = { startMs: start, endMs: startMs + Math.round((endMs - startMs) * wordOffset / wordSum), text: words.join(' '), words };
-        cues.push(cue);
-        return cue;
-      });
-      return { id: scene.id, text: scene.text, index, startMs, endMs, cues: sceneCues,
-        visual: scene.visual || 'animated', imageId: scene.imageId || null,
-        camera: scene.camera || 'zoom-in', transition: scene.transition || 'crossfade' };
-    });
-    return { title: draft.title, theme: draft.theme, caption: draft.caption, durationMs, timeline, cues };
-  }
-
-  function frameAt(plan, elapsedMs) {
-    const time = Math.max(0, Math.min(plan.durationMs - 1, Number(elapsedMs) || 0));
-    const scene = plan.timeline.find(scene => time < scene.endMs) || plan.timeline[plan.timeline.length - 1];
-    const cue = scene.cues.find(cue => time < cue.endMs) || scene.cues[scene.cues.length - 1] || null;
-    const activeWord = cue ? Math.min(cue.words.length - 1, Math.floor((time - cue.startMs) / (cue.endMs - cue.startMs) * cue.words.length)) : -1;
-    return { time, scene, cue, activeWord, localMs: time - scene.startMs };
-  }
-
-  function generateSrt(plan) {
-    return plan.cues.map((cue, index) => `${index + 1}\n${C.srtTime(cue.startMs)} --> ${C.srtTime(cue.endMs)}\n${C.wrapSubtitle(cue.text)}\n`).join('\n');
-  }
+  // Compatibility facade. All timing/cues/frame selection live in RenderPlan.
+  const shared = () => typeof module === 'object' && module.exports ? require('./render-plan.js') : globalThis.ShortsRenderPlan;
+  const adapters = () => typeof module === 'object' && module.exports ? require('./render-adapters.js') : globalThis.ShortsRenderAdapters;
+  function chunks(text, size = 6) { return shared().chunks(text, size); }
+  function makePlan(draft) { return shared().legacyView(adapters().fromVideo(draft, { legacy: true }), draft); }
+  function frameAt(plan, elapsedMs) { return shared().frameAt(plan, elapsedMs); }
+  function generateSrt(plan) { return shared().generateSrt(plan); }
 
   function supportedFormats(isSupported, hasAudio = false, preference = 'auto') {
     const mp4 = hasAudio
@@ -2262,17 +2384,18 @@ window.ShortsEditorReady = (async function () {
     ctx.restore();
   }
 
-  function visual(ctx, plan, scene, time) {
+  function visual(ctx, plan, scene, time, resources) {
     background(ctx, plan, scene.index, time / 1000 + scene.index * .7);
     if (scene.visual !== 'image') return;
-    const image = plan.images?.get(scene.imageId);
+    const image = (resources?.images || plan.images)?.get(scene.imageId);
     if (!image) throw new Error('Изображение сцены не загружено. Выберите файл заново или включите анимированный фон.');
     const progress = (time - scene.startMs) / (scene.endMs - scene.startMs);
     const rect = V.cameraRect(image.width || image.naturalWidth, image.height || image.naturalHeight, progress, scene.camera);
     ctx.drawImage(image, rect.x, rect.y, rect.width, rect.height);
   }
 
-  function render(canvas, plan, elapsedMs) {
+  function render(canvas, plan, elapsedMs, resources) {
+    window.ShortsRenderPlan.assertRenderable(plan);
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('Браузер не смог создать Canvas для видео.');
     const frame = V.frameAt(plan, elapsedMs);
@@ -2281,13 +2404,13 @@ window.ShortsEditorReady = (async function () {
     const transitionMs = Math.min(440, (frame.scene.endMs - frame.scene.startMs) / 3, previous ? (previous.endMs - previous.startMs) / 3 : 440);
     const transition = frame.scene.transition === 'none' ? 1 : ease(frame.localMs / transitionMs);
     if (frame.scene.index > 0 && transition < 1) {
-      visual(ctx, plan, previous, previous.visual === 'image' ? previous.endMs : frame.time);
+      visual(ctx, plan, previous, previous.visual === 'image' ? previous.endMs : frame.time, resources);
       let layer = transitionLayers.get(canvas);
       if (!layer) {
         layer = document.createElement('canvas'); layer.width = V.WIDTH; layer.height = V.HEIGHT;
         transitionLayers.set(canvas, layer);
       }
-      visual(layer.getContext('2d', { alpha: false }), plan, frame.scene, frame.time);
+      visual(layer.getContext('2d', { alpha: false }), plan, frame.scene, frame.time, resources);
       ctx.save();
       if (frame.scene.transition === 'slide') ctx.translate(V.WIDTH * (1 - transition), 0);
       else {
@@ -2295,7 +2418,7 @@ window.ShortsEditorReady = (async function () {
         if (frame.scene.transition === 'zoom') { const scale = 1 + .1 * (1 - transition); ctx.translate(360, 640); ctx.scale(scale, scale); ctx.translate(-360, -640); }
       }
       ctx.drawImage(layer, 0, 0, V.WIDTH, V.HEIGHT); ctx.restore();
-    } else visual(ctx, plan, frame.scene, frame.time);
+    } else visual(ctx, plan, frame.scene, frame.time, resources);
     ctx.globalAlpha = 1;
     const topShade = ctx.createLinearGradient(0, 0, 0, 350); topShade.addColorStop(0, '#080812b3'); topShade.addColorStop(1, 'transparent');
     ctx.fillStyle = topShade; ctx.fillRect(0, 0, 720, 350);
@@ -2436,13 +2559,14 @@ window.ShortsEditorReady = (async function () {
     } catch (error) { mix?.stop(); await context.close().catch(() => {}); throw error; }
   }
 
-  async function record({ canvas, plan, audioBuffer = null, volume = .7, voiceBuffer = audioBuffer, musicBuffer = null, voiceVolume = volume, musicVolume = .25, fadeIn = 1, fadeOut = 1, format = 'auto', signal, onProgress = () => {}, onFormat = () => {} }) {
+  async function record({ canvas, plan, resources, audioBuffer = null, volume = .7, voiceBuffer = audioBuffer, musicBuffer = null, voiceVolume = volume, musicVolume = .25, fadeIn = 1, fadeOut = 1, format = 'auto', signal, onProgress = () => {}, onFormat = () => {} }) {
+    window.ShortsRenderPlan.assertRenderable(plan);
     const hasAudio = Boolean(voiceBuffer || musicBuffer);
     const support = capabilities(hasAudio, format);
     if (!support.supported) throw new Error('Браузер не поддерживает запись Canvas в MP4 или WebM. Откройте сайт в актуальном Chrome, Edge, Firefox или Safari. Предпросмотр и сценарий остаются доступны.');
     if (hasAudio && !support.audio) throw new Error('Запись аудио не поддерживается. Уберите аудиодорожки и попробуйте снова.');
     signal?.throwIfAborted();
-    const render = ms => window.ShortsVideoRenderer.render(canvas, plan, ms);
+    const render = ms => window.ShortsVideoRenderer.render(canvas, plan, ms, resources);
     let stream, context, mix, recorder, animationFrame, flushTimer, finalTimer;
     let abortListener, visibilityListener;
     try {
@@ -2585,12 +2709,13 @@ window.ShortsEditorReady = (async function () {
   'use strict';
   const C = window.ShortsCore, V = window.ShortsVideoCore, R = window.ShortsVideoRecorder;
   const M = window.ShortsVideoMedia;
+  const P = window.ShortsRenderPlan, A = window.ShortsRenderAdapters;
   const $ = id => document.getElementById(id);
   await window.ShortsEditorReady;
   const loaded = await window.ShortsStorage.load('video');
   let draft = loaded.project || V.demo(), loadError = loaded.error || '';
   let active = false, busy = false, decoding = false, manuallyEdited = draft.edited;
-  let plan, audioBuffer = null, musicBuffer = null, resultUrl = '', recorderAbort = null;
+  let plan, resources = { images: new Map() }, audioBuffer = null, musicBuffer = null, resultUrl = '', recorderAbort = null;
   let previewing = false, previewStarting = false, previewFrame = 0, previewOffset = 0, previewEpoch = 0, previewAudio;
   let audioEpoch = 0, musicEpoch = 0, saveTimer, maxSaveTimer, saveEpoch = 0, lastRenderSecond = -1;
   const assets = new Map();
@@ -2719,7 +2844,7 @@ window.ShortsEditorReady = (async function () {
       if (ctx) { ctx.fillStyle = '#171020'; ctx.fillRect(0, 0, 720, 1280); ctx.fillStyle = '#c6a7df'; ctx.font = '28px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Добавьте текст в сцены', 360, 640); }
       return;
     }
-    try { window.ShortsVideoRenderer.render($('videoCanvas'), plan, previewOffset); }
+    try { window.ShortsVideoRenderer.render($('videoCanvas'), plan, previewOffset, resources); }
     catch (cause) { plan = null; error(cause.message || 'Не удалось нарисовать предпросмотр.'); updateSupport(); }
   }
   function rebuild() {
@@ -2728,9 +2853,9 @@ window.ShortsEditorReady = (async function () {
       for (const role of ['voice', 'music']) {
         if (draft[role + 'AssetId'] && !(role === 'voice' ? audioBuffer : musicBuffer)) throw new Error(audioProblems.get(role) || 'Восстанавливаем аудио…');
       }
-      plan = V.makePlan(draft);
-      plan.images = new Map([...assets].map(([id, asset]) => [id, asset.image]));
-      if (plan.timeline.some(scene => scene.visual === 'image' && !plan.images.has(scene.imageId))) throw new Error('Для сцен с изображениями выберите файлы заново или переключите их на анимированный фон.');
+      plan = A.fromVideo(draft);
+      resources = { images: new Map([...assets].map(([id, asset]) => [id, asset.image])) };
+      if (plan.timeline.some(scene => scene.visual === 'image' && !resources.images.has(scene.imageId))) throw new Error('Для сцен с изображениями выберите файлы заново или переключите их на анимированный фон.');
     } catch (cause) { plan = null; problem = cause.message; }
     $('videoPlanError').textContent = problem; $('videoPlanError').hidden = !problem;
     $('videoTotalTime').textContent = plan ? 'Итого: ' + (plan.durationMs / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 3 }) + ' сек · ' + (draft.timing === 'manual' ? 'сумма длительностей сцен' : 'автоматическая разбивка') : 'Исправьте настройки сцен перед записью.';
@@ -2865,7 +2990,7 @@ window.ShortsEditorReady = (async function () {
     const epoch = ++previewEpoch;
     previewStarting = true; updateSupport();
     try {
-      const session = await R.playMix({ voiceBuffer: audioBuffer, musicBuffer, voiceVolume: draft.volume, musicVolume: draft.musicVolume, fadeIn: draft.musicFadeIn, fadeOut: draft.musicFadeOut, durationSeconds: plan.durationMs / 1000, offsetSeconds: previewOffset / 1000 });
+      const session = await R.playMix({ voiceBuffer: audioBuffer, musicBuffer, ...P.audioOptions(plan), offsetSeconds: previewOffset / 1000 });
       if (epoch !== previewEpoch || !active || busy) { session.stop(); return; }
       previewAudio = session; previewStarting = false; previewing = true;
       $('playGeneratedPreview').querySelector('span').textContent = 'Пауза';
@@ -2890,7 +3015,7 @@ window.ShortsEditorReady = (async function () {
     const controller = new AbortController(); recorderAbort = controller;
     try {
       const result = await R.record({
-        canvas: $('videoCanvas'), plan, audioBuffer, volume: draft.volume, musicBuffer, musicVolume: draft.musicVolume, fadeIn: draft.musicFadeIn, fadeOut: draft.musicFadeOut, format: draft.format, signal: controller.signal,
+        canvas: $('videoCanvas'), plan, resources, audioBuffer, musicBuffer, ...P.audioOptions(plan), format: plan.exportSettings.format, signal: controller.signal,
         onFormat(type) { $('videoRenderStatus').textContent = 'Запись ' + V.extensionFor(type).toUpperCase() + '…'; },
         onProgress(fraction, elapsed) {
           $('videoProgress').value = Math.round(fraction * 100);

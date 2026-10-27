@@ -86,58 +86,13 @@
     };
   }
 
-  function chunks(text, size = 6) {
-    const words = String(text).trim().split(/\s+/u).filter(Boolean);
-    const result = [];
-    for (let i = 0; i < words.length; i += size) result.push(words.slice(i, i + size));
-    return result;
-  }
-
-  function makePlan(draft) {
-    const manual = draft.timing === 'manual';
-    const scenes = draft.scenes.filter(scene => manual || C.countWords(scene.text) > 0 || scene.visual === 'image');
-    if (!scenes.length) throw new Error('Добавьте текст хотя бы в одну сцену.');
-    if (scenes.length > 12) throw new Error('В прототипе поддерживается не больше 12 сцен.');
-    if (manual && scenes.some(scene => !Number.isFinite(scene.durationSeconds) || scene.durationSeconds < .5 || scene.durationSeconds > 60)) throw new Error('Укажите длительность каждой сцены от 0,5 до 60 секунд.');
-    const durationMs = manual ? scenes.reduce((sum, scene) => sum + Math.round(scene.durationSeconds * 1000), 0) : Math.round(Number(draft.durationSeconds) * 1000);
-    if (!Number.isFinite(durationMs) || durationMs < 500 || durationMs > 60000) throw new Error('Общая длительность ролика должна быть от 0,5 до 60 секунд.');
-    const weights = scenes.map(scene => Math.max(4, C.countWords(scene.text)));
-    const sum = weights.reduce((a, b) => a + b, 0);
-    let weight = 0, manualEnd = 0;
-    const cues = [];
-    const timeline = scenes.map((scene, index) => {
-      const startMs = manual ? manualEnd : Math.round(durationMs * weight / sum);
-      weight += weights[index];
-      const endMs = manual ? startMs + Math.round(scene.durationSeconds * 1000) : Math.round(durationMs * weight / sum);
-      manualEnd = endMs;
-      const groups = chunks(scene.text);
-      const wordSum = groups.reduce((sum, group) => sum + group.length, 0);
-      let wordOffset = 0;
-      const sceneCues = groups.map(words => {
-        const start = startMs + Math.round((endMs - startMs) * wordOffset / wordSum);
-        wordOffset += words.length;
-        const cue = { startMs: start, endMs: startMs + Math.round((endMs - startMs) * wordOffset / wordSum), text: words.join(' '), words };
-        cues.push(cue);
-        return cue;
-      });
-      return { id: scene.id, text: scene.text, index, startMs, endMs, cues: sceneCues,
-        visual: scene.visual || 'animated', imageId: scene.imageId || null,
-        camera: scene.camera || 'zoom-in', transition: scene.transition || 'crossfade' };
-    });
-    return { title: draft.title, theme: draft.theme, caption: draft.caption, durationMs, timeline, cues };
-  }
-
-  function frameAt(plan, elapsedMs) {
-    const time = Math.max(0, Math.min(plan.durationMs - 1, Number(elapsedMs) || 0));
-    const scene = plan.timeline.find(scene => time < scene.endMs) || plan.timeline[plan.timeline.length - 1];
-    const cue = scene.cues.find(cue => time < cue.endMs) || scene.cues[scene.cues.length - 1] || null;
-    const activeWord = cue ? Math.min(cue.words.length - 1, Math.floor((time - cue.startMs) / (cue.endMs - cue.startMs) * cue.words.length)) : -1;
-    return { time, scene, cue, activeWord, localMs: time - scene.startMs };
-  }
-
-  function generateSrt(plan) {
-    return plan.cues.map((cue, index) => `${index + 1}\n${C.srtTime(cue.startMs)} --> ${C.srtTime(cue.endMs)}\n${C.wrapSubtitle(cue.text)}\n`).join('\n');
-  }
+  // Compatibility facade. All timing/cues/frame selection live in RenderPlan.
+  const shared = () => typeof module === 'object' && module.exports ? require('./render-plan.js') : globalThis.ShortsRenderPlan;
+  const adapters = () => typeof module === 'object' && module.exports ? require('./render-adapters.js') : globalThis.ShortsRenderAdapters;
+  function chunks(text, size = 6) { return shared().chunks(text, size); }
+  function makePlan(draft) { return shared().legacyView(adapters().fromVideo(draft, { legacy: true }), draft); }
+  function frameAt(plan, elapsedMs) { return shared().frameAt(plan, elapsedMs); }
+  function generateSrt(plan) { return shared().generateSrt(plan); }
 
   function supportedFormats(isSupported, hasAudio = false, preference = 'auto') {
     const mp4 = hasAudio

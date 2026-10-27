@@ -171,6 +171,7 @@ def run():
             dest.wait_for_function('window.ShortsVideoRestored');dest.add_script_tag(content=(ROOT/'tests/backup-fixture.js').read_text())
             assert dest.evaluate('backupFixtureSnapshot()')==expected
             dest.locator('#openVideoMode').click();expect(dest.locator('.scene-image-thumb')).to_have_count(3)
+            dest.add_script_tag(content=(ROOT/'tests/render-plan-fixture.js').read_text());dest.evaluate('installRenderPlanProbe()')
             expect(dest.locator('#videoAudioInfo')).to_contain_text('voice.wav');expect(dest.locator('#videoMusicInfo')).to_contain_text('music.wav')
             for width,height in ((320,568),(390,844),(768,480),(1440,900)):
                 dest.set_viewport_size({'width':width,'height':height})
@@ -198,9 +199,11 @@ def run():
             destination.close();destination=target();dest=destination.new_page();dest.on('pageerror',lambda e:errors.append(str(e)));dest.goto(url);dest.wait_for_function('window.ShortsVideoRestored');dest.add_script_tag(content=(ROOT/'tests/backup-fixture.js').read_text())
             assert dest.evaluate('backupFixtureSnapshot()')==expected
             dest.locator('#openVideoMode').click();expect(dest.locator('.scene-image-thumb')).to_have_count(3)
+            dest.add_script_tag(content=(ROOT/'tests/render-plan-fixture.js').read_text());dest.evaluate('installRenderPlanProbe()')
             dest.locator('#playGeneratedPreview').click();dest.wait_for_function('document.getElementById("videoPreviewTime").textContent.startsWith("0:01")');dest.locator('#playGeneratedPreview').click()
             if dest.evaluate('ShortsVideoRecorder.capabilities(true,"webm").supported'):
                 recording=media.record(dest,folder,'zip-restored',6);voice,music=media.spectrum(recording,1)
+                plan_probe=dest.evaluate('verifyRenderPlanProbe()');assert plan_probe['source']=='video' and plan_probe['durationMs']==6000,plan_probe
                 assert voice>.015 and music>.01,(voice,music)
                 r=media.average_rgb(recording,.5);b=media.average_rgb(recording,2.7);g=media.average_rgb(recording,4.8)
                 assert r[0]>r[2]*1.5 and b[2]>b[0]*1.5 and g[1]>g[0]*1.5,(r,b,g)
