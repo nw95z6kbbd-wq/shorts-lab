@@ -103,6 +103,8 @@ jobs:
         run: |
           python tests/check-errors.py tests/backup-browser.py
           BACKUP_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/backup-browser.py
+          BACKUP_STUDIO_VERSION=2 python tests/check-errors.py tests/backup-browser.py
+          BACKUP_STUDIO_VERSION=2 BACKUP_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/backup-browser.py
       - name: Check deployment under repository path
         run: python tests/pages.py
       # A normal push/PR/manual check never uploads a deployable Pages artifact.
@@ -175,6 +177,11 @@ jobs:
         timeout-minutes: 3
         run: |
           BACKUP_BROWSER=webkit BACKUP_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/backup-browser.py
+      - name: Check Studio DTO 2 ZIP backups in WebKit
+        timeout-minutes: 3
+        run: |
+          BACKUP_BROWSER=webkit BACKUP_STUDIO_VERSION=2 python tests/check-errors.py tests/backup-browser.py
+          BACKUP_BROWSER=webkit BACKUP_STUDIO_VERSION=2 BACKUP_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/backup-browser.py
       - name: Check source product UI in WebKit
         timeout-minutes: 4
         run: |

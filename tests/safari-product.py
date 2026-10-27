@@ -315,6 +315,7 @@ def run():
             click('#backToEditor')
             assert script('return !document.getElementById("scriptStudio").hidden;')
             check_native_backup(ROOT,f'http://127.0.0.1:{server.server_port}/',script,command,click,wait_for)
+            check_native_backup(ROOT,f'http://127.0.0.1:{server.server_port}/',script,command,click,wait_for,editor_version=2)
             check_native_studio_data(ROOT,script,command)
             check_native_render_plan(ROOT,script,command)
     finally:

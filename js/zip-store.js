@@ -6,10 +6,12 @@
   'use strict';
   // Intentionally narrow ZIP32/STORE profile: no decompressor, ZIP64, encryption,
   // descriptors, executable paths or extraction to a filesystem.
-  const LIMITS = Object.freeze({ archive: 64 * 1048576, file: 32 * 1048576, json: 8 * 1048576, manifest: 65536, entries: 32 });
+  const LIMITS = Object.freeze({ archive: 64 * 1048576, file: 32 * 1048576, json: 8 * 1048576, manifest: 65536, entries: 32, directory: 16384, assets: 14 });
+  const V2_LIMITS = Object.freeze({ ...LIMITS, manifest: 512 * 1024, entries: 514, directory: 65536, assets: 512 });
   const fail = text => { throw new Error(text); };
+  const limitsFor = version => version === 1 ? LIMITS : version === 2 ? V2_LIMITS : fail('Неизвестная версия ZIP-профиля.');
   const encoder = new TextEncoder(), decoder = new TextDecoder('utf-8', { fatal: true });
-  const safePath = path => /^(manifest\.json|project\.json|assets\/[a-f0-9]{64}\.bin)$/.test(path);
+  const safePath = path => typeof path === 'string' && /^(manifest\.json|project\.json|assets\/[a-f0-9]{64}\.bin)$/.test(path);
   const tick = () => new Promise(resolve => setTimeout(resolve, 0));
   const table = Uint32Array.from({ length: 256 }, (_, n) => {
     for (let i = 0; i < 8; i++) n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1;
@@ -26,8 +28,19 @@
   const data = async blob => new Uint8Array(await blob.arrayBuffer());
   function header(size) { const bytes = new Uint8Array(size); return { bytes, view: new DataView(bytes.buffer) }; }
   function sized(size, max) { if (!Number.isSafeInteger(size) || size < 0 || size > max) fail('ZIP превышает допустимый объём. Предел архива — 64 МиБ, файла — 32 МиБ.'); }
-  async function create(entries, progress = () => {}) {
-    if (!entries.length || entries.length > LIMITS.entries) fail('Недопустимое число файлов ZIP.');
+  async function create(entries, progress = () => {}, version = 1) {
+    const limits = limitsFor(version);
+    if (!entries.length || entries.length > limits.entries) fail('Недопустимое число файлов ZIP: максимум ' + limits.entries + '.');
+    // Bound headers AND payload before reading any file into an ArrayBuffer.
+    let predicted = 22, predictedDirectory = 0; const predictedPaths = new Set();
+    for (const entry of entries) {
+      if (!safePath(entry.path) || predictedPaths.has(entry.path)) fail('Опасный или повторяющийся путь ZIP.');
+      predictedPaths.add(entry.path);
+      sized(entry.blob.size, limits.file);
+      const length = encoder.encode(entry.path).length;
+      predicted += 76 + 2 * length + entry.blob.size; predictedDirectory += 46 + length;
+    }
+    sized(predicted, limits.archive); sized(predictedDirectory, limits.directory);
     const paths = new Set(), body = [], directory = []; let offset = 0, dirSize = 0;
     for (const [index, entry] of entries.entries()) {
       if (!safePath(entry.path) || paths.has(entry.path)) fail('Опасный или повторяющийся путь ZIP.');
@@ -45,14 +58,15 @@
     const end = header(22); end.view.setUint32(0, 0x06054b50, true); end.view.setUint16(8, entries.length, true); end.view.setUint16(10, entries.length, true); end.view.setUint32(12, dirSize, true); end.view.setUint32(16, offset, true);
     return new Blob([...body, ...directory, end.bytes], { type: 'application/zip' });
   }
-  async function read(file) {
-    sized(file.size, LIMITS.archive); if (file.size < 22) fail('Повреждённый ZIP: нет каталога.');
+  async function read(file, version = 1) {
+    const limits = limitsFor(version);
+    sized(file.size, limits.archive); if (file.size < 22) fail('Повреждённый ZIP: нет каталога.');
     // Only our comment-free, single-disk profile. This prevents ambiguous appended
     // archives and avoids scanning arbitrary payload for forged end records.
     const tail = await data(file.slice(-22)), end = new DataView(tail.buffer);
     if (end.getUint32(0, true) !== 0x06054b50 || end.getUint16(4, true) || end.getUint16(6, true) || end.getUint16(20, true)) fail('Неподдерживаемый или повреждённый ZIP. Нужен исходный архив Shorts Studio.');
     const count = end.getUint16(10, true), dirSize = end.getUint32(12, true), dirOffset = end.getUint32(16, true);
-    if (!count || count > LIMITS.entries || count !== end.getUint16(8, true) || dirOffset + dirSize !== file.size - 22 || dirSize > 16384) fail('Недопустимый каталог или число файлов ZIP.');
+    if (!count || count > limits.entries || count !== end.getUint16(8, true) || dirOffset + dirSize !== file.size - 22 || dirSize > limits.directory) fail('Недопустимый каталог или число файлов ZIP.');
     const bytes = await data(file.slice(dirOffset, dirOffset + dirSize)), view = new DataView(bytes.buffer), entries = new Map();
     let cursor = 0, localEnd = 0, total = 0;
     for (let i = 0; i < count; i++) {
@@ -81,5 +95,5 @@
       return bytes;
     } };
   }
-  return Object.freeze({ LIMITS, safePath, crc32, create, read, tick });
+  return Object.freeze({ LIMITS, V2_LIMITS, limitsFor, safePath, crc32, create, read, tick });
 });

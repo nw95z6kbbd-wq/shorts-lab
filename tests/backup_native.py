@@ -40,7 +40,7 @@ def wait_native_video(command):
     return response['recording']
 
 
-def check_native_backup(root,_source_base,script,command,click,wait_for):
+def check_native_backup(root,_source_base,script,command,click,wait_for,editor_version=1):
     # Do not seed the origin of the preceding UI suite. WebKit can retain that
     # document's pagehide autosave/connection in its navigation cache. Use a new
     # source origin as well as a new destination, never deleting either database.
@@ -49,11 +49,11 @@ def check_native_backup(root,_source_base,script,command,click,wait_for):
     source=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(QuietHandler,directory=str(root)))
     threading.Thread(target=source.serve_forever,daemon=True).start()
     try:
-        _check_native_backup(root,f'http://127.0.0.1:{source.server_port}/',script,command,click,wait_for)
+        _check_native_backup(root,f'http://127.0.0.1:{source.server_port}/',script,command,click,wait_for,editor_version)
     finally:source.shutdown();source.server_close()
 
 
-def _check_native_backup(root,source_base,script,command,click,wait_for):
+def _check_native_backup(root,source_base,script,command,click,wait_for,editor_version):
     payload=media_payload()
     def async_script(code,args=None):
         result=command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];Promise.resolve().then(async()=>{'+code+'}).then(done,e=>done({error:e.message}));','args':args or []})
@@ -63,11 +63,11 @@ def _check_native_backup(root,source_base,script,command,click,wait_for):
     command('POST','/url',{'url':source_base+'tests/fixtures/backup-seed.html'})
     for name in ('core.js','video-core.js','project-db.js','storage.js'):script((root/'js'/name).read_text())
     script((root/'tests/backup-fixture.js').read_text())
-    async_script('await seedBackupFixture(arguments[0]);return true;',[payload])
+    async_script('await seedBackupFixture(arguments[0],arguments[1]);return true;',[payload,editor_version])
     command('POST','/url',{'url':source_base+'index.html'})
     wait_for('window.ShortsVideoRestored')
     script((root/'tests/backup-fixture.js').read_text());script((root/'tests/backup-db-fixture.js').read_text())
-    assert async_script('return await testAtomicBackupRepository();')
+    assert async_script('return await testAtomicBackupRepository(arguments[0]);',[editor_version])
     expected=async_script('return await backupFixtureSnapshot();')
     script('const e=Array.from(document.querySelectorAll("[data-backup-export]")).find(e=>e.getClientRects().length);e.setAttribute("data-native-backup-export","");')
     click('[data-native-backup-export]');wait_for('!document.getElementById("backupDownload").hidden',seconds=30)
@@ -75,7 +75,8 @@ def _check_native_backup(root,source_base,script,command,click,wait_for):
     archive=base64.b64decode(encoded)
     assert script('return document.getElementById("backupDownload").download.endsWith(".shorts.zip");')
     with zipfile.ZipFile(io.BytesIO(archive)) as z:
-        assert z.testzip() is None;manifest=json.loads(z.read('manifest.json'))
+        assert z.testzip() is None;manifest=json.loads(z.read('manifest.json'));project=json.loads(z.read('project.json'))
+        assert manifest['version']==project['version']==project['editor']['version']==editor_version and project['video']['version']==1
         for file in payload:
             entry=next(a for a in manifest['assets'] if a['name']==file['name']);original=base64.b64decode(file['base64'])
             assert z.read(entry['path'])==original and entry['sha256']==hashlib.sha256(original).hexdigest()
@@ -93,14 +94,23 @@ def _check_native_backup(root,source_base,script,command,click,wait_for):
         # A second HTTP origin has genuinely empty IndexedDB, without deleting the
         # source or relying on automation browser profile implementation details.
         destination=f'http://127.0.0.1:{clean.server_port}/'
-        command('POST','/url',{'url':destination+'index.html'});wait_for('window.ShortsVideoRestored')
+        command('POST','/url',{'url':destination+'tests/fixtures/backup-seed.html'})
+        for name in ('core.js','video-core.js','project-db.js','storage.js'):script((root/'js'/name).read_text())
+        script((root/'tests/backup-fixture.js').read_text());async_script('await seedBackupFixture(arguments[0],arguments[1]);return true;',[payload,editor_version])
+        command('POST','/url',{'url':destination+'index.html'});wait_for('window.ShortsVideoRestored');script((root/'tests/backup-fixture.js').read_text())
         async_script('''const blob=await(await fetch('/__portable_backup.zip')).blob(),transfer=new DataTransfer();transfer.items.add(new File([blob],'portable.shorts.zip',{type:'application/zip'}));const input=document.getElementById('backupFile');input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));return true;''')
         wait_for('!document.getElementById("backupConfirm").hidden',seconds=30)
         # Decline first: both original slots must stay unchanged.
-        baseline=async_script('const r=ShortsProjectDB.createRepository(),v=[await r.read("editor"),await r.read("video")];r.close();return v;')
+        baseline=async_script('return await backupRepositorySnapshot();')
         click('#backupCancel')
-        after=async_script('const r=ShortsProjectDB.createRepository(),v=[await r.read("editor"),await r.read("video")];r.close();return v;')
+        after=async_script('return await backupRepositorySnapshot();')
         assert baseline==after
+        async_script('''const blob=await(await fetch('/__portable_backup.zip')).blob(),dt=new DataTransfer();dt.items.add(new File([blob],'portable.shorts.zip',{type:'application/zip'}));backupFile.files=dt.files;backupFile.dispatchEvent(new Event('change',{bubbles:true}));return true;''')
+        wait_for('!document.getElementById("backupConfirm").hidden',seconds=30)
+        script('window.zipNativePut=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(value){if(this.name==="projects"&&value.id==="video")throw new DOMException("quota","QuotaExceededError");return window.zipNativePut.call(this,value);};')
+        click('#backupConfirm');wait_for('!document.getElementById("backupError").hidden')
+        assert async_script('return await backupRepositorySnapshot();')==baseline
+        script('IDBObjectStore.prototype.put=window.zipNativePut;');click('#backupCancel')
         async_script('''const blob=await(await fetch('/__portable_backup.zip')).blob(),dt=new DataTransfer();dt.items.add(new File([blob],'portable.shorts.zip',{type:'application/zip'}));backupFile.files=dt.files;backupFile.dispatchEvent(new Event('change',{bubbles:true}));return true;''')
         wait_for('!document.getElementById("backupConfirm").hidden',seconds=30);script('window.nativeBackupOldRealm=true;');click('#backupConfirm')
         wait_for('!window.nativeBackupOldRealm && window.ShortsVideoRestored',seconds=30)
@@ -116,5 +126,5 @@ def _check_native_backup(root,source_base,script,command,click,wait_for):
         assert metadata['width']==720 and metadata['height']==1280 and 5<metadata['duration']<7.5 and 'голос + музыка' in metadata['info'],metadata
         samples=async_script('''const v=generatedVideo,c=document.createElement('canvas');c.width=c.height=1;const x=c.getContext('2d'),result=[];v.pause();for(const t of [.5,2.7,4.8]){await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Video seek timeout')),4000);v.onseeked=()=>{clearTimeout(timer);resolve();};v.currentTime=t;});x.drawImage(v,300,400,100,100,0,0,1,1);result.push(Array.from(x.getImageData(0,0,1,1).data).slice(0,3));}return result;''')
         r,b,g=samples;assert r[0]>r[2]*1.5 and b[2]>b[0]*1.5 and g[1]>g[0]*1.5,samples
-        print('::notice title=Native Safari ZIP restoration verified::Actual ZIP independently read by Python; PNG/JPG/WebP and two WAV match original bytes; clean-origin restore, cancel/atomic-failure tests, preview and restored video export: '+json.dumps(metadata),flush=True)
+        print('::notice title=Native Safari ZIP '+str(editor_version)+' restoration verified::Actual ZIP independently read by Python; PNG/JPG/WebP and two WAV match original bytes; both DTOs, shared/private/inactive Studio originals, clean-origin restore, cancel/atomic-failure/VersionError tests, preview and restored video export: '+json.dumps(metadata),flush=True)
     finally:clean.shutdown();clean.server_close()

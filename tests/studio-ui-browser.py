@@ -48,7 +48,10 @@ def run():
             assert before['video']==seed['video']
             for f in payload:assert before['hashes']['ui-'+f['name']]==hashlib.sha256(base64.b64decode(f['base64'])).hexdigest()
             page.locator('#openVideoMode').click();page.locator('#backToEditor').click();assert page.evaluate('ShortsEditor.backupSnapshot()')==before['editor']
-            page.locator('[data-backup-export]:visible').first.click();expect(page.locator('#backupError')).to_contain_text('ZIP формата 1');expect(page.locator('#backupDownload')).to_be_hidden();page.locator('#backupCancel').click()
+            page.locator('[data-backup-export]:visible').first.click();expect(page.locator('#backupDownload')).to_be_visible();expect(page.locator('#backupError')).to_be_hidden()
+            bundle=page.evaluate('''async()=>{const blob=await(await fetch(backupDownload.href)).blob(),b=await ShortsBackupFormat.importArchive(blob);return {version:b.manifest.version,projects:b.projects,hashes:Object.fromEntries(await Promise.all([...b.assets].map(async([id,a])=>[id,await ShortsBackupFormat.sha256(new Uint8Array(await a.blob.arrayBuffer()))])))};}''')
+            assert bundle['version']==2 and bundle['projects']=={'editor':before['editor'],'video':before['video']} and bundle['hashes']==before['hashes']
+            page.locator('#backupCancel').click()
             assert page.evaluate('studioUiSnapshot()')==before
             context.close();context=launch();page=context.new_page();page.goto(base+entry);page.wait_for_function('window.ShortsVideoRestored && window.ShortsEditor && !document.body.inert')
             page.add_script_tag(content=(ROOT/'tests/studio-data-fixture.js').read_text());assert page.evaluate('studioUiSnapshot()')==before

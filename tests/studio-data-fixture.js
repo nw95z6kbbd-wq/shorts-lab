@@ -120,7 +120,9 @@ window.testStudioAdapterSafety = async function () {
   assert(JSON.stringify(await repo.read('editor'))===JSON.stringify(before),'future bytes and readable recovery unchanged');
   // Invalid new inputs return a failed save result, not an unhandled exception.
   const invalid=await ShortsStorage.save({...ShortsCore.createProject(),version:999});assert(!invalid.ok,'unsupported DTO is an explicit save failure');
-  let denied=false;try{await ShortsStorage.captureBackup({editor:ShortsCore.upgradeProject(before.previous.state),video:ShortsVideoCore.demo()},64*1024*1024);}catch(e){denied=/ZIP.*1.*Студии/.test(e.message);}assert(denied,'adapter also refuses incomplete v2 ZIP');repo.close();return true;
+  const incomplete=ShortsCore.upgradeProject(before.previous.state);incomplete.scenes[0].imageId='missing-studio-original';
+  let denied=false;try{await ShortsStorage.captureBackup({editor:incomplete,video:ShortsVideoCore.demo()},64*1024*1024);}catch(e){denied=e.message.includes('missing-studio-original');}assert(denied,'adapter refuses missing Studio originals instead of dropping references');
+  assert(JSON.stringify(await repo.read('editor'))===JSON.stringify(before),'failed capture never replaces future head/recovery');repo.close();return true;
 };
 
 window.seedStudioUiFixture = async function (baseline, payload) {

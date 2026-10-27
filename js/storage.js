@@ -127,8 +127,7 @@
   };
   async function captureBackup(projects, limit) {
     await ready;
-    if (projects.editor?.version !== 1) throw new Error('ZIP формата 1 не поддерживает новую модель Студии. Неполная копия не создана; исходные данные не изменены.');
-    const ids = DB.references('video', projects.video), files = new Map(); let total = 0;
+    const ids = [...new Set([...DB.references('editor', projects.editor), ...DB.references('video', projects.video)])], files = new Map(); let total = 0;
     const add = file => { if(!file?.blob?.size || files.has(file.id))return;total+=file.blob.size;if(total>limit)throw Object.assign(new Error('Материалы превышают 64 МиБ.'),{code:'LIMIT'});files.set(file.id,file); };
     for (const id of ids) { if(pending.has(id))add(pending.get(id));else if(legacyAssets.has(id))add(legacyAssets.get(id)); }
     const needed=ids.filter(id=>!files.has(id));
