@@ -5,6 +5,7 @@ exactly to the frozen baseline. No regex that skips encoder or renderer bodies.
 """
 import hashlib
 import json
+import tempfile
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -46,6 +47,24 @@ def assert_render_stack(root=ROOT,baseline=None):
     if baseline:assert old==(baseline/'js/video-core.js').read_text(),'Unexpected VideoCore baseline'
 
 
+def verify_guard_rejects_changes():
+    files=list(json.loads((FIXTURE/'unchanged-runtime.json').read_text()))+['js/video-recorder.js','js/video-renderer.js','js/video-core.js']
+    attacks=[('js/video-recorder.js','videoBitsPerSecond: 2600000','videoBitsPerSecond: 1000000'),('js/video-renderer.js','Math.min(440,','Math.min(441,'),('js/video-audio.js','limiter.ratio.value = 20','limiter.ratio.value = 2'),('js/video-core.js','const WIDTH = 720','const WIDTH = 721'),('js/video-core.js','return shared().frameAt(plan, elapsedMs)','return shared().frameAt(plan, elapsedMs + 1)'),('js/core.js','WORDS_PER_MINUTE = 150','WORDS_PER_MINUTE = 151'),('styles.css',':root',':root /* changed */')]
+    with tempfile.TemporaryDirectory(prefix='render-source-guard-') as folder:
+        root=Path(folder)
+        for file in files:
+            target=root/file;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes((ROOT/file).read_bytes())
+        assert_render_stack(root)
+        for file,old,new in attacks:
+            target=root/file;original=target.read_text();assert old in original,(file,old);target.write_text(original.replace(old,new,1))
+            rejected=False
+            try:assert_render_stack(root)
+            except AssertionError:rejected=True
+            finally:target.write_text(original)
+            assert rejected,'Guard accepted an unapproved change: '+file
+    return len(attacks)
+
+
 if __name__=='__main__':
-    assert_render_stack()
-    print('PASS: encoder, mixer, drawing, formats/camera/WebM and original styles are unchanged outside the exact approved planning/resource bridge')
+    assert_render_stack();count=verify_guard_rejects_changes()
+    print(f'PASS: exact approved planning/resource bridge; {count} counterexamples modifying encoding, drawing, mixer, camera, facade, timing and styles rejected')
