@@ -10,7 +10,15 @@ window.testRenderPlanPixels = async function (cases, payload) {
       images.set(f.name.split('.')[0],image);if(f.name==='red.png')images.set('baseline-original-image',image);
     }
     const canvas=()=>{const c=document.createElement('canvas');c.width=720;c.height=1280;return c;};
-    const before=canvas(),after=canvas(),beforeCompat=canvas(),compat=canvas(),resources={images};let frames=0;
+    const target=canvas(),layer=canvas(),resources={images};let frames=0;
+    // Differential rendering must use the same real destination and scratch
+    // surface. Separate accelerated surfaces can quantize a blended pixel by
+    // one channel value in WebKit, even with identical draw operations.
+    const draw=(renderer,plan,time,runtime)=>{
+      const own=Object.getOwnPropertyDescriptor(document,'createElement'),create=document.createElement;
+      document.createElement=function(tag,...args){return String(tag).toLowerCase()==='canvas'?layer:create.call(this,tag,...args);};
+      try{renderer.render(target,plan,time,runtime);}finally{if(own)Object.defineProperty(document,'createElement',own);else delete document.createElement;}
+    };
     const pixels=c=>new Uint32Array(c.getContext('2d').getImageData(0,0,720,1280).data.buffer);
     const same=(a,b,label)=>{assert(a.length===b.length,label+' length');for(let i=0;i<a.length;i++)if(a[i]!==b[i])throw Error(label+' differs at pixel '+i);};
     const run=(name,draft)=>{
@@ -22,9 +30,8 @@ window.testRenderPlanPixels = async function (cases, payload) {
         assert(JSON.stringify(LegacyVideoCore.frameAt(expected,time))===JSON.stringify(V.frameAt(plan,time)),name+' frame values at '+time);
         // Equal call counts matter: JSC may optimize one identical renderer
         // earlier if it is called twice for the two API paths being tested.
-        LegacyVideoRenderer.render(before,expected,time);R.render(after,plan,time,resources);
-        LegacyVideoRenderer.render(beforeCompat,expected,time);R.render(compat,legacy,time);
-        const original=pixels(before),actual=pixels(after),originalCompat=pixels(beforeCompat),actualCompat=pixels(compat);
+        draw(LegacyVideoRenderer,expected,time);const original=pixels(target);draw(R,plan,time,resources);const actual=pixels(target);
+        draw(LegacyVideoRenderer,expected,time);const originalCompat=pixels(target);draw(R,legacy,time);const actualCompat=pixels(target);
         const different=(a,b)=>{let count=0,max=0,first=null;for(let i=0;i<a.length;i++)if(a[i]!==b[i]){count++;first??={pixel:i,a:a[i].toString(16),b:b[i].toString(16)};for(let n=0;n<4;n++)max=Math.max(max,Math.abs((a[i]>>>(8*n)&255)-(b[i]>>>(8*n)&255)));}return{count,max,first};};
         const delta=different(original,actual),compatDelta=different(originalCompat,actualCompat);
         if(delta.count||compatDelta.count)throw Error(JSON.stringify({name,time,shared:delta,legacy:compatDelta,oldSelf:different(original,originalCompat),newSelf:different(actual,actualCompat)}));
@@ -34,9 +41,9 @@ window.testRenderPlanPixels = async function (cases, payload) {
     for(const f of cases)run(f.name,f.draft);
     const base=cases[0].draft;
     for(const transition of ['none','crossfade','slide','zoom'])run('gallery-'+transition,{...base,timing:'manual',scenes:['red','blue','green'].map((id,i)=>({id:'photo-'+i,text:i?'Сцена '+i:'',visual:'image',imageId:id,camera:['zoom-in','zoom-out','pan-left'][i],transition,durationSeconds:[1.2,1.7,2.1][i]}))});
-    const editor=ShortsCore.upgradeProject(ShortsCore.createProject(true)),ep=A.fromEditor(editor),original=pixels(after);
-    let refused=false;try{R.render(after,ep,0,resources);}catch(e){refused=e.code==='APPEARANCE';}assert(refused,'unsupported manual appearance must not be approximated');same(original,pixels(after),'refused manual frame');
-    let recordingRefused=false;try{await ShortsVideoRecorder.record({canvas:after,plan:ep});}catch(e){recordingRefused=e.code==='APPEARANCE';}assert(recordingRefused,'recorder refuses unsupported appearance before capture');
+    const editor=ShortsCore.upgradeProject(ShortsCore.createProject(true)),ep=A.fromEditor(editor),original=pixels(target);
+    let refused=false;try{R.render(target,ep,0,resources);}catch(e){refused=e.code==='APPEARANCE';}assert(refused,'unsupported manual appearance must not be approximated');same(original,pixels(target),'refused manual frame');
+    let recordingRefused=false;try{await ShortsVideoRecorder.record({canvas:target,plan:ep});}catch(e){recordingRefused=e.code==='APPEARANCE';}assert(recordingRefused,'recorder refuses unsupported appearance before capture');
     return {frames,comparison:'all RGBA pixels identical',legacyApi:true,manualAppearance:'explicitly unsupported'};
   }finally{for(const image of decoded)image.src='';for(const url of urls)URL.revokeObjectURL(url);}
 };
