@@ -37,12 +37,22 @@ def profile_zip(files, compression=zipfile.ZIP_STORED):
     return bytes(data)
 
 
+latest_stage='starting'
 def checkpoint(stage):
-    print('::notice title=ZIP browser checkpoint::'+stage,flush=True)
+    global latest_stage
+    latest_stage=stage
+    print('ZIP checkpoint: '+stage,flush=True)
+
+
+def watchdog(caller,main_thread):
+    frames=[caller.gr_frame,sys._current_frames().get(main_thread)]
+    detail=latest_stage+'\n'+'\n'.join(''.join(traceback.format_stack(frame,limit=12)) for frame in frames if frame)
+    print('::warning title=ZIP blocked-call stack::'+detail.replace('%','%25').replace('\r','%0D').replace('\n','%0A'),flush=True)
 
 
 def run():
     engine=os.environ.get('BACKUP_BROWSER','chromium')
+    watchdog_timer=threading.Timer(75,watchdog,args=(greenlet.getcurrent(),threading.get_ident()));watchdog_timer.daemon=True;watchdog_timer.start()
     server=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(media.checks.Handler,directory=str(ROOT)))
     threading.Thread(target=server.serve_forever,daemon=True).start()
     base=f'http://127.0.0.1:{server.server_port}/shorts-lab/';url=base+os.environ.get('BACKUP_ENTRY','')
@@ -101,11 +111,7 @@ def run():
             with page.expect_download() as item:page.locator('#backupDownload').click()
             checkpoint(engine+': ZIP download event received; verify real downloaded bytes')
             caller=greenlet.getcurrent();main_thread=threading.get_ident()
-            def diagnose_download():
-                frames=[caller.gr_frame,sys._current_frames().get(main_thread)]
-                text='\n'.join(''.join(traceback.format_stack(frame)) for frame in frames if frame)
-                print('::notice title=ZIP download watchdog::'+text.replace('%','%25').replace('\r','%0D').replace('\n','%0A'),flush=True)
-            download_watchdog=threading.Timer(20,diagnose_download);download_watchdog.daemon=True;download_watchdog.start()
+            download_watchdog=threading.Timer(20,watchdog,args=(caller,main_thread));download_watchdog.daemon=True;download_watchdog.start()
             seen_downloads=set()
             # Read the actual browser download directory with a bounded deadline.
             # WebKit can emit its download event but never settle save_as(). No
@@ -242,7 +248,7 @@ def run():
             else:print(f'LIMITATION [{engine}]: Canvas/MediaRecorder codec unavailable; real ZIP persistence/preview verified; exported files checked in Chromium/native Safari',flush=True)
             print(f'::notice title=ZIP browser verification::PASS [{engine} ZIP transfer]: clean independent browser storage, both modes/settings, repeat import without ID collisions, complete browser process restart, previews and original audio',flush=True)
             destination.close();context.close();browser.close();assert not errors,errors
-    finally:server.shutdown();server.server_close()
+    finally:watchdog_timer.cancel();server.shutdown();server.server_close()
 
 
 if __name__=='__main__':run()
