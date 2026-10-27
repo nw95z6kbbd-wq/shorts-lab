@@ -4,9 +4,10 @@ window.testRenderPlanPixels = async function (cases, payload) {
   const assert=(v,label)=>{if(!v)throw Error('RenderPlan: '+label);};
   const images=new Map(),urls=[],decoded=[];
   try {
+    await document.fonts.ready;
     for(const f of payload.filter(f=>f.type.startsWith('image/'))){
       const url=URL.createObjectURL(new Blob([Uint8Array.from(atob(f.base64),c=>c.charCodeAt(0))],{type:f.type}));urls.push(url);
-      const image=new Image();await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(Error('Test image decode'));image.src=url;});decoded.push(image);
+      const image=new Image();await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(Error('Test image decode '+f.name+' '+url));image.src=url;});decoded.push(image);
       images.set(f.name.split('.')[0],image);if(f.name==='red.png')images.set('baseline-original-image',image);
     }
     const canvas=()=>{const c=document.createElement('canvas');c.width=720;c.height=1280;return c;};
@@ -15,6 +16,7 @@ window.testRenderPlanPixels = async function (cases, payload) {
     // surface. Separate accelerated surfaces can quantize a blended pixel by
     // one channel value in WebKit, even with identical draw operations.
     const draw=(renderer,plan,time,runtime)=>{
+      for(const c of [target,layer]){const ctx=c.getContext('2d',{alpha:false});if(typeof ctx.reset==='function')ctx.reset();else{c.width=720;c.height=1280;}}
       const own=Object.getOwnPropertyDescriptor(document,'createElement'),create=document.createElement;
       document.createElement=function(tag,...args){return String(tag).toLowerCase()==='canvas'?layer:create.call(this,tag,...args);};
       try{renderer.render(target,plan,time,runtime);}finally{if(own)Object.defineProperty(document,'createElement',own);else delete document.createElement;}
@@ -25,6 +27,9 @@ window.testRenderPlanPixels = async function (cases, payload) {
       const expected=LegacyVideoCore.makePlan(draft),plan=A.fromVideo(draft),legacy=V.makePlan(draft);expected.images=images;legacy.images=images;
       assert(!Object.hasOwn(plan,'images'),'decoded images stay outside RenderPlan');
       assert(JSON.stringify(JSON.parse(JSON.stringify(plan)))===JSON.stringify(plan),'plan is plain transferable data');
+      // Prime lazy glyph caches before an exact differential comparison.
+      draw(LegacyVideoRenderer,expected,0);draw(R,plan,0,resources);
+      draw(LegacyVideoRenderer,expected,0);draw(R,legacy,0);
       const boundary=plan.timeline[1]?.startMs||0;
       for(const time of new Set([0,1,Math.max(0,boundary-1),boundary,boundary+100,plan.durationMs-1])){
         assert(JSON.stringify(LegacyVideoCore.frameAt(expected,time))===JSON.stringify(V.frameAt(plan,time)),name+' frame values at '+time);
