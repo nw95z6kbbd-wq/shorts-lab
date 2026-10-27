@@ -160,18 +160,34 @@ jobs:
               browser.close()
               print('Bundled WebKit launched successfully; Playwright ' + version('playwright'))
           PY
-      - name: Check source and standalone product UI in WebKit
+      - name: Check source product UI in WebKit
+        timeout-minutes: 4
         run: |
           python scripts/prepare-site.py
           PRODUCT_BROWSER=webkit python tests/check-errors.py tests/product-browser.py
           UX_BROWSER=webkit python tests/check-errors.py tests/ux-browser.py
+      - name: Check standalone product UI in WebKit
+        timeout-minutes: 4
+        run: |
           PRODUCT_BROWSER=webkit PRODUCT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/product-browser.py
           UX_BROWSER=webkit UX_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/ux-browser.py
+      - name: Check IndexedDB and migration in WebKit
+        timeout-minutes: 3
+        run: |
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-db-browser.py
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-migration-browser.py
+      - name: Check project restart in WebKit
+        timeout-minutes: 3
+        run: |
           PERSISTENCE_BROWSER=webkit python tests/check-errors.py tests/project-browser.py
           PERSISTENCE_BROWSER=webkit PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
+      - name: Check portable ZIP backups in WebKit
+        timeout-minutes: 3
+        run: |
           BACKUP_BROWSER=webkit python tests/check-errors.py tests/backup-browser.py
+      - name: Check standalone ZIP backups in WebKit
+        timeout-minutes: 3
+        run: |
           BACKUP_BROWSER=webkit BACKUP_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/backup-browser.py
 
   safari:

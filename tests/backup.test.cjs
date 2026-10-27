@@ -39,6 +39,7 @@ test('real ZIP/STORE round trip preserves both projects, original image/audio by
 test('export whitelists project fields and rejects missing originals instead of creating partial backups',async()=>{
  const {projects,assets}=fixture();projects.editor.apiKey='SECRET';projects.video.token='SECRET';
  const zip=await F.exportArchive(projects,assets,'test'),r=await F.importArchive(zip);assert.equal(r.projects.editor.apiKey,undefined);assert.equal(r.projects.video.token,undefined);
+ const raw=await (await Z.read(zip)).bytes('project.json');assert.ok(!Buffer.from(raw).toString().includes('SECRET'),'the ZIP itself must exclude unknown secret fields, not merely discard them on import');
  assets.delete('image-1');await assert.rejects(F.exportArchive(projects,assets,'test'),/Нет исходного/);
 });
 test('corruption, missing files, future versions and unsupported known settings are rejected',async()=>{

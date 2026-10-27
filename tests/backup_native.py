@@ -14,7 +14,20 @@ import zipfile
 from backup_assets import media_payload
 
 
-def check_native_backup(root,source_base,script,command,click,wait_for):
+def check_native_backup(root,_source_base,script,command,click,wait_for):
+    # Do not seed the origin of the preceding UI suite. WebKit can retain that
+    # document's pagehide autosave/connection in its navigation cache. Use a new
+    # source origin as well as a new destination, never deleting either database.
+    class QuietHandler(SimpleHTTPRequestHandler):
+        def log_message(self,*_args):pass
+    source=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(QuietHandler,directory=str(root)))
+    threading.Thread(target=source.serve_forever,daemon=True).start()
+    try:
+        _check_native_backup(root,f'http://127.0.0.1:{source.server_port}/',script,command,click,wait_for)
+    finally:source.shutdown();source.server_close()
+
+
+def _check_native_backup(root,source_base,script,command,click,wait_for):
     payload=media_payload()
     def async_script(code,args=None):
         result=command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];Promise.resolve().then(async()=>{'+code+'}).then(done,e=>done({error:e.message}));','args':args or []})

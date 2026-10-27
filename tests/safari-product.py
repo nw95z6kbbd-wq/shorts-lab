@@ -245,7 +245,13 @@ def run():
                             assert (baseline/'js'/name).read_bytes()==(ROOT/'js'/name).read_bytes(),name
                     formats=script('return ShortsVideoRecorder.capabilities(true,"webm");')
                     assert formats['supported'],{'first':metadata,'webm':formats}
-                    print('::warning title=Safari MP4 audio codec limitation::Empty or truncated MP4 is NOT accepted as success: '+json.dumps(metadata)+'. Encoder/mixer/renderer are unchanged; testing the existing WebM choice with full duration.',flush=True)
+                    print('::warning title=Safari MP4 audio codec limitation::Empty, timed-out or truncated MP4 is NOT accepted as success: '+json.dumps(metadata)+'. Encoder/mixer/renderer are unchanged; reload the saved project to release the failed encoder, then require a full-duration WebM.',flush=True)
+                    command('POST','/refresh',{})
+                    wait_for('window.ShortsVideoRestored',seconds=30)
+                    script(fixture)
+                    fallback=command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];persistenceFixtureSnapshot().then(done,e=>done({error:e.message}));','args':[]})
+                    assert fallback==saved,{'saved':saved,'fallback':fallback}
+                    prepare_canvas()
                     script('const select=document.getElementById("videoFormat");select.value="webm";select.dispatchEvent(new Event("change",{bubbles:true}));')
                     metadata=record_restored_ui()
                 assert full_restored_video(metadata),metadata
