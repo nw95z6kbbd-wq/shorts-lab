@@ -629,6 +629,7 @@ body{overflow:hidden}
         const cue = { startMs: start, endMs: startMs + Math.round((endMs - startMs) * offset / wordSum), text: spec.subtitles.policy === 'editor-scene' ? scene.text.trim() : words.join(' '), words };
         cues.push(cue); return cue;
       });
+      if (spec.subtitles.policy === 'editor-chunks-6' && sceneCues.some(cue => cue.endMs <= cue.startMs)) throw error('SUBTITLES', 'Для коротких групп субтитров недостаточно миллисекунд. Увеличьте длительность сцены или явно выберите субтитры по сценам.');
       return { id: scene.id, text: scene.text, index, startMs, endMs, cues: sceneCues,
         visual: scene.visual || 'animated', imageId: scene.imageId || null,
         camera: scene.camera || 'zoom-in', transition: scene.transition || 'crossfade' };

@@ -87,3 +87,10 @@ test('editor calculation does not read clocks or generate missing project IDs',(
  finally{global.Date=NativeDate;}
  assert.equal(p.updatedAt,undefined);delete p.id;assert.throws(()=>A.fromEditor(p),/идентификатор проекта/);
 });
+
+test('editor short chunks cannot silently create zero-length SRT cues or switch policy',()=>{
+ const p=editor();p.timing='manual';p.scenes=[{...p.scenes[0],text:'Раз два три четыре пять шесть семь.',durationMs:1}];p.selectedSceneId=p.scenes[0].id;p.subtitles.mode='chunks';
+ const before=JSON.stringify(p);assert.throws(()=>A.fromEditor(p),{code:'SUBTITLES'});assert.equal(JSON.stringify(p),before);
+ p.subtitles.mode='scene';const plan=A.fromEditor(p);assert.equal(plan.cues.length,1);assert.equal(plan.cues[0].endMs-plan.cues[0].startMs,1);
+ p.subtitles.mode='chunks';p.scenes[0].durationMs=2;assert.throws(()=>A.fromEditor(p),{code:'SUBTITLES'});p.scenes[0].durationMs=4;assert.ok(A.fromEditor(p).cues.every(c=>c.endMs>c.startMs));
+});
