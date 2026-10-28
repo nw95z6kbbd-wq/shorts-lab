@@ -17,7 +17,11 @@ def check_native_editor_canvas(root,script,command,click):
     args=[json.loads((root/'tests/fixtures/editor-canvas/spec.json').read_text()),(root/'tests/fixtures/editor-canvas/reference.svg').read_text(),media_payload()]
     try:
         for entry in [f'http://127.0.0.1:{server.server_port}/index.html',(root/'index.html').as_uri(),(root/'downloads/Shorts-Studio.html').as_uri()]:
-            command('POST','/url',{'url':entry});execute('const end=Date.now()+15000;while(!window.ShortsEditorCanvas||!window.ShortsVideoRestored){if(Date.now()>end)throw Error("Editor Canvas startup timeout");await new Promise(r=>setTimeout(r,30));}return true;')
+            print('::notice title=Native Safari Editor Canvas entry::'+entry,flush=True)
+            command('POST','/url',{'url':entry})
+            execute('''const errors=[];addEventListener('error',e=>errors.push(e.message||e.target?.src||'script error'),true);addEventListener('unhandledrejection',e=>errors.push(ShortsRuntimeDiagnostics.failure(e.reason)));
+              let editorReady='absent';if(window.ShortsEditorReady)Promise.resolve(ShortsEditorReady).then(()=>editorReady='ready',e=>{editorReady='rejected';errors.push(ShortsRuntimeDiagnostics.failure(e));});
+              const end=Date.now()+15000;while(!window.ShortsEditorCanvas||!window.ShortsVideoRestored){if(Date.now()>end)throw Error('Editor Canvas startup timeout '+JSON.stringify({expected:arguments[0],url:location.href,title:document.title,readyState:document.readyState,editorReady,modules:Object.fromEntries(['ShortsCore','ShortsEditorProfile','ShortsRenderPlan','ShortsStorage','ShortsEditor','ShortsEditorCanvas','ShortsVideoRenderer','ShortsVideoRestored'].map(k=>[k,typeof window[k]])),errors,body:document.body?.innerText.slice(0,500)}));await new Promise(r=>setTimeout(r,30));}return true;''',[entry])
             script((root/'tests/editor-canvas-fixture.js').read_text())
             try:
                 result=execute('return await checkEditorCanvas(...arguments[0]);',[args])
