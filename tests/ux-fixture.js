@@ -85,3 +85,15 @@ window.uxCheckEditorPreview = async () => {
   }
   return summary;
 };
+
+// Native Safari evidence: compare the previous flex wrapper with block layout
+// at the same width/budget. Restore every inline property before assertions.
+window.uxProbeEditorWrapper = async () => {
+  const wrap=document.querySelector('.preview-column .portrait-wrap'),frame=document.getElementById('portrait');
+  const before=wrap.getAttribute('style'),margin=frame.getAttribute('style');
+  const paint=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  let flex;
+  try {wrap.style.display='flex';frame.style.marginInline='0';await paint();flex=uxPreviewSummary();}
+  finally {before===null?wrap.removeAttribute('style'):wrap.setAttribute('style',before);margin===null?frame.removeAttribute('style'):frame.setAttribute('style',margin);await paint();}
+  return {previousFlex:flex,currentBlock:uxPreviewSummary()};
+};

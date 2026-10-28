@@ -18,8 +18,7 @@
 
 /* A single canonical Canvas; no CSS illustration or per-card image decoders. */
 .editor-canvas-frame{aspect-ratio:9/16;position:relative;width:100%;overflow:hidden;border-radius:10px;background:#16121c}
-/* Keep the replaced Canvas out of intrinsic flex sizing. Safari otherwise
-   retains its old content height after the sticky media budget shrinks. */
+/* Canvas fills the canonical ratio box without contributing intrinsic size. */
 #editorCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;font-synthesis:initial}#editorCanvas[hidden]{display:none}
 .editor-preview-message{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;color:#c9b5da;font-size:12px;line-height:1.7;text-align:center;overflow:auto;background:#191320}.editor-preview-message[hidden]{display:none}
 .editor-preview-message[data-state=error]{color:#f1c5af}.editor-seek{display:block;width:calc(100% - 40px);margin:12px 20px;accent-color:#a67beb}
@@ -28,3 +27,9 @@
 @media(max-width:620px){.studio-visual-controls label{min-width:100%;}.studio-image-controls button{min-height:44px}}
 
 @media(min-width:761px){.editor-canvas-frame{width:min(100%,calc(var(--preview-media-height,600px)*9/16));flex-shrink:0}}
+
+/* Safari flex cross-size/stretch can retain 480px after the width budget has
+   shrunk to 252px (448px at 9:16). A normal block resolves both dimensions
+   from the same used width. Scope this to Editor; Video flex stays frozen. */
+.preview-column .portrait-wrap{display:block}
+.editor-canvas-frame{margin-inline:auto}
