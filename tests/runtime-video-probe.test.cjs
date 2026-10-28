@@ -51,3 +51,13 @@ test('missing presentation and decoder errors still fail, and cancel owned frame
  const broken=new PresentedVideo(),pending=window.seekRuntimeVideoFrame(broken,.5,1000);broken.error={code:3,message:'bad frame'};broken.dispatchEvent(new Event('error'));await assert.rejects(pending,/seek decode error: 3 bad frame/);assert.equal(broken.callbacks.size,0);
  const fallback=new MetadataFirstVideo();fallback.decoded();await window.seekRuntimeVideoFrame(fallback,.5,1000);assert.equal(fallback.currentTime,.5,'non-rVFC engines still wait for the completed seek and paint boundary');
 });
+
+test('inline recording transport preserves bytes and container when MIME codecs contain commas',()=>{
+ const bytes=Buffer.from([0,1,2,3,240,255]),payload=bytes.toString('base64');
+ for(const mime of ['video/webm;codecs=vp9,opus','video/mp4;codecs=avc1.42e01e,mp4a.40.2']){
+  const data=window.runtimeRecordingDataURL(mime,'data:'+mime+';base64,'+payload);
+  assert.equal(data,'data:'+mime.split(';')[0]+';base64,'+payload);
+  assert.deepEqual(Buffer.from(data.slice(data.indexOf(',')+1),'base64'),bytes);
+ }
+ assert.throws(()=>window.runtimeRecordingDataURL('video/webm','invalid'),/Invalid recorded video data URL/);
+});

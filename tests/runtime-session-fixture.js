@@ -35,6 +35,13 @@ window.seekRuntimeVideoFrame = function (element, time, timeoutMs = 4000) {
   try{element.currentTime=time;}catch(error){finish(error);}
  });
 };
+// File-origin Blob URLs have browser-specific media-origin handling. An inline
+// probe can use the exact encoded bytes without retaining an opaque Blob origin.
+window.runtimeRecordingDataURL = function (mimeType, serialized) {
+ const container=mimeType.split(';')[0],mark=serialized.lastIndexOf(';base64,');
+ if(!['video/webm','video/mp4'].includes(container)||!serialized.startsWith('data:video/')||mark<0)throw Error('Invalid recorded video data URL');
+ return 'data:'+container+';base64,'+serialized.slice(mark+8);
+};
 window.prepareRuntimeSessionChecks = async function () {
   const P=ShortsRenderPlan,A=ShortsRenderAdapters,S=ShortsRenderSessions,M=ShortsMediaSessions;
   const assert=(ok,text)=>{if(!ok)throw Error('Runtime: '+text);},delay=()=>new Promise(r=>setTimeout(r,0));

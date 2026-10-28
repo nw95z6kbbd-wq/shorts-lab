@@ -262,3 +262,10 @@ automation-окна через W3C API. Это проверка холодног
   Для движков без rVFC остаётся seeked + paint. Renderer/recorder/mixer не менялись.
   Recorded-video probe запрашивает собственный blob в anonymous CORS mode, прежде
   чем читать его пиксели; SecurityError сохраняет URL/readyState/time в диагностике.
+
+Для Editor recorded-video probe одни и те же encoded bytes передаются проигрывателю
+как inline data URL контейнера, без opaque file-origin Blob URL. Байтам не меняют
+кодек/качество. Codec-параметры с запятыми не включаются в префикс data URL;
+round-trip байтов проверяется отдельным Node-тестом. Это транспорт тестового
+проигрывателя, не изменение приложения/recorder. При ошибке создаётся обычный Error
+с исходными name/code и контекстом URL: message у DOMException может быть readonly.
