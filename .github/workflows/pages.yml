@@ -129,6 +129,14 @@ jobs:
         with:
           path: _site
 
+      - name: Preserve failed runtime recording for independent decoding
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-session-recording-diagnostics
+          path: test-results/runtime-session/
+          if-no-files-found: ignore
+
   webkit:
     name: Product UI in WebKit and mobile emulation
     runs-on: ubuntu-24.04

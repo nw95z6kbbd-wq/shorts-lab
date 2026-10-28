@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import threading
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
@@ -45,6 +46,18 @@ def run():
                 result=page.evaluate('finishRuntimeSessionChecks()')
             except Exception:
                 diagnostic=page.evaluate('window.runtimeSessionDiagnostics?.()')
+                try:
+                    data=page.evaluate('async()=>{if(!window.runtimeRecordedBlob)return null;const r=new FileReader();const done=new Promise((resolve,reject)=>{r.onload=()=>resolve(r.result.split(",")[1]);r.onerror=reject;});r.readAsDataURL(runtimeRecordedBlob);return done;}')
+                    if data:
+                        folder=ROOT/'test-results/runtime-session';folder.mkdir(parents=True,exist_ok=True)
+                        video=folder/'failure.webm';video.write_bytes(base64.b64decode(data))
+                        colors=[]
+                        for at in (0.5,2.7,4.8):
+                            rgb=subprocess.check_output(['ffmpeg','-v','error','-ss',str(at),'-i',str(video),'-vf','crop=100:100:300:400,scale=1:1','-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','pipe:1'],timeout=20)
+                            colors.append(list(rgb))
+                        diagnostic={'independentFFmpegColors':colors,**(diagnostic or {})}
+                except Exception as error:
+                    diagnostic={'diagnosticError':str(error),**(diagnostic or {})}
                 print('::notice title=Runtime export failure diagnostics::'+json.dumps(diagnostic),flush=True)
                 raise
             if not result['recording'].get('skipped'):
