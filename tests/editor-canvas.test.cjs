@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const C=require('../js/core.js'),P=require('../js/render-plan.js'),A=require('../js/render-adapters.js'),E=require('../js/editor-profile.js');
-const ctx={font:'',measureText(text){const size=Number(/ ([\d.]+)px/.exec(this.font)?.[1]||60);return{width:[...new Intl.Segmenter('und',{granularity:'grapheme'}).segment(text)].length*size*.55};}};
+const ctx={font:'',measureText(text){const size=Number(/ ([\d.]+)px/.exec(this.font)?.[1]||60);const width=[...new Intl.Segmenter('und',{granularity:'grapheme'}).segment(text)].length*size*.55;return{width,actualBoundingBoxLeft:0,actualBoundingBoxRight:width,actualBoundingBoxAscent:size/2,actualBoundingBoxDescent:size/2};}};
 function project(text='Своё видео\nПрямо сейчас'){const p=C.upgradeProject(C.createProject(false));p.scenes=[{id:'stable',text,durationMs:2000,visual:'animated',imageId:null,imageName:'',camera:'static',transition:'none'}];p.timing='manual';p.selectedSceneId='stable';return p;}
 test('all 27 real Editor styles resolve independently; legacy missing settings are safe, unknown fields never default silently',()=>{
  let count=0;for(const theme of E.THEMES)for(const caption of E.CAPTIONS)for(const size of E.SIZES){const p=project();p.style={theme,caption,size};const before=JSON.stringify(p),plan=A.fromEditor(p);P.assertRenderable(plan);assert.equal(plan.appearance.resolved.renderer,'editor-canvas-v1');assert.equal(plan.theme,theme);assert.equal(plan.caption,caption);assert.equal(JSON.stringify(p),before);count++;}assert.equal(count,27);
@@ -49,4 +49,10 @@ test('complete Video RenderPlans and frames remain identical to hash-verified pr
   const before=plain(oldA.fromVideo(draft)),after=A.fromVideo(draft);assert.deepEqual(after,before);
   for(const time of [-1,0,1,...after.timeline.flatMap(s=>[s.startMs,s.endMs-1,s.endMs]),after.durationMs+1])assert.deepEqual(P.frameAt(after,time),plain(oldP.frameAt(before,time)));
  }
+});
+
+test('Unicode ink bounds cannot escape the text area even when logical width fits',()=>{
+ const tall={font:'',measureText(text){const m=ctx.measureText.call(this,text);return {...m,actualBoundingBoxAscent:text.includes('́')?2000:m.actualBoundingBoxAscent};}};
+ assert.throws(()=>E.layout(tall,'á',{theme:'cosmos',caption:'accent',size:'medium'}),{code:'TEXT_OVERFLOW'});
+ const noMetrics={font:'',measureText:()=>({width:10})};assert.throws(()=>E.layout(noMetrics,'text',{theme:'cosmos',caption:'accent',size:'medium'}),{code:'RESOURCES'});
 });

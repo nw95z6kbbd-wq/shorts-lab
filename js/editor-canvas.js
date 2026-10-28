@@ -69,7 +69,7 @@
       if(layout){
         const style=plan.appearance.requested;
         if(style.caption==='classic'){ctx.fillStyle='#080611b3';ctx.beginPath();ctx.roundRect(42.5,512,635,layout.height,15);ctx.fill();}
-        ctx.font=`${layout.typography.weight} ${layout.font}px ${layout.typography.family}`;ctx.textBaseline='middle';ctx.textAlign='left';ctx.direction='ltr';ctx.shadowColor=style.caption==='outline'?'#140d20':'#08051280';ctx.shadowBlur=style.caption==='outline'?0:35;ctx.shadowOffsetX=style.caption==='outline'?5:0;ctx.shadowOffsetY=5;
+        ctx.font=`${layout.typography.weight} ${layout.font}px ${layout.typography.family}`;ctx.textBaseline='middle';ctx.textAlign='left';ctx.direction='ltr';ctx.shadowColor=style.caption==='outline'?'#140d20':'#08051280';ctx.shadowBlur=(style.caption==='outline'?0:35)*canvas.width/720;ctx.shadowOffsetX=(style.caption==='outline'?5:0)*canvas.width/720;ctx.shadowOffsetY=5*canvas.height/1280;
         for(const line of layout.lines){
           let x=360-ctx.measureText(line.text).width/2;
           // Whole runs preserve shaping inside words; grapheme fragments never

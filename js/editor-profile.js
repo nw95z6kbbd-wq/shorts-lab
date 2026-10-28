@@ -42,7 +42,7 @@
     // Whitespace is collapsed, explicit newlines retained. Long words are split
     // only at grapheme boundaries, never by UTF-16 code units or silent slicing.
     for(let font=t.base;font>=t.min;font-=t.step){
-      ctx.font=`${t.weight} ${font}px ${t.family}`;
+      ctx.font=`${t.weight} ${font}px ${t.family}`;ctx.textBaseline='middle';ctx.textAlign='left';ctx.direction='ltr';
       const lines=[[]];let word=0,failed=false;
       const maxLines=Math.floor((g.textHeight-t.padTop-t.padBottom)/(font*t.lineHeight));
       for(const token of tokens){
@@ -67,7 +67,10 @@
       if(failed)continue;
       const lineHeight=font*t.lineHeight,height=lines.length*lineHeight+t.padTop+t.padBottom;
       if(height>g.textHeight)continue;
-      return {font,lineHeight,height,area:{x:g.textX,y:g.textY,width:g.textWidth,height:g.textHeight},lines:lines.map((runs,i)=>({runs,text:runs.map(r=>r.text).join(' '),x:360,y:g.textY+t.padTop+lineHeight*(i+.5)})),typography:t};
+      const positioned=lines.map((runs,i)=>({runs,text:runs.map(r=>r.text).join(' '),x:360,y:g.textY+t.padTop+lineHeight*(i+.5)}));
+      for(const line of positioned){let x=360-ctx.measureText(line.text).width/2;for(const run of line.runs){const m=ctx.measureText(run.text),ink=[m.actualBoundingBoxLeft,m.actualBoundingBoxRight,m.actualBoundingBoxAscent,m.actualBoundingBoxDescent];if(!ink.every(Number.isFinite))throw error('RESOURCES','Браузер не предоставил метрики границ Unicode-текста.');if(x-ink[0]<g.textX||x+ink[1]>g.textX+g.textWidth||line.y-ink[2]<g.textY||line.y+ink[3]>g.textY+g.textHeight)failed=true;x+=m.width+ctx.measureText(' ').width;}}
+      if(failed)continue;
+      return {font,lineHeight,height,area:{x:g.textX,y:g.textY,width:g.textWidth,height:g.textHeight},lines:positioned,typography:t};
     }
     throw error('TEXT_OVERFLOW','Субтитры не помещаются в область Editor Canvas даже при минимальном размере. Сократите сцену или явно измените её субтитры.',{sceneTextLength:text.length});
   }
