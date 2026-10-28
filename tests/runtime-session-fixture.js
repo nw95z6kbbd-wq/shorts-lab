@@ -5,6 +5,8 @@ window.prepareRuntimeSessionChecks = async function () {
   const wait=async fn=>{for(let i=0;i<200&&!fn();i++)await delay();assert(fn(),'async operation started');};
   const expect=async(p,code)=>{let caught;try{await p;}catch(e){caught=e;}assert(caught?.code===code,'expected '+code+', got '+caught?.code+': '+caught?.message);};
   const sessions=[],leases=[],gates=[],staged=[];let playback;
+  const trace={phase:'prepare'};
+  window.runtimeSessionDiagnostics=()=>({trace:{...trace},contexts,maxContexts,urls:urls.size,pool:M.statistics(),sessions:sessions.map(s=>s.status())});
   const before=await backupRepositorySnapshot(),editor=ShortsEditor.backupSnapshot(),video=ShortsVideoBackup.snapshot();
   const originalURL={create:URL.createObjectURL,revoke:URL.revokeObjectURL},urls=new Set();
   const OriginalAudio=window.AudioContext||window.webkitAudioContext,descriptors=new Map();let contexts=0,maxContexts=0;
@@ -60,21 +62,22 @@ window.prepareRuntimeSessionChecks = async function () {
     report={pixels:6,realDecodeRaces:true,zipVersion:restored.manifest.version,preparedWithoutAutoplay:true};
     controls.push(button('runtimeAudioStart',20,()=>{window.runtimeAudioPromise=v.playAudio().then(p=>{playback=p;v.renderFrame(canvas,0);return true;});}));
     controls.push(button('runtimeRecordStart',65,()=>{window.runtimeRecordPromise=(async()=>{
-      await playback?.stop();const support=ShortsVideoRecorder.capabilities(true,'webm');
+      trace.phase='stop-playback';await playback?.stop();trace.phase='capabilities';const support=ShortsVideoRecorder.capabilities(true,'webm');trace.capabilities=support;
       if(!support.supported)return{skipped:'Canvas/MediaRecorder codec unavailable'};
-      const result=await v.record({canvas});window.runtimeRecordedBlob=result.blob;
+      trace.phase='recording';const result=await v.record({canvas,onFormat:type=>{trace.format=type;},onProgress:(fraction,ms)=>{trace.progress={fraction,ms};}});window.runtimeRecordedBlob=result.blob;trace.blob={size:result.blob.size,type:result.mimeType};trace.phase='metadata';
       const url=URL.createObjectURL(result.blob),element=document.createElement('video');element.muted=true;element.playsInline=true;let timer;
       try {
         const metadata=await new Promise((resolve,reject)=>{timer=setTimeout(()=>reject(Error('Runtime recorded metadata timed out')),15000);const check=()=>{if(element.error)reject(Error('Recorded video decode error'));else if(element.videoWidth&&Number.isFinite(element.duration)&&element.duration>0)resolve({width:element.videoWidth,height:element.videoHeight,duration:element.duration,type:result.mimeType});};for(const event of ['loadedmetadata','loadeddata','durationchange','error'])element.addEventListener(event,check);element.src=url;element.load();});clearTimeout(timer);
+        trace.metadata=metadata;trace.phase='frame-validation';
         assert(metadata.width===720&&metadata.height===1280&&metadata.duration>5.5&&metadata.duration<7.5,'actual complete runtime export');
         const sample=document.createElement('canvas');sample.width=sample.height=1;const x=sample.getContext('2d'),colors=[];
-        for(const t of [.5,2.7,4.8]){await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Runtime video seek timeout')),4000);element.onseeked=()=>{clearTimeout(timeout);resolve();};element.currentTime=t;});x.drawImage(element,300,400,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
+        for(const t of [.5,2.7,4.8]){trace.seek=t;await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Runtime video seek timeout')),4000);element.onseeked=()=>{clearTimeout(timeout);resolve();};element.currentTime=t;});x.drawImage(element,300,400,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
         const [r,b,g]=colors;assert(r[0]>r[2]*1.5&&b[2]>b[0]*1.5&&g[1]>g[0]*1.5,'actual session image order');return metadata;
       }finally{clearTimeout(timer);element.pause();element.removeAttribute('src');element.load();URL.revokeObjectURL(url);}
-    })();}));
+    })();window.runtimeRecordPromise.catch(e=>{trace.recordFailure={phase:trace.phase,...ShortsRuntimeDiagnostics.failure(e)};});}));
     window.finishRuntimeSessionChecks=async()=>{
       try {
-        const recording=await window.runtimeRecordPromise;await playback?.stop();await Promise.all(sessions.map(s=>s.dispose()));
+        const recording=await window.runtimeRecordPromise;trace.phase='release';await playback?.stop();await Promise.all(sessions.map(s=>s.dispose()));
         assert(contexts===0&&urls.size===0,'all owned contexts and object URLs closed');assert(M.statistics().sessions===0&&M.statistics().residentBytes===0,'global working set fully released');
         assert(JSON.stringify(await backupRepositorySnapshot())===JSON.stringify(before),'all IndexedDB heads, original bytes and IDs untouched');return{...report,recording,maxContexts};
       }finally{await cleanup();}

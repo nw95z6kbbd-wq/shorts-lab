@@ -38,7 +38,7 @@ def run():
                 page.route('**/*',offline);url=base+'offline.html'
             else:url=base+entry
             page.goto(url);page.wait_for_function('window.ShortsVideoRestored && window.ShortsRenderSessions')
-            for file in ('backup-fixture.js','runtime-session-fixture.js'):page.add_script_tag(content=(ROOT/'tests'/file).read_text())
+            for file in ('backup-fixture.js','runtime-diagnostics.js','runtime-session-fixture.js'):page.add_script_tag(content=(ROOT/'tests'/file).read_text())
             page.evaluate('prepareRuntimeSessionChecks()');page.locator('#runtimeAudioStart').click();assert page.evaluate('runtimeAudioPromise')
             page.locator('#runtimeRecordStart').click();result=page.evaluate('finishRuntimeSessionChecks()')
             if not result['recording'].get('skipped'):
