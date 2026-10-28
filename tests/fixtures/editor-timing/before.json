@@ -1,0 +1,20 @@
+{
+  "commit": "d4d8cd5bccd8ac466562363cdffbd4ef348b94c0",
+  "files": {
+    "js/app.js": "9e6eff054677c7d1658a6d63701e4bb7c5744d9f42664c2f3ac8f586562a761e",
+    "index.html": "9a8bb29fff8b07db3a5a13cc84803647de38d08c720e6eab1759f7aba85dcc31",
+    "js/core.js": "620c99da3213c1b27c1854476a2a017324bd60b0b09aa3294599f1c6b8fc83ba",
+    "js/video-core.js": "7a6d54124d8e058ce50d447c499fdebf06007b8a65aff1fbe18ada68ff60e8ba",
+    "js/video-ui.js": "7249856063dae03756e89fc5ea224afa95e68f794a1fe824da371ce6b6bdb010",
+    "js/video-renderer.js": "ffa6b04da7246a5fa41c7c6088e4830bbd050752fea65674e62ee6d1f6bd4688",
+    "js/video-recorder.js": "bbb6ffd46c558778778fd149c6fab85c9651ac091c6f09cf86b06013d682d3ca",
+    "js/video-audio.js": "5007d9a7ef2cd55ec24908a02cf275687fe594c612c3977ffeb4da541f51b647",
+    "js/render-plan.js": "c9263d20fdf5c1e7e115ac3f66889610e9bf8622c56636c71dab587c549258fa",
+    "js/render-adapters.js": "7f17e3e260b56b7d3b64abdee4b22c7a92f406234a572b6509aae77e70441114",
+    "js/project-db.js": "26dee9ac3bcb0fc083e92d87a9dceffe5a23a6dff498b33ecc4f071b7ac2349d",
+    "js/storage.js": "11b5132055f5667fe908b535da781b22f106aae13144c4d2c8629cd29ea38bdf",
+    "js/backup-format.js": "40a682d8efec7e5d579ca93138ea8b7ffd1b849399e8692ee910a8e7f5d94e1f",
+    "tests/render_guard.py": "6e9710ff4610deba1ffdf99c6505ace447f13ed7a12fa657d238520947188086",
+    "tests/safari-baseline-test.py": "ae268a7d090ce3892e4b8715c22fd2b693dcdcf08107401d4522673bca631822"
+  }
+}

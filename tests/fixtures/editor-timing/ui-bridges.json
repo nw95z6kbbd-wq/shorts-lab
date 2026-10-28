@@ -1,0 +1,34 @@
+[
+  {
+    "old": "  <link rel=\"stylesheet\" href=\"backup.css\">",
+    "new": "  <link rel=\"stylesheet\" href=\"backup.css\">\n  <link rel=\"stylesheet\" href=\"editor-timing.css\">"
+  },
+  {
+    "old": "  <script src=\"js/integrations.js\" defer></script>",
+    "new": "  <script src=\"js/integrations.js\" defer></script>\n  <script src=\"js/editor-timing.js\" defer></script>"
+  },
+  {
+    "old": "            <section id=\"pane-script\"",
+    "new": "            <div id=\"editorTimingError\" class=\"studio-timing-error\" role=\"alert\" hidden><p id=\"editorTimingErrorText\"></p><button id=\"editorResetTiming\" type=\"button\">Отменить несохранённую правку</button></div>\n            <section id=\"pane-script\""
+  },
+  {
+    "old": "<div id=\"subtitleList\" class=\"subtitle-list\"></div>",
+    "new": "<div class=\"studio-subtitle-controls\"><label><input id=\"editorSubtitlesEnabled\" type=\"checkbox\" checked> Субтитры включены</label><label for=\"editorSubtitleMode\">Реплики<select id=\"editorSubtitleMode\" aria-describedby=\"editorSubtitleHint\"><option value=\"scene\">По сценам</option><option value=\"chunks\">Группы по 6 слов</option></select></label></div><div id=\"subtitleList\" class=\"subtitle-list\"></div>"
+  },
+  {
+    "old": "<p>Таймкоды рассчитаны при темпе 150 слов в минуту.</p>",
+    "new": "<p id=\"editorSubtitleHint\">Таймкоды берутся из общего RenderPlan.</p>"
+  },
+  {
+    "old": "<div id=\"scriptChanged\" class=\"notice\"",
+    "new": "<div class=\"studio-timing-controls\"><label for=\"editorTimingMode\">Длительности<select id=\"editorTimingMode\" aria-describedby=\"editorTimingHelp\"><option value=\"reading\">Авто · 150 слов/мин</option><option value=\"manual\">Вручную</option></select></label><output id=\"editorTimingSummary\" aria-live=\"polite\">Итого: 0:00</output><p id=\"editorTimingHelp\">Авто — по тексту сцен. Вручную: секунды с точностью до 0,001; пусто — авто. Ручные значения сохраняются при переключении режимов.</p></div><div id=\"scriptChanged\" class=\"notice\""
+  },
+  {
+    "old": "<span id=\"scriptDuration\">",
+    "new": "<span id=\"scriptDuration\" title=\"Оценка исходного сценария по 150 слов/мин; длительности отредактированных сцен рассчитаны отдельно\">"
+  },
+  {
+    "old": "<strong id=\"totalDuration\">0:00</strong><span>≈ озвучка</span></div></div><span class=\"speed-badge\">150 слов/мин</span>",
+    "new": "<strong id=\"totalDuration\">0:00</strong><span>по сценам</span></div></div><span class=\"speed-badge\" id=\"editorTimingBadge\">150 слов/мин</span>"
+  }
+]

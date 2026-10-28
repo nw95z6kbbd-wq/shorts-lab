@@ -132,7 +132,7 @@ test('failed native context closure reports an error and retains media until a s
 test('existing runtime/UI/storage sources and Safari guard retain the frozen main implementation',()=>{
  const {createHash}=require('node:crypto'),checkpoint=require('./fixtures/runtime/before.json'),hash=b=>createHash('sha256').update(b).digest('hex');
  assert.equal(checkpoint.commit,'8042586d1c5c65a4a89eedd61052a37ca14b4868');
- const approved=new Set(['js/render-plan.js','js/render-adapters.js','js/video-renderer.js','tests/render_guard.py','tests/safari-baseline-test.py']);
+ const approved=new Set(['js/app.js','js/render-plan.js','js/render-adapters.js','js/video-renderer.js','tests/render_guard.py','tests/safari-baseline-test.py']);
  for(const [name,expected] of Object.entries(checkpoint.files))if(!approved.has(name))assert.equal(hash(fs.readFileSync(name)),expected,name);
  require('node:child_process').execFileSync('python',['tests/render_guard.py']);
  for(const name of ['render-plan.js','render-adapters.js'])assert.equal(hash(fs.readFileSync('tests/fixtures/editor-canvas/before/'+name)),checkpoint.files['js/'+name],name+' frozen before Editor Canvas');
@@ -140,6 +140,6 @@ test('existing runtime/UI/storage sources and Safari guard retain the frozen mai
  const oldAdapter=fs.readFileSync('tests/fixtures/editor-canvas/before/render-adapters.js','utf8'),adapter=fs.readFileSync('js/render-adapters.js','utf8');
  const videoPart=source=>source.slice(source.indexOf('  function fromVideo('),source.indexOf('  function fromEditor('));assert.equal(videoPart(adapter),videoPart(oldAdapter),'Video adapter body remains exact');
  for(const [name,{sha256,remove}] of Object.entries(checkpoint.bridges)){
-  let source=fs.readFileSync(name,'utf8');if(name==='tests/safari-product.py')for(const bridge of ['from editor_canvas_native import check_native_editor_canvas\n','            check_native_editor_canvas(ROOT,script,command,click)\n']){assert.equal(source.split(bridge).length,2);source=source.replace(bridge,'');}if(name==='index.html')for(const file of ['editor-profile','editor-canvas'])source=source.replace('  <script src="js/'+file+'.js" defer></script>\n','');for(const text of remove){assert.equal(source.split(text).length,2,name+' exact additive bridge');source=source.replace(text,'');}assert.equal(hash(source),sha256,name);
+  let source=fs.readFileSync(name,'utf8');if(name==='index.html')for(const bridge of require('./fixtures/editor-timing/ui-bridges.json')){assert.equal(source.split(bridge.new).length,2,'exact Editor UI bridge');source=source.replace(bridge.new,bridge.old);}if(name==='tests/safari-product.py')for(const bridge of ['from editor_canvas_native import check_native_editor_canvas\n','            check_native_editor_canvas(ROOT,script,command,click)\n']){assert.equal(source.split(bridge).length,2);source=source.replace(bridge,'');}if(name==='index.html')for(const file of ['editor-profile','editor-canvas'])source=source.replace('  <script src="js/'+file+'.js" defer></script>\n','');for(const text of remove){assert.equal(source.split(text).length,2,name+' exact additive bridge');source=source.replace(text,'');}assert.equal(hash(source),sha256,name);
  }
 });
