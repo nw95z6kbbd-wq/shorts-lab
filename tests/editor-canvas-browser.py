@@ -39,6 +39,7 @@ def run():
                 save_editor_diagnostics(page.evaluate('window.editorCanvasFailure'),engine)
                 raise
             assert result['combinations']==27 and not errors,(result,errors)
+            save_editor_diagnostics(page.evaluate('window.editorCanvasBaselineProbe'),engine+'-baseline')
             counterexamples=page.evaluate('args=>rejectEditorVisualMutants(...args)',[json.loads((ROOT/'tests/fixtures/editor-canvas/spec.json').read_text()),(ROOT/'tests/fixtures/editor-canvas/reference.svg').read_text(),media_payload()]);assert counterexamples==3;result['visualCounterexamples']=counterexamples
             if os.environ.get('EDITOR_CAPTURES'):
                 folder=Path(os.environ['EDITOR_CAPTURES']);folder.mkdir(parents=True,exist_ok=True)

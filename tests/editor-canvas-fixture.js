@@ -1,6 +1,6 @@
 /* Independent SVG acceptance reference + real Canvas data/geometry checks. */
 window.checkEditorCanvas = async function(spec,template,payload){
- window.editorCanvasFailure=null;
+ window.editorCanvasFailure=null;window.editorCanvasBaselineProbe=null;
  const C=ShortsCore,A=ShortsRenderAdapters,R=ShortsVideoRenderer,P=ShortsRenderPlan;
  const check=(v,m)=>{if(!v)throw Error('Editor Canvas: '+m);};
  const canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;const ctx=canvas.getContext('2d',{alpha:false});
@@ -9,7 +9,21 @@ window.checkEditorCanvas = async function(spec,template,payload){
  const imageFromBlob=async blob=>{const url=URL.createObjectURL(blob),image=new Image();try{await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=url;});return image;}finally{URL.revokeObjectURL(url);}};
  const glyphMask=(data,x0=45,y0=515,w=630,h=430)=>{const bits=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=((y+y0)*720+x+x0)*4,r=data[i],g=data[i+1],b=data[i+2];bits[y*w+x]=(r>235&&g>235&&b>235)||(r>175&&r<220&&g>140&&g<200&&b>235)?1:0;}return bits;};
  const same=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
+ const bounds=mask=>{let x0=630,y0=430,x1=-1,y1=-1,count=0;for(let y=0;y<430;y++)for(let x=0;x<630;x++)if(mask[y*630+x]){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);count++;}return {x0:x0+45,y0:y0+515,x1:x1+45,y1:y1+515,count};};
+ const maskPNG=(mask,other)=>{const c=document.createElement('canvas');c.width=630;c.height=430;const x=c.getContext('2d'),d=x.createImageData(630,430);for(let i=0;i<mask.length;i++){const j=i*4;if(other){d.data[j]=mask[i]?255:0;d.data[j+1]=other[i]?255:0;}else d.data[j]=d.data[j+1]=d.data[j+2]=mask[i]?255:0;d.data[j+3]=255;}x.putImageData(d,0,0);return c.toDataURL('image/png');};
+ const packedMask=(mask,other)=>{const depth=other?2:1,stride=Math.ceil(630*depth/8),bytes=new Uint8Array(stride*430);for(let y=0;y<430;y++)for(let x=0;x<630;x++){const value=mask[y*630+x]|(other?other[y*630+x]<<1:0),bit=x*depth;bytes[y*stride+(bit>>3)]|=value<<(8-depth-(bit%8));}return {width:630,height:430,depth,base64:btoa(String.fromCharCode(...bytes))};};
  for(const [selector,attribute,expected] of [['[data-theme]','theme',spec.themes],['[data-caption]','caption',spec.captions],['#captionSize option','value',spec.sizes]]){const actual=[...document.querySelectorAll(selector)].map(e=>attribute==='value'?e.value:e.dataset[attribute]).sort();check(JSON.stringify(actual)===JSON.stringify([...expected].sort()),'real UI values match all 27 canonical combinations');}
+ // Canvas middle and SVG middle are different baseline concepts, and WebKit
+ // does not propagate dominant-baseline from a group into text as Chromium does.
+ // Convert the independently specified middle anchor to SVG alphabetic using
+ // a separate standard font-metrics context, never renderer coordinates/pixels.
+ const referenceMetrics=document.createElement('canvas').getContext('2d');
+ const baselineOffset=(font,weight)=>{
+  referenceMetrics.font=weight+' '+font+'px Arial, sans-serif';referenceMetrics.textBaseline='middle';const middle=referenceMetrics.measureText('HgЁ');
+  referenceMetrics.textBaseline='alphabetic';const alpha=referenceMetrics.measureText('HgЁ');
+  const offset=alpha.actualBoundingBoxAscent-middle.actualBoundingBoxAscent;
+  check(Number.isFinite(offset)&&Math.abs(offset-(middle.actualBoundingBoxDescent-alpha.actualBoundingBoxDescent))<.01,'independent baseline translation metrics');return offset;
+ };
  await document.fonts.ready;const captures=[],summaries=[];
  for(const theme of spec.themes)for(const caption of spec.captions)for(const size of spec.sizes){
   if(spec.onlyCase&&[theme,caption,size].join('-')!==spec.onlyCase)continue;
@@ -26,18 +40,27 @@ window.checkEditorCanvas = async function(spec,template,payload){
   check(calls.length===4&&calls.every((c,i)=>Math.abs(c.y-(i<2?y1:y2))<spec.geometryTolerancePx),'independent exact baseline geometry');
   check(calls.map(c=>c.text).join(' ')==='Своё видео Прямо сейчас','all text drawn, edited scenes used');
   check(calls.every((c,i)=>c.color===(caption==='accent'&&i>=2?'#c4a2ff':'#ffffff')),'caption palette');
-  const actual=pixels(),vars={theme,font,textOpacity:1,decorOpacity:theme==='minimal'?0:1,weight:spec.weights[caption],y1,y2,color2:caption==='accent'?'#c4a2ff':'#ffffff',glowX:theme==='dusk'?504:468,glowColor:theme==='dusk'?'#efa368':'#6e4a9e',glowOpacity:theme==='minimal'?0:theme==='dusk'?96/255:102/255};
+  const actual=pixels(),vars={theme,font,baselineOffset:baselineOffset(font,spec.weights[caption]),textOpacity:1,decorOpacity:theme==='minimal'?0:1,weight:spec.weights[caption],y1,y2,color2:caption==='accent'?'#c4a2ff':'#ffffff',glowX:theme==='dusk'?504:468,glowColor:theme==='dusk'?'#efa368':'#6e4a9e',glowOpacity:theme==='minimal'?0:theme==='dusk'?96/255:102/255};
   const svg=template.replace(/\{\{(\w+)\}\}/g,(_,key)=>String(vars[key]));const ref=await imageFromBlob(new Blob([svg],{type:'image/svg+xml'})),rc=document.createElement('canvas');rc.width=720;rc.height=1280;const rx=rc.getContext('2d');rx.drawImage(ref,0,0);const expected=rx.getImageData(0,0,720,1280).data;
   const a=glyphMask(actual),b=glyphMask(expected);let best=0;
   // SVG/Canvas baseline rasterization can differ slightly; geometric draw
   // coordinates above have zero tolerance apart from floating point rounding.
   for(let dy=-3;dy<=3;dy++)for(let dx=-2;dx<=2;dx++){let union=0,intersection=0;for(let y=3;y<427;y++)for(let x=2;x<628;x++){const av=a[y*630+x],bv=b[(y+dy)*630+x+dx];union+=av|bv;intersection+=av&bv;}best=Math.max(best,intersection/union);}
   if(best<spec.glyphMaskMinimumIoU){
-   const bounds=mask=>{let x0=630,y0=430,x1=-1,y1=-1,count=0;for(let y=0;y<430;y++)for(let x=0;x<630;x++)if(mask[y*630+x]){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);count++;}return {x0:x0+45,y0:y0+515,x1:x1+45,y1:y1+515,count};};
-   const maskPNG=(mask,other)=>{const c=document.createElement('canvas');c.width=630;c.height=430;const x=c.getContext('2d'),d=x.createImageData(630,430);for(let i=0;i<mask.length;i++){const j=i*4;if(other){d.data[j]=mask[i]?255:0;d.data[j+1]=other[i]?255:0;}else d.data[j]=d.data[j+1]=d.data[j+2]=mask[i]?255:0;d.data[j+3]=255;}x.putImageData(d,0,0);return c.toDataURL('image/png');};
-   const referencePNG=rc.toDataURL('image/png'),variants={};for(const baseline of ['middle','central','alphabetic']){const textSVG=svg.replace(/<text /g,'<text dominant-baseline="'+baseline+'" '),im=await imageFromBlob(new Blob([textSVG],{type:'image/svg+xml'}));rx.clearRect(0,0,720,1280);rx.drawImage(im,0,0);const mask=glyphMask(rx.getImageData(0,0,720,1280).data);variants[baseline]=bounds(mask);}
+   const referencePNG=rc.toDataURL('image/png'),variants={};for(const baseline of ['middle','central','alphabetic']){const textSVG=svg.replace(/<text[^>]+>/g,tag=>tag.replace(/ dominant-baseline="[^"]*"/g,'').replace(/ dy="[^"]*"/g,'').replace('<text ','<text dominant-baseline="'+baseline+'" ')),im=await imageFromBlob(new Blob([textSVG],{type:'image/svg+xml'}));rx.clearRect(0,0,720,1280);rx.drawImage(im,0,0);const mask=glyphMask(rx.getImageData(0,0,720,1280).data);variants[baseline]=bounds(mask);}
    ctx.font=spec.weights[caption]+' '+font+'px Arial, sans-serif';ctx.textBaseline='middle';const m=ctx.measureText('Своё видео');
-   window.editorCanvasFailure={case:[theme,caption,size],iou:best,userAgent:navigator.userAgent,dpr:devicePixelRatio,canvas:{width:canvas.width,height:canvas.height,cssWidth:canvas.getBoundingClientRect().width,font:ctx.font,baseline:ctx.textBaseline,metrics:Object.fromEntries(['width','actualBoundingBoxLeft','actualBoundingBoxRight','actualBoundingBoxAscent','actualBoundingBoxDescent','fontBoundingBoxAscent','fontBoundingBoxDescent','emHeightAscent','emHeightDescent'].map(k=>[k,m[k]??null])),bounds:bounds(a)},svg:{bounds:bounds(b),perTextBaseline:variants},fontStatus:document.fonts.status,fontAvailable:document.fonts.check(font+'px Arial'),images:{canvas:canvas.toDataURL('image/png'),reference:referencePNG,canvasMask:maskPNG(a),svgMask:maskPNG(b),difference:maskPNG(a,b)}};
+   window.editorCanvasFailure={case:[theme,caption,size],iou:best,userAgent:navigator.userAgent,dpr:devicePixelRatio,canvas:{width:canvas.width,height:canvas.height,cssWidth:canvas.getBoundingClientRect().width,font:ctx.font,baseline:ctx.textBaseline,metrics:Object.fromEntries(['width','actualBoundingBoxLeft','actualBoundingBoxRight','actualBoundingBoxAscent','actualBoundingBoxDescent','fontBoundingBoxAscent','fontBoundingBoxDescent','emHeightAscent','emHeightDescent'].map(k=>[k,m[k]??null])),bounds:bounds(a)},svg:{bounds:bounds(b),perTextBaseline:variants},fontStatus:document.fonts.status,fontAvailable:document.fonts.check(font+'px Arial'),masks:{canvasMask:packedMask(a),svgMask:packedMask(b),difference:packedMask(a,b)},images:{canvas:canvas.toDataURL('image/png'),reference:referencePNG,canvasMask:maskPNG(a),svgMask:maskPNG(b),difference:maskPNG(a,b)}};
+  }
+  if(!window.editorCanvasBaselineProbe){
+   // Regression: an unrelated parent's baseline must not change the explicit
+   // per-text alphabetic reference. This catches reliance on group inheritance.
+   const isolated=svg.replace('text-anchor="middle"','text-anchor="middle" dominant-baseline="hanging"');
+   const im=await imageFromBlob(new Blob([isolated],{type:'image/svg+xml'})),probe=document.createElement('canvas');probe.width=720;probe.height=1280;const px=probe.getContext('2d');px.drawImage(im,0,0);
+   check(same(b,glyphMask(px.getImageData(0,0,720,1280).data)),'per-text baseline is independent of parent SVG baseline');
+   // Capture the exact old reference for evidence, never as a passing oracle.
+   const inherited=svg.replace(/ dominant-baseline="alphabetic" dy="[^"]*"/g,'').replace('text-anchor="middle"','text-anchor="middle" dominant-baseline="middle"');
+   const old=await imageFromBlob(new Blob([inherited],{type:'image/svg+xml'}));px.clearRect(0,0,720,1280);px.drawImage(old,0,0);const oldMask=glyphMask(px.getImageData(0,0,720,1280).data);let intersection=0,union=0;for(let i=0;i<a.length;i++){intersection+=a[i]&oldMask[i];union+=a[i]|oldMask[i];}
+   window.editorCanvasBaselineProbe={case:[theme,caption,size],userAgent:navigator.userAgent,dpr:devicePixelRatio,fontStatus:document.fonts.status,fontAvailable:document.fonts.check(font+'px Arial'),font:referenceMetrics.font,baselineOffset:vars.baselineOffset,iou:best,originalUnshiftedIoU:intersection/union,canvasBounds:bounds(a),correctedSVGBounds:bounds(b),originalSVGBounds:bounds(oldMask),parentBaselineIsolated:true,masks:{canvasMask:packedMask(a),svgMask:packedMask(b),originalSVGMask:packedMask(oldMask),difference:packedMask(a,oldMask)},images:{canvas:canvas.toDataURL('image/png'),reference:rc.toDataURL('image/png'),originalReference:probe.toDataURL('image/png'),canvasMask:maskPNG(a),svgMask:maskPNG(b),originalSVGMask:maskPNG(oldMask),difference:maskPNG(a,oldMask)}};
   }
   check(best>=spec.glyphMaskMinimumIoU,'independent SVG glyph mask '+[theme,caption,size]+' IoU='+best);
   for(const [x,y] of spec.backgroundProbes){const i=(y*720+x)*4;for(let c=0;c<3;c++)check(Math.abs(actual[i+c]-expected[i+c])<=8,'independent SVG background '+theme+' at '+x+','+y+': '+[...actual.slice(i,i+3)]+' vs '+[...expected.slice(i,i+3)]);}
@@ -46,7 +69,7 @@ window.checkEditorCanvas = async function(spec,template,payload){
  // Focal colors are checked without caption shadows, independently of layout.
  for(const theme of spec.themes){
   const p=project('');p.style.theme=theme;R.render(canvas,A.fromEditor(p),0);const actual=pixels();
-  const values={theme,font:62.5,weight:750,y1:567.625,y2:648.875,color2:'#c4a2ff',textOpacity:0,decorOpacity:theme==='minimal'?0:1,glowX:theme==='dusk'?504:468,glowColor:theme==='dusk'?'#efa368':'#6e4a9e',glowOpacity:theme==='minimal'?0:theme==='dusk'?96/255:102/255};
+  const values={theme,font:62.5,weight:750,baselineOffset:baselineOffset(62.5,750),y1:567.625,y2:648.875,color2:'#c4a2ff',textOpacity:0,decorOpacity:theme==='minimal'?0:1,glowX:theme==='dusk'?504:468,glowColor:theme==='dusk'?'#efa368':'#6e4a9e',glowOpacity:theme==='minimal'?0:theme==='dusk'?96/255:102/255};
   const svg=template.replace(/\{\{(\w+)\}\}/g,(_,key)=>String(values[key])),image=await imageFromBlob(new Blob([svg],{type:'image/svg+xml'})),reference=document.createElement('canvas');reference.width=720;reference.height=1280;const rx=reference.getContext('2d');rx.drawImage(image,0,0);const expected=rx.getImageData(0,0,720,1280).data;
   const i=(537*720+454)*4;for(let channel=0;channel<3;channel++)check(Math.abs(actual[i+channel]-expected[i+channel])<=8,'independent SVG orb focal color '+theme);
  }
@@ -69,7 +92,7 @@ window.checkEditorCanvas = async function(spec,template,payload){
  for(const transition of ['none','crossfade','slide','zoom']){gallery.scenes.forEach(s=>s.transition=transition);const gp=A.fromEditor(gallery);for(const t of [0,999,1000,1100,1999,2000,2999]){const r=R.render(canvas,gp,t,{images}),data=pixels();check(r.sceneId===gp.timeline[Math.min(2,Math.floor(t/1000))].id,'transition scene IDs');let bright=0;for(let i=0;i<data.length;i+=400)bright+=data[i]+data[i+1]+data[i+2];check(bright>20000,'no black transition frame');}}
  let missing;try{R.render(canvas,A.fromEditor(gallery),0,{images:new Map()});}catch(e){missing=e.code;}check(missing==='MISSING_MEDIA','missing media remains explicit');
  window.editorCanvasCaptures=captures;
- return {combinations:summaries.length,minSvgIoU:Math.min(...summaries.map(s=>s.svgIoU)),largeFrames:100,largeScenes:5000,largeFramesMs,geometry:'720x1280',overflow:'explicit',unicode:true};
+ return {combinations:summaries.length,minSvgIoU:Math.min(...summaries.map(s=>s.svgIoU)),largeFrames:100,largeScenes:5000,largeFramesMs,geometry:'720x1280',overflow:'explicit',unicode:true,baselineParentIsolation:true};
 };
 
 window.rejectEditorVisualMutants = async function(spec,template,payload){

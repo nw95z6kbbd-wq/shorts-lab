@@ -25,6 +25,7 @@ def check_native_editor_canvas(root,script,command,click):
                 save_editor_diagnostics(script('return window.editorCanvasFailure;'),'safari')
                 raise
             assert result['combinations']==27,result
+            save_editor_diagnostics(script('return window.editorCanvasBaselineProbe;'),'safari-baseline')
             count=execute('return await rejectEditorVisualMutants(...arguments[0]);',[args]);assert count==3,count
             print('::notice title=Native Safari Editor Canvas verified::'+json.dumps({'entry':entry,'result':result,'visualCounterexamples':count}),flush=True)
         for name in ['runtime-session-fixture.js','editor-canvas-recording.js']:script((root/'tests'/name).read_text())

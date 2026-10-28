@@ -21,8 +21,8 @@
  </g>
  <rect width="720" height="1280" fill="url(#shade)"/>
  <!-- Independent probes cover clean sky, orb and horizon, away from UI. -->
- <g id="caption" opacity="{{textOpacity}}" font-family="Arial, sans-serif" font-size="{{font}}" font-weight="{{weight}}" text-anchor="middle" dominant-baseline="middle">
-  <text x="360" y="{{y1}}" fill="#ffffff">Своё видео</text>
-  <text x="360" y="{{y2}}" fill="{{color2}}">Прямо сейчас</text>
+ <g id="caption" opacity="{{textOpacity}}" font-family="Arial, sans-serif" font-size="{{font}}" font-weight="{{weight}}" text-anchor="middle">
+  <text dominant-baseline="alphabetic" dy="{{baselineOffset}}" x="360" y="{{y1}}" fill="#ffffff">Своё видео</text>
+  <text dominant-baseline="alphabetic" dy="{{baselineOffset}}" x="360" y="{{y2}}" fill="{{color2}}">Прямо сейчас</text>
  </g>
 </svg>
