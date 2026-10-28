@@ -1,10 +1,21 @@
 /* Real browser consumers; all writes below are test-owned staged corrupt inputs. */
-// Safari's recorded WebM probe must participate in document media rendering.
-// A detached element can expose metadata but never finish the first seek.
+// Match the UI's document-bound probe and explicitly wait for decoded data.
+// loadedmetadata alone is not proof that a frame/seek pipeline is ready.
 window.mountRuntimeRecordedVideo = function (element, document = window.document) {
   element.style='position:fixed;right:100px;bottom:0;width:90px;height:160px;z-index:20000';
   document.body.append(element);
   return () => { element.pause();element.removeAttribute('src');element.load();element.remove(); };
+};
+window.waitRuntimeVideoFrame = function (element, timeoutMs = 4000) {
+  return new Promise((resolve,reject) => {
+    let finished=false;
+    const events=['loadeddata','canplay','canplaythrough','error'];
+    const finish=error=>{if(finished)return;finished=true;clearTimeout(timer);for(const event of events)element.removeEventListener(event,check);error?reject(error):resolve();};
+    const check=()=>{if(element.error)finish(Error('Recorded video frame decode error: '+element.error.code+' '+element.error.message));else if(element.readyState>=2&&element.videoWidth>0&&element.videoHeight>0)finish();};
+    const timer=setTimeout(()=>finish(Error('Runtime video frame readiness timeout')),timeoutMs);
+    for(const event of events)element.addEventListener(event,check);
+    check();
+  });
 };
 window.prepareRuntimeSessionChecks = async function () {
   const P=ShortsRenderPlan,A=ShortsRenderAdapters,S=ShortsRenderSessions,M=ShortsMediaSessions;
@@ -76,11 +87,12 @@ window.prepareRuntimeSessionChecks = async function () {
       const probe=()=>({connected:element.isConnected,readyState:element.readyState,networkState:element.networkState,seeking:element.seeking,currentTime:element.currentTime,error:element.error?{code:element.error.code,message:element.error.message}:null});
       try {
         const metadata=await new Promise((resolve,reject)=>{timer=setTimeout(()=>reject(Error('Runtime recorded metadata timed out')),15000);const check=()=>{if(element.error)reject(Error('Recorded video decode error'));else if(element.videoWidth&&Number.isFinite(element.duration)&&element.duration>0)resolve({width:element.videoWidth,height:element.videoHeight,duration:element.duration,type:result.mimeType});};for(const event of ['loadedmetadata','loadeddata','durationchange','error'])element.addEventListener(event,check);element.src=url;element.load();});clearTimeout(timer);
-        trace.metadata=metadata;trace.phase='frame-validation';
+        trace.metadata=metadata;trace.metadataProbe=probe();trace.phase='frame-readiness';
+        await waitRuntimeVideoFrame(element);trace.frameReadyProbe=probe();trace.phase='frame-validation';
         assert(metadata.width===720&&metadata.height===1280&&metadata.duration>5.5&&metadata.duration<7.5,'actual complete runtime export');
         const sample=document.createElement('canvas');sample.width=sample.height=1;const x=sample.getContext('2d'),colors=[];
         for(const t of [.5,2.7,4.8]){trace.seek=t;assert(element.isConnected,'recorded probe participates in document media rendering');trace.probe=probe();await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>{trace.probe=probe();reject(Error('Runtime video seek timeout'));},4000);element.onseeked=()=>{clearTimeout(timeout);trace.probe=probe();resolve();};element.currentTime=t;});x.drawImage(element,300,400,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
-        trace.colors=colors;const [r,b,g]=colors;assert(r[0]>r[2]*1.5&&b[2]>b[0]*1.5&&g[1]>g[0]*1.5,'actual session image order');return metadata;
+        trace.colors=colors;const [r,b,g]=colors;assert(r[0]>r[2]*1.5&&b[2]>b[0]*1.5&&g[1]>g[0]*1.5,'actual session image order');return {...metadata,frameReadiness:{metadata:trace.metadataProbe.readyState,seek:trace.frameReadyProbe.readyState}};
       }finally{clearTimeout(timer);unmount();URL.revokeObjectURL(url);}
     })();window.runtimeRecordPromise.catch(e=>{trace.recordFailure={phase:trace.phase,...ShortsRuntimeDiagnostics.failure(e)};});}));
     window.finishRuntimeSessionChecks=async()=>{
