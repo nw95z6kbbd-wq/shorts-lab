@@ -207,3 +207,12 @@ Canvas, зелёный — исходный SVG, жёлтый — пересеч
 как Actions artifacts; компактные маски и метрики также доступны в аннотациях.
 Исходный некорректный SVG сохраняется только как диагностический контрпример,
 не как проходящий эталон. Новых зависимостей нет.
+
+
+Safari WebDriver сам по себе не получает macOS sandbox extension для файлов в
+рабочем каталоге CI: обнаружен `safari-resource:/ErrorPage.html`, сообщение
+`Ignoring request to load this main resource because it is outside the sandbox`.
+Native-тест перед file:// навигацией открывает **конкретный тестовый документ**
+через стандартный `/usr/bin/open -g -a Safari` (LaunchServices). Изоляция Safari
+не отключается. После загрузки проверяется точное location.href; HTTP-подстановка,
+пропуск кадров или подмена приложения инъекцией модулей не допускаются.

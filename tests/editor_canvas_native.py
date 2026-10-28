@@ -1,6 +1,7 @@
 """Canonical editor profiles and actual test-owned Editor recording in Safari."""
 import functools
 import json
+import subprocess
 import threading
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
@@ -18,10 +19,16 @@ def check_native_editor_canvas(root,script,command,click):
     try:
         for entry in [f'http://127.0.0.1:{server.server_port}/index.html',(root/'index.html').as_uri(),(root/'downloads/Shorts-Studio.html').as_uri()]:
             print('::notice title=Native Safari Editor Canvas entry::'+entry,flush=True)
+            if entry.startswith('file:'):
+                # LaunchServices performs the normal user document-open handoff,
+                # granting Safari access to this specific local test document.
+                # WebDriver alone cannot mint that macOS sandbox extension.
+                from urllib.parse import unquote, urlparse
+                subprocess.run(['/usr/bin/open','-g','-a','Safari',unquote(urlparse(entry).path)],check=True)
             command('POST','/url',{'url':entry})
             execute('''const errors=[];addEventListener('error',e=>errors.push(e.message||e.target?.src||'script error'),true);addEventListener('unhandledrejection',e=>errors.push(ShortsRuntimeDiagnostics.failure(e.reason)));
               let editorReady='absent';if(window.ShortsEditorReady)Promise.resolve(ShortsEditorReady).then(()=>editorReady='ready',e=>{editorReady='rejected';errors.push(ShortsRuntimeDiagnostics.failure(e));});
-              const end=Date.now()+15000;while(!window.ShortsEditorCanvas||!window.ShortsVideoRestored){if(Date.now()>end)throw Error('Editor Canvas startup timeout '+JSON.stringify({expected:arguments[0],url:location.href,title:document.title,readyState:document.readyState,editorReady,modules:Object.fromEntries(['ShortsCore','ShortsEditorProfile','ShortsRenderPlan','ShortsStorage','ShortsEditor','ShortsEditorCanvas','ShortsVideoRenderer','ShortsVideoRestored'].map(k=>[k,typeof window[k]])),errors,body:document.body?.innerText.slice(0,500)}));await new Promise(r=>setTimeout(r,30));}return true;''',[entry])
+              const end=Date.now()+15000;while(!window.ShortsEditorCanvas||!window.ShortsVideoRestored){if(Date.now()>end)throw Error('Editor Canvas startup timeout '+JSON.stringify({expected:arguments[0],url:location.href,title:document.title,readyState:document.readyState,editorReady,modules:Object.fromEntries(['ShortsCore','ShortsEditorProfile','ShortsRenderPlan','ShortsStorage','ShortsEditor','ShortsEditorCanvas','ShortsVideoRenderer','ShortsVideoRestored'].map(k=>[k,typeof window[k]])),errors,body:document.body?.innerText.slice(0,500)}));await new Promise(r=>setTimeout(r,30));}if(location.href!==arguments[0])throw Error('Editor Canvas expected actual entry '+arguments[0]+' but got '+location.href);return true;''',[entry])
             script((root/'tests/editor-canvas-fixture.js').read_text())
             try:
                 result=execute('return await checkEditorCanvas(...arguments[0]);',[args])
