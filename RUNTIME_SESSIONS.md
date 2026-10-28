@@ -140,7 +140,7 @@ decodedBytes, imagePixels, cleanupPending, renderable и диагностиче�
 ASR/TTS, выравнивание и музыкальное зацикливание не добавлены.
 
 Editor теперь поддерживает каноническое оформление `editor-canvas-v1`:
-[EDITOR_CANVAS.md](EDITOR_CANVAS.md). Известные 27 сочетаний дают
+[EDITOR_CANVAS.md](EDITOR_CANVAS.md). Известные 27 сочетаний для непустого плана дают
 `status().renderable === true`; это поддержка профиля, не обещание вместить
 любой текст. Переполнение даёт `TEXT_OVERFLOW`, неизвестные стили —
 `STYLE_UNSUPPORTED`. Принудительный `supported: false` по-прежнему отклоняется

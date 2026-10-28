@@ -11,6 +11,7 @@ window.checkEditorCanvas = async function(spec,template,payload){
  for(const [selector,attribute,expected] of [['[data-theme]','theme',spec.themes],['[data-caption]','caption',spec.captions],['#captionSize option','value',spec.sizes]]){const actual=[...document.querySelectorAll(selector)].map(e=>attribute==='value'?e.value:e.dataset[attribute]).sort();check(JSON.stringify(actual)===JSON.stringify([...expected].sort()),'real UI values match all 27 canonical combinations');}
  await document.fonts.ready;const captures=[],summaries=[];
  for(const theme of spec.themes)for(const caption of spec.captions)for(const size of spec.sizes){
+  if(spec.onlyCase&&[theme,caption,size].join('-')!==spec.onlyCase)continue;
   const p=project(spec.text);p.style={theme,caption,size};const before=JSON.stringify(p),plan=A.fromEditor(p),calls=[],arcs=[],ellipses=[],plates=[];
   const arc=ctx.arc,ellipse=ctx.ellipse,round=ctx.roundRect;ctx.arc=function(...args){arcs.push(args);return arc.apply(this,args);};ctx.ellipse=function(...args){ellipses.push(args);return ellipse.apply(this,args);};ctx.roundRect=function(...args){plates.push(args);return round.apply(this,args);};
   const fill=ctx.fillText;ctx.fillText=function(text,x,y,...args){if(this.textBaseline==='middle')calls.push({text,x,y,font:this.font,color:this.fillStyle});return fill.call(this,text,x,y,...args);};
@@ -65,7 +66,7 @@ window.checkEditorCanvas = async function(spec,template,payload){
 
 window.rejectEditorVisualMutants = async function(spec,template,payload){
  const prototype=CanvasRenderingContext2D.prototype,fill=prototype.fillText,gradient=prototype.createLinearGradient;
- const minimal={...spec,themes:['cosmos'],captions:['accent'],sizes:['medium']};let rejected=0;
+ const minimal={...spec,onlyCase:'cosmos-accent-medium'};let rejected=0;
  for(const kind of ['shift','palette','background']){
   prototype.fillText=function(text,x,y,...args){if(kind==='shift'&&this.textBaseline==='middle')y+=30;if(kind==='palette'&&this.fillStyle==='#c4a2ff')this.fillStyle='#ff3333';return fill.call(this,text,x,y,...args);};
   prototype.createLinearGradient=function(...args){const g=gradient.apply(this,args),add=g.addColorStop;g.addColorStop=function(at,color){return add.call(this,at,kind==='background'&&color==='#121527'?'#ff0000':color);};return g;};
