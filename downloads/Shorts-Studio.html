@@ -143,6 +143,8 @@ body{overflow:hidden}
 .studio-image-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}.studio-image-controls button{font-size:10px;min-height:36px;padding:7px 9px}.studio-image-name,.studio-image-state{font-size:10px;line-height:1.6;color:#ac9ab9;overflow-wrap:anywhere;max-width:100%}.studio-image-state{width:100%}.studio-image-state[data-state=error]{color:#e9b399}
 @media(max-width:620px){.studio-visual-controls label{min-width:100%;}.studio-image-controls button{min-height:44px}}
 
+@media(min-width:761px){.editor-canvas-frame{width:min(100%,calc(var(--preview-media-height,600px)*9/16));flex-shrink:0}}
+
 </style>
 </head>
 <body>
@@ -2002,8 +2004,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let ctx;try{ctx=canvas.getContext('2d',{alpha:false});}catch(cause){throw Object.assign(E.error('CANVAS','Не удалось подготовить Canvas Editor.'),{cause});}
     if(!ctx)throw E.error('CANVAS','Не удалось подготовить Canvas Editor.');
     const frame=P.frameAt(plan,time),previous=plan.timeline[frame.scene.index-1];
+    const synthesis=canvas.style?.fontSynthesis;
     ctx.save();
     try{
+      // Scope canonical font synthesis to Editor; do not pollute a reused Video target.
+      if(canvas.style)canvas.style.fontSynthesis='initial';
       ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=ctx.shadowOffsetY=0;ctx.filter='none';ctx.setLineDash([]);
       const layout=textLayout(ctx,plan,frame.cue); // overflow fails before painting
       const duration=Math.min(440,(frame.scene.endMs-frame.scene.startMs)/3,previous?(previous.endMs-previous.startMs)/3:440),transition=frame.scene.transition==='none'?1:ease(frame.localMs/duration);
@@ -2035,7 +2040,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       ctx.textAlign='left';ctx.textBaseline='top';ctx.font='400 15px Arial, sans-serif';ctx.fillStyle='#ddd1e39c';ctx.fillText('У каждой истории есть начало',42.5,1220);ctx.font='400 35px Arial, sans-serif';ctx.fillStyle='#dcc3ed';ctx.fillText('✦',650,1200);
       return {sceneId:frame.scene.id,layout,segments};
-    }finally{ctx.restore();}
+    }finally{ctx.restore();if(canvas.style)canvas.style.fontSynthesis=synthesis;}
   }
   window.ShortsEditorCanvas=Object.freeze({render});
 })();
@@ -2772,9 +2777,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const MAX_DATA_BYTES = 16 * 1048576;
   const error = (code,message,cause) => Object.assign(new Error(message,cause?{cause}:undefined),{code});
   let sequence=0;
+  const encoder=new TextEncoder(),receipts=new WeakMap();
   function immutable(value,budget={bytes:0},ancestors=new Set()) {
     const charge=n=>{budget.bytes+=n;if(budget.bytes>MAX_DATA_BYTES)throw error('DATA_BUDGET','Снимок и план превышают технический бюджет JSON 16 МиБ.');};
-    const stringBytes=text=>{if(text.length>MAX_DATA_BYTES-budget.bytes)charge(MAX_DATA_BYTES+1);return new TextEncoder().encode(JSON.stringify(text)).length;};
+    const stringBytes=(text,key=false)=>{if(text.length>MAX_DATA_BYTES-budget.bytes)charge(MAX_DATA_BYTES+1);const cache=key?(budget.keys||=new Map()):(budget.strings||=new Map());if(cache.has(text))return cache.get(text);const size=encoder.encode(JSON.stringify(text)).length;if(cache.size<128)cache.set(text,size);return size;};
     if(value===null || typeof value==='boolean'){charge(value===null?4:value?4:5);return value;}
     if(typeof value==='number'){if(!Number.isFinite(value))throw error('DATA','В снимке есть нечисловое значение.');charge(JSON.stringify(value).length);return value;}
     if(typeof value==='string'){charge(stringBytes(value));return value;}
@@ -2785,7 +2791,7 @@ document.addEventListener("DOMContentLoaded", () => {
     for(const key of keys){
       const descriptor=Object.getOwnPropertyDescriptor(value,key);
       if(typeof key!=='string'||!descriptor.enumerable||!Object.hasOwn(descriptor,'value'))throw error('DATA','Свойства снимка должны быть обычными данными.');
-      if(!array)charge(stringBytes(key)+1);
+      if(!array)charge(stringBytes(key,true)+1);
       Object.defineProperty(result,key,{value:immutable(descriptor.value,budget,ancestors),enumerable:true,writable:true,configurable:true});
     }
     ancestors.delete(value);return Object.freeze(result);
@@ -2797,7 +2803,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function create({slot,project,plan,projectId=project?.id,contentRevision,savedRevision=null,limits,signal,previewTimeMs=null}={}) {
     if(!['editor','video'].includes(slot)||typeof projectId!=='string'||!projectId||!Number.isSafeInteger(contentRevision)||contentRevision<0||(savedRevision!==null&&(!Number.isSafeInteger(savedRevision)||savedRevision<0)))throw error('IDENTITY','Укажите независимые slot, projectId, contentRevision и savedRevision (или null).');
     if(previewTimeMs!==null&&(!Number.isFinite(previewTimeMs)||previewTimeMs<0))throw error('OFFSET','Некорректная позиция кадра.');
-    const budget={bytes:0},snapshot=immutable(project,budget),frozenPlan=immutable(plan,budget);
+    const certified=receipts.get(project)?.get(plan),budget={bytes:certified??0};
+    const snapshot=certified===undefined?immutable(project,budget):project,frozenPlan=certified===undefined?immutable(plan,budget):plan;
     if(slot==='editor'&&snapshot.id!==projectId)throw error('IDENTITY','Идентификатор снимка Студии не совпадает с владельцем сессии.');
     let expected;try{expected=slot==='editor'?io.adapters.fromEditor(snapshot):io.adapters.fromVideo(snapshot);}catch(e){throw e.code?e:error('PROJECT',e.message||'Неподдерживаемые данные проекта.',e);}
     if(!io.plan.isPlan(frozenPlan)||!same(expected,frozenPlan))throw error('PLAN_MISMATCH','RenderPlan не соответствует слоту и этой редакции снимка проекта.');
@@ -2876,7 +2883,7 @@ document.addEventListener("DOMContentLoaded", () => {
       playAudio,record,cancel,dispose:()=>close(false),
       status(){const s=media.status();return Object.freeze({...s,state:s.state==='ready'&&s.consumers?'use':s.state,identity,renderable,disposed,dataBytes:budget.bytes,neededMedia:needed.size,previewSceneId:windowFrame?.scene.id||null,ownedConsumers:uses.size,error:cleanupFailure?{code:cleanupFailure.code,message:cleanupFailure.message}:s.error});},toJSON:noJSON});
   }
-  return Object.freeze({create,snapshotData:(project,plan)=>{const budget={bytes:0};return Object.freeze({project:immutable(project,budget),plan:immutable(plan,budget)});},createPreview:options=>{if(!Number.isFinite(options?.timeMs)||options.timeMs<0)throw error('OFFSET','Укажите позицию кадра в миллисекундах.');return create({...options,previewTimeMs:options.timeMs});},MAX_DATA_BYTES});
+  return Object.freeze({create,snapshotData:(project,plan)=>{const budget={bytes:0};const data=Object.freeze({project:immutable(project,budget),plan:immutable(plan,budget)});if(!data.project||typeof data.project!=='object'||!data.plan||typeof data.plan!=='object')throw error('DATA','Снимок проекта и план должны быть JSON-объектами.');receipts.set(data.project,new WeakMap([[data.plan,budget.bytes]]));return data;},createPreview:options=>{if(!Number.isFinite(options?.timeMs)||options.timeMs<0)throw error('OFFSET','Укажите позицию кадра в миллисекундах.');return create({...options,previewTimeMs:options.timeMs});},MAX_DATA_BYTES});
 });
 
 }, { once: true });
@@ -2892,7 +2899,7 @@ document.addEventListener("DOMContentLoaded", () => {
  // One controller, one media owner at a time, latest request wins. A native
  // decoder may finish after cancellation; its owner must actually close first.
  function create({canvas,onState=()=>{}}){
-  let active=null,desired=null,serial=0,closed=false,pumping=false,waiters=[];
+  let active=null,desired=null,data=null,serial=0,closed=false,pumping=false,waiters=[];
   const notify=(state,error=null,info={})=>onState({state,error,...info});
   function settle(token,value){const rest=[];for(const w of waiters){if(w.token===token)w.resolve(value);else rest.push(w);}waiters=rest;}
   function stop(){serial++;desired=null;for(const w of waiters)w.resolve(false);waiters=[];active?.session.cancel().catch(()=>{});}
@@ -2922,17 +2929,17 @@ document.addEventListener("DOMContentLoaded", () => {
   function draw({project,plan,time,revision}){
    if(closed)return Promise.resolve(false);
    let frame;try{frame=io.plan.frameAt(plan,time);}catch(error){stop();notify('error',error);return Promise.resolve(false);}
-   const key=project.id+'\0'+revision+'\0'+frame.scene.id;
+   const key=JSON.stringify([project.id,revision,frame.scene.id]);
    if(active?.key===key&&active.session.status().state==='ready'&&!pumping){
     try{active.session.renderFrame(canvas,time);notify('ready',null,{timeMs:time,sceneId:frame.scene.id});return Promise.resolve(true);}catch(error){stop();notify('error',error);return Promise.resolve(false);}
    }
    if(desired?.key===key){desired.time=time;return new Promise(resolve=>waiters.push({token:desired.token,resolve}));}
    stop();notify('loading');const token=serial;
    // Detached data belongs to this request. UI edits cannot mutate preparation.
-   try{desired={key,token,time,revision,...io.runtime.snapshotData(project,plan)};}catch(error){notify('error',error);return Promise.resolve(false);}
+   try{if(!data||data.id!==project.id||data.revision!==revision||data.source!==plan)data={id:project.id,revision,source:plan,snapshot:io.runtime.snapshotData(project,plan)};desired={key,token,time,revision,...data.snapshot};}catch(error){notify('error',error);return Promise.resolve(false);}
    const result=new Promise(resolve=>waiters.push({token,resolve}));pump().catch(error=>{notify('error',error);stop();});return result;
   }
-  return Object.freeze({draw,suspend(){stop();const closing=active?.session.dispose()||Promise.resolve();closing.finally(()=>{if(!desired)active=null;});return closing;},async dispose(){closed=true;stop();await active?.session.dispose();active=null;},status:()=>({requestGeneration:serial,active:active?.session.status()||null,preparing:pumping,waiting:waiters.length})});
+  return Object.freeze({draw,suspend(){stop();data=null;const closing=active?.session.dispose()||Promise.resolve();closing.finally(()=>{if(!desired)active=null;});return closing;},async dispose(){closed=true;stop();data=null;await active?.session.dispose();active=null;},status:()=>({requestGeneration:serial,active:active?.session.status()||null,preparing:pumping,waiting:waiters.length})});
  }
  return Object.freeze({create});
 });
@@ -2944,10 +2951,31 @@ document.addEventListener("DOMContentLoaded", () => {
 (function(root,factory){
  'use strict';
  if(typeof module==='object'&&module.exports)module.exports=factory;
- else root.ShortsEditorImages=factory({media:root.ShortsMediaSessions,storage:root.ShortsStorage,id:()=>root.ShortsCore.id()});
+ else root.ShortsEditorImages=factory({media:root.ShortsMediaSessions,storage:root.ShortsStorage,id:()=>root.ShortsCore.id(),crc32:bytes=>root.ShortsZip.crc32(bytes)});
 })(typeof globalThis!=='undefined'?globalThis:this,function(io){
  'use strict';
+ const failure=(code,message)=>Object.assign(new Error(message),{code});
  const MAX_FILE=15*1048576,MAX_PENDING=64*1048576;
+ const crc32=io.crc32||(typeof require==='function'?require('./zip-store.js').crc32:null);
+ async function checkPNG(file,current){
+  const signature=new Uint8Array(await file.slice(0,8).arrayBuffer());
+  if(![137,80,78,71,13,10,26,10].every((v,i)=>signature[i]===v))return;
+  let at=8,count=0,data=false;
+  while(at+12<=file.size){
+   if(!current())throw failure('CANCELLED','Проверка изображения отменена.');
+   if(++count>4096)throw failure('IMAGE_STRUCTURE','PNG содержит больше 4096 блоков. Пересохраните изображение для безопасной проверки.');
+   const head=new DataView(await file.slice(at,at+8).arrayBuffer()),size=head.getUint32(0),type=String.fromCharCode(...new Uint8Array(head.buffer,4,4));
+   if(at+size+12>file.size)throw failure('IMAGE_INTEGRITY','PNG обрезан или имеет неверную структуру.');
+   const bytes=new Uint8Array(await file.slice(at+4,at+8+size).arrayBuffer()),expected=new DataView(await file.slice(at+8+size,at+12+size).arrayBuffer()).getUint32(0);
+   if(await crc32(bytes)!==expected)throw failure('IMAGE_INTEGRITY','Нарушена контрольная сумма блока PNG. Оригинал не принят.');
+   if(count===1&&(type!=='IHDR'||size!==13))throw failure('IMAGE_STRUCTURE','В PNG отсутствует корректный заголовок IHDR.');
+   if(type==='IDAT')data=true;
+   at+=size+12;
+   if(type==='IEND'){if(size!==0||!data||at!==file.size)throw failure('IMAGE_STRUCTURE','Некорректное окончание PNG.');return;}
+  }
+  throw failure('IMAGE_INTEGRITY','PNG не содержит полного окончания IEND.');
+ }
+
  function create({owner,valid,accept,onState=()=>{}}){
   let generation=0,current=null,tail=Promise.resolve();const accepted=new Map();
   function cancel(){generation++;const old=current;current=null;if(old){old.session?.cancel().catch(()=>{});onState(old.sceneId,'cancelled');}return old?.session?.dispose()||Promise.resolve();}
@@ -2956,16 +2984,18 @@ document.addEventListener("DOMContentLoaded", () => {
    const operation=async()=>{
     if(token!==generation)return false;let session,id,attached=false;
     try{
-     if(!file||!file.size||file.size>MAX_FILE)throw Error('Выберите PNG, JPEG или WebP размером до 15 МиБ.');
-     if(file.name&&(file.name.length>200||/[\\/\u0000-\u001f\u007f]/.test(file.name)))throw Error('Имя изображения должно содержать до 200 символов без разделителей пути и управляющих знаков. Оригинал не изменён.');
-     if(file.type&&!['image/png','image/jpeg','image/webp','application/octet-stream'].includes(file.type))throw Error('Недопустимый MIME изображения. Выберите PNG, JPEG или WebP.');
+     if(!file||!file.size||file.size>MAX_FILE)throw failure('FILE_SIZE','Выберите PNG, JPEG или WebP размером до 15 МиБ.');
+     if(file.name&&(file.name.length>200||/[\\/\u0000-\u001f\u007f]/.test(file.name)))throw failure('MEDIA_NAME','Имя изображения должно содержать до 200 символов без разделителей пути и управляющих знаков. Оригинал не изменён.');
+     if(file.type&&!['image/png','image/jpeg','image/webp','application/octet-stream'].includes(file.type))throw failure('MEDIA_TYPE','Недопустимый MIME изображения. Выберите PNG, JPEG или WebP.');
      let pending=0;for(const [key,size] of accepted){if(!io.storage.pending(key))accepted.delete(key);else pending+=size;}
-     if(pending+file.size>MAX_PENDING)throw Error('Несохранённые оригиналы превышают 64 МиБ. Дождитесь успешного сохранения или сохраните ZIP; исходные данные не удалены.');
-     if(!valid(sceneId,projectId))return false;
+     if(pending+file.size>MAX_PENDING)throw failure('PENDING_BUDGET','Несохранённые оригиналы превышают 64 МиБ. Дождитесь успешного сохранения или сохраните ZIP; исходные данные не удалены.');
+     await checkPNG(file,()=>token===generation);
+     if(token!==generation)return false;
+     if(!valid(sceneId,projectId)){onState(sceneId,'cancelled');return false;}
      id=io.id();io.storage.stage(id,file,file.name||'Изображение','image');
      session=io.media.create({owner:{slot:'editor',projectId,contentRevision:token},limits:{maxImages:1}});request.session=session;
      await session.prepare([{id,kind:'image'}]);
-     if(token!==generation||!valid(sceneId,projectId))return false;
+     if(token!==generation||!valid(sceneId,projectId)){if(token===generation)onState(sceneId,'cancelled');return false;}
      attached=accept(sceneId,{id,name:file.name||'Изображение'})===true;
      if(attached){accepted.set(id,file.size);onState(sceneId,'ready');}return attached;
     }catch(error){if(token===generation)onState(sceneId,'error',error);return false;}
@@ -3018,9 +3048,10 @@ window.ShortsEditorReady = (async function () {
     if (state === 'loading') $('editorPreviewMessage').textContent = 'Подготавливаем кадр и исходные изображения…';
     else {
       const number = project.scenes.findIndex(s => s.id === project.selectedSceneId) + 1;
+      const sourceIndex = error?.assetId ? project.scenes.findIndex(s => s.imageId === error.assetId) : -1;
       $('editorPreviewMessage').textContent = error?.code === 'TEXT_OVERFLOW' ? 'Сцена ' + number + ': текст не помещается. Сократите текст, уменьшите размер или явно выберите группы субтитров.' :
-        (error?.message || 'Предпросмотр недоступен.') + (['MEMORY_BUDGET','IMAGE_BUDGET'].includes(error?.code) ? ' Используйте меньшие изображения или переход «Без перехода».' : '');
-      $('editorPreviewMessage').dataset.code = error?.code || 'EMPTY';
+        (sourceIndex >= 0 ? 'Исходник сцены ' + (sourceIndex + 1) + ': ' : '') + (error?.message || 'Предпросмотр недоступен.') + (['MEMORY_BUDGET','IMAGE_BUDGET'].includes(error?.code) ? ' Используйте меньшие изображения или переход «Без перехода».' : '');
+      $('editorPreviewMessage').dataset.code = error?.code || (state === 'empty' ? 'EMPTY' : 'PREVIEW');
       if (state === 'error') pausePlayback();
     }
   }
@@ -3357,14 +3388,14 @@ window.ShortsEditorReady = (async function () {
   }
 
   function renderPreview() {
-    const index = project.scenes.findIndex(scene => scene.id === project.selectedSceneId);
+    const index = timing.byId.get(project.selectedSceneId)?.index ?? -1;
     const scene = project.scenes[index];
     $('portrait').className = `editor-canvas-frame theme-${project.style.theme} caption-${project.style.caption} size-${project.style.size}`;
     $('portraitScene').textContent = scene ? String(index + 1).padStart(2, '0') + ' / ' + String(project.scenes.length).padStart(2, '0') : '00 / 00';
     const row = timing.byId.get(scene?.id)?.scene;
     const cue = row ? P.frameAt(timing.plan, Math.max(row.startMs, Math.min(row.endMs - 1, elapsedMs))).cue : null;
     const preview = $('previewText'); preview.hidden = project.subtitles?.enabled === false || !!timing.error;
-    preview.textContent = cue?.text || ''; // Accessible transcript, never a second visual renderer.
+    if (preview.textContent !== (cue?.text || '')) preview.textContent = cue?.text || ''; // Accessible transcript, never a second visual renderer.
     $('prevScene').disabled = index <= 0; $('nextScene').disabled = index < 0 || index >= project.scenes.length - 1;
     updatePlaybackUI();
     if (!editorVisible || document.hidden) return Promise.resolve(false);
@@ -3407,10 +3438,12 @@ window.ShortsEditorReady = (async function () {
       elapsedMs = Math.min(total, Math.max(0, Math.floor(now - playbackAnchor)));
       const value = P.frameAt(plan, elapsedMs);
       project = { ...project, selectedSceneId: value.scene.id }; updateSelectedScene();
+      const prepared = livePreview.status().active;
+      const reusable = prepared?.state === 'ready' && prepared.previewSceneId === value.scene.id && prepared.identity.contentRevision === previewRevision;
       const before = performance.now(), ready = await renderPreview();
       if (!playing || epoch !== playEpoch) return;
       // Resource preparation pauses the preview clock instead of skipping scenes.
-      playbackAnchor += performance.now() - before;
+      if (!reusable) playbackAnchor += performance.now() - before;
       if (!ready) { pausePlayback(); return; }
       updatePlaybackUI();
       if (elapsedMs >= total) { pausePlayback(); return; }
@@ -3539,7 +3572,7 @@ window.ShortsEditorReady = (async function () {
   document.querySelector('.brand').addEventListener('click', event => { event.preventDefault(); setView('script'); });
   $('scriptText').maxLength = 1000000;
   $('scriptText').addEventListener('input', event => {
-    project = { ...project, script: event.target.value };
+    project = { ...project, script: event.target.value }; previewRevision++;
     renderStats();
     changed();
   });

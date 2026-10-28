@@ -33,9 +33,10 @@ window.ShortsEditorReady = (async function () {
     if (state === 'loading') $('editorPreviewMessage').textContent = 'Подготавливаем кадр и исходные изображения…';
     else {
       const number = project.scenes.findIndex(s => s.id === project.selectedSceneId) + 1;
+      const sourceIndex = error?.assetId ? project.scenes.findIndex(s => s.imageId === error.assetId) : -1;
       $('editorPreviewMessage').textContent = error?.code === 'TEXT_OVERFLOW' ? 'Сцена ' + number + ': текст не помещается. Сократите текст, уменьшите размер или явно выберите группы субтитров.' :
-        (error?.message || 'Предпросмотр недоступен.') + (['MEMORY_BUDGET','IMAGE_BUDGET'].includes(error?.code) ? ' Используйте меньшие изображения или переход «Без перехода».' : '');
-      $('editorPreviewMessage').dataset.code = error?.code || 'EMPTY';
+        (sourceIndex >= 0 ? 'Исходник сцены ' + (sourceIndex + 1) + ': ' : '') + (error?.message || 'Предпросмотр недоступен.') + (['MEMORY_BUDGET','IMAGE_BUDGET'].includes(error?.code) ? ' Используйте меньшие изображения или переход «Без перехода».' : '');
+      $('editorPreviewMessage').dataset.code = error?.code || (state === 'empty' ? 'EMPTY' : 'PREVIEW');
       if (state === 'error') pausePlayback();
     }
   }
@@ -372,14 +373,14 @@ window.ShortsEditorReady = (async function () {
   }
 
   function renderPreview() {
-    const index = project.scenes.findIndex(scene => scene.id === project.selectedSceneId);
+    const index = timing.byId.get(project.selectedSceneId)?.index ?? -1;
     const scene = project.scenes[index];
     $('portrait').className = `editor-canvas-frame theme-${project.style.theme} caption-${project.style.caption} size-${project.style.size}`;
     $('portraitScene').textContent = scene ? String(index + 1).padStart(2, '0') + ' / ' + String(project.scenes.length).padStart(2, '0') : '00 / 00';
     const row = timing.byId.get(scene?.id)?.scene;
     const cue = row ? P.frameAt(timing.plan, Math.max(row.startMs, Math.min(row.endMs - 1, elapsedMs))).cue : null;
     const preview = $('previewText'); preview.hidden = project.subtitles?.enabled === false || !!timing.error;
-    preview.textContent = cue?.text || ''; // Accessible transcript, never a second visual renderer.
+    if (preview.textContent !== (cue?.text || '')) preview.textContent = cue?.text || ''; // Accessible transcript, never a second visual renderer.
     $('prevScene').disabled = index <= 0; $('nextScene').disabled = index < 0 || index >= project.scenes.length - 1;
     updatePlaybackUI();
     if (!editorVisible || document.hidden) return Promise.resolve(false);
@@ -422,10 +423,12 @@ window.ShortsEditorReady = (async function () {
       elapsedMs = Math.min(total, Math.max(0, Math.floor(now - playbackAnchor)));
       const value = P.frameAt(plan, elapsedMs);
       project = { ...project, selectedSceneId: value.scene.id }; updateSelectedScene();
+      const prepared = livePreview.status().active;
+      const reusable = prepared?.state === 'ready' && prepared.previewSceneId === value.scene.id && prepared.identity.contentRevision === previewRevision;
       const before = performance.now(), ready = await renderPreview();
       if (!playing || epoch !== playEpoch) return;
       // Resource preparation pauses the preview clock instead of skipping scenes.
-      playbackAnchor += performance.now() - before;
+      if (!reusable) playbackAnchor += performance.now() - before;
       if (!ready) { pausePlayback(); return; }
       updatePlaybackUI();
       if (elapsedMs >= total) { pausePlayback(); return; }
@@ -554,7 +557,7 @@ window.ShortsEditorReady = (async function () {
   document.querySelector('.brand').addEventListener('click', event => { event.preventDefault(); setView('script'); });
   $('scriptText').maxLength = 1000000;
   $('scriptText').addEventListener('input', event => {
-    project = { ...project, script: event.target.value };
+    project = { ...project, script: event.target.value }; previewRevision++;
     renderStats();
     changed();
   });

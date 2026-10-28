@@ -29,6 +29,8 @@ window.editorLiveVerifyProfiles=async function(captures,spec){
     throw Error('Actual UI pixels differ from independently accepted '+entry.name+' '+JSON.stringify(editorLiveFailure.details));
    }count++;
  }
+ const attached=document.createElement('canvas');attached.width=720;attached.height=1280;attached.style.fontSynthesis='none';document.body.append(attached);
+ try{const video=ShortsRenderAdapters.fromVideo(ShortsVideoCore.demo());ShortsVideoRenderer.render(attached,video,0);const before=await editorLiveHash(attached);ShortsVideoRenderer.render(attached,ShortsRenderAdapters.fromEditor(ShortsEditor.backupSnapshot()),0);if(attached.style.fontSynthesis!=='none'||await editorLiveHash(attached)!==await editorLiveHash())throw Error('Recorder Canvas inherited noncanonical font synthesis');ShortsVideoRenderer.render(attached,video,0);if(await editorLiveHash(attached)!==before)throw Error('Editor polluted the reused Video Canvas');}finally{attached.remove();}
  return {combinations:count,comparison:'actual UI RGBA exactly matches independently SVG-validated profiles'};
 };
 window.editorLiveFrameReference=async function(payload){

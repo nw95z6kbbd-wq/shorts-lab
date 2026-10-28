@@ -63,7 +63,25 @@ test('upload validation and the explicit staged-byte budget never accept or disc
  const f=fixture(),p=project(),events=[];let seq=0;const uploads=imagesFactory({media:f.media,storage:f.storage,id:()=> 'pending'+ ++seq}).create({owner:()=>p.id,valid:()=>true,accept:()=>true,onState:(id,s,e)=>events.push({s,e})});
  assert.equal(await uploads.load('s0',new Blob([png],{type:'image/svg+xml'})),false);assert.equal(f.stages.size,0);
  assert.equal(await uploads.load('s0',new Blob([png],{type:'image/jpeg'})),false);assert.equal(f.stages.size,0);
- const large=new Blob([png,new Uint8Array(15*1048576-png.length)],{type:'image/png'});
+ const pad=Buffer.alloc(15*1048576-png.length-12),type=Buffer.from('tEXt'),length=Buffer.alloc(4),crc=Buffer.alloc(4);length.writeUInt32BE(pad.length);crc.writeUInt32BE(await require('../js/zip-store.js').crc32(Buffer.concat([type,pad])));
+ const large=new Blob([png.subarray(0,png.length-12),length,type,pad,crc,png.subarray(png.length-12)],{type:'image/png'});
  for(let i=0;i<4;i++)assert.equal(await uploads.load('s'+i,large),true);
  const before=[...f.stages.keys()];assert.equal(await uploads.load('s4',large),false);assert.deepEqual([...f.stages.keys()],before);assert.match(events.at(-1).e.message,/64 МиБ/);await uploads.dispose();assert.equal(f.media.statistics().residentBytes,0);assert.deepEqual([...f.stages.keys()],before);
+});
+
+test('PNG integrity failures and cancellation during checksum do not stage or decode a provisional original',async()=>{
+ const f=fixture(),p=project(),events=[],checksum=require('../js/zip-store.js').crc32;let calls=0;
+ const broken=Buffer.from(png);broken[20]^=1;
+ const images=imagesFactory({media:f.media,storage:f.storage,id:()=>{calls++;return 'never';}}).create({owner:()=>p.id,valid:()=>true,accept:()=>{throw Error('must not accept');},onState:(id,s,e)=>events.push({s,e})});
+ assert.equal(await images.load('s0',new Blob([broken],{type:'image/png'})),false);assert.equal(events.at(-1).e.code,'IMAGE_INTEGRITY');assert.equal(f.stages.size,0);assert.equal(f.decodes.length,0);assert.equal(calls,0);await images.dispose();
+ const g=gate(),entered=gate();const pending=imagesFactory({media:f.media,storage:f.storage,id:()=>{calls++;return 'never';},crc32:async bytes=>{entered.resolve();await g.promise;return checksum(bytes);}}).create({owner:()=>p.id,valid:()=>true,accept:()=>true});
+ const loading=pending.load('s0',new Blob([png],{type:'image/png'}));await entered.promise;const closing=pending.cancel();g.resolve();await closing;assert.equal(await loading,false);assert.equal(calls,0);assert.equal(f.stages.size,0);await pending.dispose();assert.equal(f.media.statistics().sessions,0);
+});
+
+test('certified JSON snapshots may be shared across windows without sharing resources or trusting shallow freezes',async()=>{
+ const f=fixture(),p=project();f.seed(p);const plan=A.fromEditor(p),data=f.runtime.snapshotData(p,plan);p.scenes[0].text='later edit';
+ const a=f.runtime.createPreview({...opts(p),project:data.project,plan:data.plan,timeMs:0}),b=f.runtime.createPreview({...opts(p),project:data.project,plan:data.plan,timeMs:1000});
+ assert.equal(a.snapshot,data.project);assert.equal(b.snapshot,data.project);assert.equal(a.plan,data.plan);assert.notEqual(a.snapshot.scenes[0].text,p.scenes[0].text);assert.equal(a.status().dataBytes,Buffer.byteLength(JSON.stringify(data.project))+Buffer.byteLength(JSON.stringify(data.plan)));
+ await a.prepare();await b.prepare();const x=a.acquire(),y=b.acquire();assert.notEqual(x.resources.images.get('image0'),y.resources.images.get('image0'));x.release();y.release();await a.dispose();await b.dispose();assert.equal(f.media.statistics().sessions,0);
+ const own=Object.freeze({...p}),valid=A.fromEditor(p),c=f.runtime.createPreview({...opts(p),project:own,plan:valid});assert.notEqual(c.snapshot,own);await c.dispose();assert.throws(()=>f.runtime.snapshotData(null,null),{code:'DATA'});
 });

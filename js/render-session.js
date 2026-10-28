@@ -12,9 +12,10 @@
   const MAX_DATA_BYTES = 16 * 1048576;
   const error = (code,message,cause) => Object.assign(new Error(message,cause?{cause}:undefined),{code});
   let sequence=0;
+  const encoder=new TextEncoder(),receipts=new WeakMap();
   function immutable(value,budget={bytes:0},ancestors=new Set()) {
     const charge=n=>{budget.bytes+=n;if(budget.bytes>MAX_DATA_BYTES)throw error('DATA_BUDGET','Снимок и план превышают технический бюджет JSON 16 МиБ.');};
-    const stringBytes=text=>{if(text.length>MAX_DATA_BYTES-budget.bytes)charge(MAX_DATA_BYTES+1);return new TextEncoder().encode(JSON.stringify(text)).length;};
+    const stringBytes=(text,key=false)=>{if(text.length>MAX_DATA_BYTES-budget.bytes)charge(MAX_DATA_BYTES+1);const cache=key?(budget.keys||=new Map()):(budget.strings||=new Map());if(cache.has(text))return cache.get(text);const size=encoder.encode(JSON.stringify(text)).length;if(cache.size<128)cache.set(text,size);return size;};
     if(value===null || typeof value==='boolean'){charge(value===null?4:value?4:5);return value;}
     if(typeof value==='number'){if(!Number.isFinite(value))throw error('DATA','В снимке есть нечисловое значение.');charge(JSON.stringify(value).length);return value;}
     if(typeof value==='string'){charge(stringBytes(value));return value;}
@@ -25,7 +26,7 @@
     for(const key of keys){
       const descriptor=Object.getOwnPropertyDescriptor(value,key);
       if(typeof key!=='string'||!descriptor.enumerable||!Object.hasOwn(descriptor,'value'))throw error('DATA','Свойства снимка должны быть обычными данными.');
-      if(!array)charge(stringBytes(key)+1);
+      if(!array)charge(stringBytes(key,true)+1);
       Object.defineProperty(result,key,{value:immutable(descriptor.value,budget,ancestors),enumerable:true,writable:true,configurable:true});
     }
     ancestors.delete(value);return Object.freeze(result);
@@ -37,7 +38,8 @@
   function create({slot,project,plan,projectId=project?.id,contentRevision,savedRevision=null,limits,signal,previewTimeMs=null}={}) {
     if(!['editor','video'].includes(slot)||typeof projectId!=='string'||!projectId||!Number.isSafeInteger(contentRevision)||contentRevision<0||(savedRevision!==null&&(!Number.isSafeInteger(savedRevision)||savedRevision<0)))throw error('IDENTITY','Укажите независимые slot, projectId, contentRevision и savedRevision (или null).');
     if(previewTimeMs!==null&&(!Number.isFinite(previewTimeMs)||previewTimeMs<0))throw error('OFFSET','Некорректная позиция кадра.');
-    const budget={bytes:0},snapshot=immutable(project,budget),frozenPlan=immutable(plan,budget);
+    const certified=receipts.get(project)?.get(plan),budget={bytes:certified??0};
+    const snapshot=certified===undefined?immutable(project,budget):project,frozenPlan=certified===undefined?immutable(plan,budget):plan;
     if(slot==='editor'&&snapshot.id!==projectId)throw error('IDENTITY','Идентификатор снимка Студии не совпадает с владельцем сессии.');
     let expected;try{expected=slot==='editor'?io.adapters.fromEditor(snapshot):io.adapters.fromVideo(snapshot);}catch(e){throw e.code?e:error('PROJECT',e.message||'Неподдерживаемые данные проекта.',e);}
     if(!io.plan.isPlan(frozenPlan)||!same(expected,frozenPlan))throw error('PLAN_MISMATCH','RenderPlan не соответствует слоту и этой редакции снимка проекта.');
@@ -116,5 +118,5 @@
       playAudio,record,cancel,dispose:()=>close(false),
       status(){const s=media.status();return Object.freeze({...s,state:s.state==='ready'&&s.consumers?'use':s.state,identity,renderable,disposed,dataBytes:budget.bytes,neededMedia:needed.size,previewSceneId:windowFrame?.scene.id||null,ownedConsumers:uses.size,error:cleanupFailure?{code:cleanupFailure.code,message:cleanupFailure.message}:s.error});},toJSON:noJSON});
   }
-  return Object.freeze({create,snapshotData:(project,plan)=>{const budget={bytes:0};return Object.freeze({project:immutable(project,budget),plan:immutable(plan,budget)});},createPreview:options=>{if(!Number.isFinite(options?.timeMs)||options.timeMs<0)throw error('OFFSET','Укажите позицию кадра в миллисекундах.');return create({...options,previewTimeMs:options.timeMs});},MAX_DATA_BYTES});
+  return Object.freeze({create,snapshotData:(project,plan)=>{const budget={bytes:0};const data=Object.freeze({project:immutable(project,budget),plan:immutable(plan,budget)});if(!data.project||typeof data.project!=='object'||!data.plan||typeof data.plan!=='object')throw error('DATA','Снимок проекта и план должны быть JSON-объектами.');receipts.set(data.project,new WeakMap([[data.plan,budget.bytes]]));return data;},createPreview:options=>{if(!Number.isFinite(options?.timeMs)||options.timeMs<0)throw error('OFFSET','Укажите позицию кадра в миллисекундах.');return create({...options,previewTimeMs:options.timeMs});},MAX_DATA_BYTES});
 });

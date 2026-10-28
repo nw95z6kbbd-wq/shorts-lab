@@ -1,12 +1,24 @@
 {
   "js/render-session.js": [
     {
+      "old": "",
+      "new": "  const encoder=new TextEncoder(),receipts=new WeakMap();\n"
+    },
+    {
+      "old": "    const stringBytes=text=>{if(text.length>MAX_DATA_BYTES-budget.bytes)charge(MAX_DATA_BYTES+1);return new TextEncoder().encode(JSON.stringify(text)).length;};\n",
+      "new": "    const stringBytes=(text,key=false)=>{if(text.length>MAX_DATA_BYTES-budget.bytes)charge(MAX_DATA_BYTES+1);const cache=key?(budget.keys||=new Map()):(budget.strings||=new Map());if(cache.has(text))return cache.get(text);const size=encoder.encode(JSON.stringify(text)).length;if(cache.size<128)cache.set(text,size);return size;};\n"
+    },
+    {
+      "old": "      if(!array)charge(stringBytes(key)+1);\n",
+      "new": "      if(!array)charge(stringBytes(key,true)+1);\n"
+    },
+    {
       "old": "  function create({slot,project,plan,projectId=project?.id,contentRevision,savedRevision=null,limits,signal}={}) {\n",
       "new": "  function create({slot,project,plan,projectId=project?.id,contentRevision,savedRevision=null,limits,signal,previewTimeMs=null}={}) {\n"
     },
     {
-      "old": "",
-      "new": "    if(previewTimeMs!==null&&(!Number.isFinite(previewTimeMs)||previewTimeMs<0))throw error('OFFSET','Некорректная позиция кадра.');\n"
+      "old": "    const budget={bytes:0},snapshot=immutable(project,budget),frozenPlan=immutable(plan,budget);\n",
+      "new": "    if(previewTimeMs!==null&&(!Number.isFinite(previewTimeMs)||previewTimeMs<0))throw error('OFFSET','Некорректная позиция кадра.');\n    const certified=receipts.get(project)?.get(plan),budget={bytes:certified??0};\n    const snapshot=certified===undefined?immutable(project,budget):project,frozenPlan=certified===undefined?immutable(plan,budget):plan;\n"
     },
     {
       "old": "",
@@ -34,7 +46,7 @@
     },
     {
       "old": "  return Object.freeze({create,MAX_DATA_BYTES});\n",
-      "new": "  return Object.freeze({create,snapshotData:(project,plan)=>{const budget={bytes:0};return Object.freeze({project:immutable(project,budget),plan:immutable(plan,budget)});},createPreview:options=>{if(!Number.isFinite(options?.timeMs)||options.timeMs<0)throw error('OFFSET','Укажите позицию кадра в миллисекундах.');return create({...options,previewTimeMs:options.timeMs});},MAX_DATA_BYTES});\n"
+      "new": "  return Object.freeze({create,snapshotData:(project,plan)=>{const budget={bytes:0};const data=Object.freeze({project:immutable(project,budget),plan:immutable(plan,budget)});if(!data.project||typeof data.project!=='object'||!data.plan||typeof data.plan!=='object')throw error('DATA','Снимок проекта и план должны быть JSON-объектами.');receipts.set(data.project,new WeakMap([[data.plan,budget.bytes]]));return data;},createPreview:options=>{if(!Number.isFinite(options?.timeMs)||options.timeMs<0)throw error('OFFSET','Укажите позицию кадра в миллисекундах.');return create({...options,previewTimeMs:options.timeMs});},MAX_DATA_BYTES});\n"
     }
   ],
   "js/media-session.js": [
@@ -47,6 +59,20 @@
     {
       "old": "",
       "new": "    if(['image','visual','camera','transition'].includes(type)){\n      const next=C.upgradeProject(project),index=next.scenes.findIndex(s=>s.id===id);if(index<0)throw failure('Сцена больше не существует.');\n      if(type==='image'){\n        if(value!==null&&(!value||typeof value.id!=='string'||typeof value.name!=='string'))throw failure('Неверная ссылка на изображение.');\n        Object.assign(next.scenes[index],{imageId:value?.id||null,imageName:value?.name||'',visual:value?'image':'animated'});\n      }else next.scenes[index][type]=value;\n      return C.parseProject(next); // strict existing DTO validation, no new schema\n    }\n"
+    }
+  ],
+  "js/editor-canvas.js": [
+    {
+      "old": "",
+      "new": "    const synthesis=canvas.style?.fontSynthesis;\n"
+    },
+    {
+      "old": "",
+      "new": "      // Scope canonical font synthesis to Editor; do not pollute a reused Video target.\n      if(canvas.style)canvas.style.fontSynthesis='initial';\n"
+    },
+    {
+      "old": "    }finally{ctx.restore();}\n",
+      "new": "    }finally{ctx.restore();if(canvas.style)canvas.style.fontSynthesis=synthesis;}\n"
     }
   ]
 }

@@ -49,8 +49,11 @@
     let ctx;try{ctx=canvas.getContext('2d',{alpha:false});}catch(cause){throw Object.assign(E.error('CANVAS','Не удалось подготовить Canvas Editor.'),{cause});}
     if(!ctx)throw E.error('CANVAS','Не удалось подготовить Canvas Editor.');
     const frame=P.frameAt(plan,time),previous=plan.timeline[frame.scene.index-1];
+    const synthesis=canvas.style?.fontSynthesis;
     ctx.save();
     try{
+      // Scope canonical font synthesis to Editor; do not pollute a reused Video target.
+      if(canvas.style)canvas.style.fontSynthesis='initial';
       ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=ctx.shadowOffsetY=0;ctx.filter='none';ctx.setLineDash([]);
       const layout=textLayout(ctx,plan,frame.cue); // overflow fails before painting
       const duration=Math.min(440,(frame.scene.endMs-frame.scene.startMs)/3,previous?(previous.endMs-previous.startMs)/3:440),transition=frame.scene.transition==='none'?1:ease(frame.localMs/duration);
@@ -82,7 +85,7 @@
       }
       ctx.textAlign='left';ctx.textBaseline='top';ctx.font='400 15px Arial, sans-serif';ctx.fillStyle='#ddd1e39c';ctx.fillText('У каждой истории есть начало',42.5,1220);ctx.font='400 35px Arial, sans-serif';ctx.fillStyle='#dcc3ed';ctx.fillText('✦',650,1200);
       return {sceneId:frame.scene.id,layout,segments};
-    }finally{ctx.restore();}
+    }finally{ctx.restore();if(canvas.style)canvas.style.fontSynthesis=synthesis;}
   }
   window.ShortsEditorCanvas=Object.freeze({render});
 })();

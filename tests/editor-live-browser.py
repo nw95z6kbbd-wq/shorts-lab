@@ -1,5 +1,5 @@
 """Real single-Canvas Editor UI, independently validated profiles, originals and lifecycle."""
-import functools,json,os,shutil,tempfile,threading,time
+import functools,json,os,shutil,tempfile,threading,time,struct
 from pathlib import Path
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from playwright.sync_api import sync_playwright,expect
@@ -48,8 +48,9 @@ def run():
    page.evaluate('editorTimingWaitForSave()');before=page.evaluate('studioUiSnapshot()');page.locator('.studio-move').nth(1).click();page.evaluate('editorTimingWaitForSave()');after=page.evaluate('studioUiSnapshot()');assert {s['id']:s for s in before['editor']['scenes']}=={s['id']:s for s in after['editor']['scenes']};assert before['hashes']==after['hashes'] and before['video']==after['video']
    # Invalid content and declared MIME do not replace the saved original.
    old=page.evaluate('ShortsEditor.backupSnapshot().scenes[0].imageId')
-   for content,mime in [(b'not a PNG','image/png'),(__import__('base64').b64decode(payload[0]['base64']),'image/jpeg')]:
-    page.locator('.studio-image-controls input').first.set_input_files({'name':'bad.png','mimeType':mime,'buffer':content});page.wait_for_function('document.querySelector(".studio-image-state").dataset.state==="error"');assert page.evaluate('ShortsEditor.backupSnapshot().scenes[0].imageId')==old;assert page.evaluate('studioUiSnapshot()')['hashes']==after['hashes']
+   corrupt=__import__('base64').b64decode(payload[0]['base64'])[:33]+struct.pack('>I',3)+b'IDATbad'+bytes(4)+struct.pack('>I',0)+b'IEND'+bytes(4)
+   for content,mime in [(b'not a PNG','image/png'),(__import__('base64').b64decode(payload[0]['base64']),'image/jpeg'),(corrupt,'image/png')]:
+    page.locator('.studio-image-controls input').first.set_input_files({'name':'bad.png','mimeType':mime,'buffer':content});page.wait_for_function('["error","ready"].includes(document.querySelector(".studio-image-state").dataset.state)');assert page.locator('.studio-image-state').first.get_attribute('data-state')=='error', page.locator('.studio-image-state').first.inner_text();assert page.evaluate('ShortsEditor.backupSnapshot().scenes[0].imageId')==old;assert page.evaluate('studioUiSnapshot()')['hashes']==after['hashes']
    page.locator('#sceneList .scene-select').first.click();page.evaluate('editorLiveReady()')
    # Replace, retain an inactive image, restore it, then explicit removal.
    f=payload[2];page.locator('.studio-image-controls input').first.set_input_files({'name':f['name'],'mimeType':f['type'],'buffer':__import__('base64').b64decode(f['base64'])});page.wait_for_function('document.querySelector(".studio-image-state").dataset.state==="ready"');page.evaluate('editorLiveReady()');replacement=page.evaluate('ShortsEditor.backupSnapshot().scenes[0].imageId');assert replacement!=old
