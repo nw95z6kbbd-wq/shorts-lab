@@ -17,6 +17,24 @@ window.waitRuntimeVideoFrame = function (element, timeoutMs = 4000) {
     check();
   });
 };
+// seeked/readyState confirm decoded data, not compositor presentation. Register
+// before seeking so a paused video cannot present its new frame before we listen.
+window.seekRuntimeVideoFrame = function (element, time, timeoutMs = 4000) {
+ return new Promise((resolve,reject)=>{
+  let ended=false,seeked=false,presented=false,frame,paintQueued=false,metadata;
+  const usesFrames=typeof element.requestVideoFrameCallback==='function';
+  const paint=window.requestAnimationFrame?window.requestAnimationFrame.bind(window):((fn)=>setTimeout(fn,0));
+  const finish=error=>{if(ended)return;ended=true;clearTimeout(timer);element.removeEventListener('seeked',onSeek);element.removeEventListener('error',onError);if(frame!=null)element.cancelVideoFrameCallback?.(frame);error?reject(error):resolve(metadata||{mediaTime:element.currentTime});};
+  const ready=()=>{if(ended||!seeked||!presented||element.readyState<2||paintQueued)return;paintQueued=true;paint(()=>paint(()=>finish()));};
+  const onError=()=>finish(Error('Recorded video seek decode error: '+element.error?.code+' '+element.error?.message));
+  const onSeek=()=>{seeked=true;if(!usesFrames)presented=true;ready();};
+  const onFrame=(_now,data)=>{if(ended)return;frame=null;if(Number.isFinite(data.mediaTime)&&Math.abs(data.mediaTime-time)<=.1){metadata={mediaTime:data.mediaTime};presented=true;ready();}else frame=element.requestVideoFrameCallback(onFrame);};
+  const timer=setTimeout(()=>finish(Error('Runtime requested frame presentation timeout at '+time)),timeoutMs);
+  element.addEventListener('seeked',onSeek);element.addEventListener('error',onError);
+  if(usesFrames)frame=element.requestVideoFrameCallback(onFrame);
+  try{element.currentTime=time;}catch(error){finish(error);}
+ });
+};
 window.prepareRuntimeSessionChecks = async function () {
   const P=ShortsRenderPlan,A=ShortsRenderAdapters,S=ShortsRenderSessions,M=ShortsMediaSessions;
   const assert=(ok,text)=>{if(!ok)throw Error('Runtime: '+text);},delay=()=>new Promise(r=>setTimeout(r,0));
@@ -92,7 +110,7 @@ window.prepareRuntimeSessionChecks = async function () {
         await waitRuntimeVideoFrame(element);trace.frameReadyProbe=probe();trace.phase='frame-validation';
         assert(metadata.width===720&&metadata.height===1280&&metadata.duration>5.5&&metadata.duration<7.5,'actual complete runtime export');
         const sample=document.createElement('canvas');sample.width=sample.height=1;const x=sample.getContext('2d'),colors=[];
-        for(const t of [.5,2.7,4.8]){trace.seek=t;assert(element.isConnected,'recorded probe participates in document media rendering');trace.probe=probe();await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>{trace.probe=probe();reject(Error('Runtime video seek timeout'));},4000);element.onseeked=()=>{clearTimeout(timeout);trace.probe=probe();resolve();};element.currentTime=t;});x.drawImage(element,300,400,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
+        for(const t of [.5,2.7,4.8]){trace.seek=t;assert(element.isConnected,'recorded probe participates in document media rendering');trace.probe=probe();trace.presented=await seekRuntimeVideoFrame(element,t);trace.probe=probe();x.drawImage(element,300,400,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
         trace.colors=colors;const [r,b,g]=colors;assert(r[0]>r[2]*1.5&&b[2]>b[0]*1.5&&g[1]>g[0]*1.5,'actual session image order');return {...metadata,frameReadiness:{metadata:trace.metadataProbe.readyState,seek:trace.frameReadyProbe.readyState}};
       }finally{clearTimeout(timer);unmount();URL.revokeObjectURL(url);}
     })();window.runtimeRecordPromise.catch(e=>{trace.recordFailure={phase:trace.phase,...ShortsRuntimeDiagnostics.failure(e)};});}));

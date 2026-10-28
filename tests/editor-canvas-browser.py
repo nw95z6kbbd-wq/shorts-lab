@@ -31,7 +31,10 @@ def run():
                 page.route('**/*',offline);url=f'http://127.0.0.1:{server.server_port}/offline.html'
             elif entry=='file':url=(ROOT/'index.html').as_uri()
             else:url=f'http://127.0.0.1:{server.server_port}/{entry}'
+            page.add_init_script('window.editorStorageOpenStates=[];const open=IDBFactory.prototype.open;IDBFactory.prototype.open=function(...args){editorStorageOpenStates.push(document.readyState);return open.apply(this,args);};')
             page.goto(url);page.wait_for_function('window.ShortsEditorCanvas && window.ShortsVideoRestored')
+            states=page.evaluate('editorStorageOpenStates')
+            assert states and all(state in ('interactive','complete') for state in states),{'entry':entry,'storageOpenStates':states}
             page.add_script_tag(content=(ROOT/'tests/editor-canvas-fixture.js').read_text())
             try:
                 result=page.evaluate('args=>checkEditorCanvas(...args)',[json.loads((ROOT/'tests/fixtures/editor-canvas/spec.json').read_text()),(ROOT/'tests/fixtures/editor-canvas/reference.svg').read_text(),media_payload()])

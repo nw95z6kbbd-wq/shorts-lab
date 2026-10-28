@@ -243,3 +243,22 @@ HTTP. Это разделяет диагностику Canvas/MediaRecorder и �
 automation-окна через W3C API. Это проверка холодного открытия документа, без
 унаследованной страницы/BFCache и её IDB-соединений. Профиль и данные браузера
 не очищаются. При отсутствии New Window API тест завершается ошибкой.
+
+
+Две дополнительные проверки при расследовании CI:
+
+- Source defer начинает IndexedDB при readyState=interactive; прежний inline bundle
+  делал это при loading. Упаковщик теперь регистрирует classic-модули в исходном
+  порядке на DOMContentLoaded (once), сохраняя after-parser границу исходного сайта.
+  Изменены только доставка/производные HTML+ZIP приложения, не js/storage.js,
+  транзакции или ZIP v1/v2 пользовательских проектов. Browser-тест наблюдает
+  фактический readyState каждого indexedDB.open и отклоняет ранний loading.
+- В Chrome CI пойман seeked + readyState=4 с чёрным browser readback при 0,5 с;
+  FFmpeg из **того же encoded blob** прочитал [219,66,55], следующие кадры синие
+  и зелёные. Test consumer теперь ждёт presented frame нужного mediaTime через
+  requestVideoFrameCallback, completed seek и paint. Цвета не используются для
+  выбора/повторного ожидания; плохой кадр в файле продолжает отклоняться. В Node
+  воспроизведены readyState=4 до presentation, старый frame, timeout и decode error.
+  Для движков без rVFC остаётся seeked + paint. Renderer/recorder/mixer не менялись.
+  Recorded-video probe запрашивает собственный blob в anonymous CORS mode, прежде
+  чем читать его пиксели; SecurityError сохраняет URL/readyState/time в диагностике.

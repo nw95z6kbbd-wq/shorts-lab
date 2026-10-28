@@ -16,14 +16,14 @@ window.prepareEditorCanvasRecording = async function(payload){
   let video,url,unmount;
   try{
    const result=await editorRecordingPromise;if(result.skipped)return{skipped:true};window.editorRecordedBlob=result.blob;
-   video=document.createElement('video');video.muted=true;video.playsInline=true;unmount=mountRuntimeRecordedVideo(video);url=URL.createObjectURL(result.blob);
+   video=document.createElement('video');video.crossOrigin='anonymous';video.muted=true;video.playsInline=true;unmount=mountRuntimeRecordedVideo(video);url=URL.createObjectURL(result.blob);
    await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Editor metadata timeout')),15000);const check=()=>{if(video.error){clearTimeout(timer);reject(Error('Editor video decode error'));}else if(video.videoWidth&&Number.isFinite(video.duration)&&video.duration>0){clearTimeout(timer);resolve();}};for(const event of ['loadedmetadata','durationchange','loadeddata','error'])video.addEventListener(event,check);video.src=url;video.load();});
    await waitRuntimeVideoFrame(video);
    if(video.videoWidth!==720||video.videoHeight!==1280||video.duration<2.7||video.duration>4)throw Error('Incomplete Editor recording');
    const sample=document.createElement('canvas');sample.width=sample.height=1;const x=sample.getContext('2d'),colors=[];
-   for(const time of [.5,1.5,2.5]){await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Editor seek timeout')),4000);video.onseeked=()=>{clearTimeout(timer);resolve();};video.currentTime=time;});x.drawImage(video,300,350,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
+   for(const time of [.5,1.5,2.5]){await seekRuntimeVideoFrame(video,time);x.drawImage(video,300,350,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
    const [r,b,g]=colors;if(!(r[0]>r[2]*1.5&&b[2]>b[0]*1.5&&g[1]>g[0]*1.5))throw Error('Editor image order '+JSON.stringify(colors));
    return {width:video.videoWidth,height:video.videoHeight,duration:video.duration,type:result.mimeType,images:3,audio:'voice+music',source:plan.source.mode};
-  }finally{unmount?.();if(url)URL.revokeObjectURL(url);for(const r of images.values())r.dispose();canvas.remove();button.remove();}
+  }catch(error){error.message+=' '+JSON.stringify({entry:location.href,videoSource:video?.currentSrc,readyState:video?.readyState,currentTime:video?.currentTime,origin:location.origin});throw error;}finally{unmount?.();if(url)URL.revokeObjectURL(url);for(const r of images.values())r.dispose();canvas.remove();button.remove();}
  };
 };

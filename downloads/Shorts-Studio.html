@@ -245,6 +245,7 @@ body{overflow:hidden}
   </dialog>
   <noscript><div class="noscript">Для работы Shorts Studio включите JavaScript в настройках браузера.</div></noscript>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function (root, factory) {
   'use strict';
   const api = factory();
@@ -471,8 +472,10 @@ body{overflow:hidden}
     totalDuration, srtTime, clockTime, plural, wordLabel, wrapSubtitle, generateSrt, createProject, parseProject, upgradeProject, STUDIO_VERSION, fileName };
 });
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function (root, factory) {
   'use strict';
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -580,8 +583,10 @@ body{overflow:hidden}
   });
 });
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function(root,factory){
   'use strict';
   if(typeof module==='object'&&module.exports)module.exports=factory();
@@ -668,8 +673,10 @@ body{overflow:hidden}
   return Object.freeze({ID,LAYOUT,THEMES,CAPTIONS,SIZES,GEOMETRY,error,style,resolve,assertAppearance,typography,layout,segments});
 });
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function (root, factory) {
   'use strict';
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'), require('./editor-profile.js'));
@@ -770,8 +777,10 @@ body{overflow:hidden}
   return Object.freeze({ KIND, VERSION, build, chunks, legacyView, isPlan, frameAt, generateSrt, assertRenderable, audioOptions });
 });
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function (root, factory) {
   'use strict';
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'), require('./render-plan.js'), require('./editor-profile.js'));
@@ -843,8 +852,10 @@ body{overflow:hidden}
   return Object.freeze({ fromEditor, fromVideo });
 });
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function (root, factory) {
   'use strict';
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'));
@@ -1057,8 +1068,10 @@ body{overflow:hidden}
   return { WIDTH, HEIGHT, FPS, IDEA_LIMIT, DEMO_IDEA, demo, generateFromIdea, themeForIdea, parseDraft, chunks, makePlan, frameAt, generateSrt, supportedFormats, extensionFor, patchWebmDuration, cameraRect, musicEnvelope };
 });
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function () {
   'use strict';
   const NAME = 'shorts-studio.projects';
@@ -1308,8 +1321,10 @@ body{overflow:hidden}
   window.ShortsProjectDB = Object.freeze({ DATABASE_VERSION, createRepository, normalize, assetUses, references, validateRecord });
 })();
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function () {
   'use strict';
   document.body.inert = true;
@@ -1483,8 +1498,10 @@ body{overflow:hidden}
   });
 })();
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function (root, factory) {
   'use strict';
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -1585,8 +1602,10 @@ body{overflow:hidden}
   return Object.freeze({ LIMITS, V2_LIMITS, limitsFor, safePath, crc32, create, read, tick });
 });
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function (root, factory) {
   'use strict';
   if (typeof module === 'object' && module.exports) module.exports = factory;
@@ -1775,8 +1794,10 @@ body{overflow:hidden}
   return Object.freeze({ FORMAT, VERSION, versionFor, sha256, states, usage, exportArchive, importArchive, remap });
 });
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function () {
   'use strict';
   // Provider boundary for future backend adapters. Never put API keys in browser code.
@@ -1806,8 +1827,10 @@ body{overflow:hidden}
   // Register adapters only after a backend is configured. The offline editor does not depend on them.
 })();
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 window.ShortsEditorReady = (async function () {
   'use strict';
   const C = window.ShortsCore;
@@ -2361,8 +2384,10 @@ window.ShortsEditorReady = (async function () {
   else updateSaveStatus('Сохранено на устройстве');
 })();
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function(){
   'use strict';
   const E=window.ShortsEditorProfile,P=window.ShortsRenderPlan,V=window.ShortsVideoCore,layers=new WeakMap(),layouts=new WeakMap();
@@ -2452,8 +2477,10 @@ window.ShortsEditorReady = (async function () {
   window.ShortsEditorCanvas=Object.freeze({render});
 })();
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function () {
   'use strict';
   const V = window.ShortsVideoCore;
@@ -2694,8 +2721,10 @@ window.ShortsEditorReady = (async function () {
   window.ShortsVideoRenderer = { render };
 })();
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function () {
   'use strict';
   const V = window.ShortsVideoCore;
@@ -2748,8 +2777,10 @@ window.ShortsEditorReady = (async function () {
   window.ShortsVideoAudio = { connectMix };
 })();
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function () {
   'use strict';
   const V = window.ShortsVideoCore;
@@ -2915,8 +2946,10 @@ window.ShortsEditorReady = (async function () {
   window.ShortsVideoRecorder = { capabilities, decodeAudio, playAudio, playMix, record };
 })();
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function () {
   'use strict';
   async function decodeImage(file) {
@@ -2953,8 +2986,10 @@ window.ShortsEditorReady = (async function () {
   };
 })();
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function (root, factory) {
   'use strict';
   if (typeof module === 'object' && module.exports) module.exports = factory;
@@ -3154,8 +3189,10 @@ window.ShortsEditorReady = (async function () {
   return Object.freeze({ create, DEFAULTS, globalLimits, statistics: () => Object.freeze({sessions:live,residentBytes:resident,peakResidentBytes:peakResident,decoding,queued:queue.length}) });
 });
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function (root, factory) {
   'use strict';
   if (typeof module === 'object' && module.exports) module.exports = factory;
@@ -3270,8 +3307,10 @@ window.ShortsEditorReady = (async function () {
   return Object.freeze({create,MAX_DATA_BYTES});
 });
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (async function () {
   'use strict';
   const C = window.ShortsCore, V = window.ShortsVideoCore, R = window.ShortsVideoRecorder;
@@ -3770,8 +3809,10 @@ window.ShortsEditorReady = (async function () {
   }
 })();
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function () {
   'use strict';
   const P = window.ShortsProduct;
@@ -3885,8 +3926,10 @@ window.ShortsEditorReady = (async function () {
   }
 })();
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function () {
   'use strict';
   // Presentation only: existing controller messages follow actual transaction
@@ -3998,8 +4041,10 @@ window.ShortsEditorReady = (async function () {
   showSaveState(); showResult();
 })();
 
+}, { once: true });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", () => {
 (function () {
   'use strict';
   const $=id=>document.getElementById(id), F=window.ShortsBackupFormat, Z=window.ShortsZip;
@@ -4092,6 +4137,7 @@ window.ShortsEditorReady = (async function () {
   window.addEventListener('pagehide',()=>{if(downloadUrl)URL.revokeObjectURL(downloadUrl);for(const url of retired)URL.revokeObjectURL(url);});
 })();
 
+}, { once: true });
 </script>
 </body>
 </html>
