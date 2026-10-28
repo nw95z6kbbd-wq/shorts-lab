@@ -69,3 +69,26 @@ test('frozen pre-integration code proves storage, Video, baseline and narrow sav
  ])assert.equal(slice(now,a,b).replace(remove,''),slice(old,a,b),a+' unchanged except explicit calculation barrier');
  assert.ok(!/C\.(timeline|totalDuration|generateSrt)\(/.test(now),'no parallel scene timing or SRT calculation in UI');
 });
+
+test('snapshot diagnostics compare every DTO value/hash structurally across WebDriver key reordering',async()=>{
+ const vm=require('node:vm'),window={},context={window,crypto:require('node:crypto').webcrypto,TextEncoder};
+ vm.runInNewContext(fs.readFileSync('tests/editor-timing-fixture.js','utf8'),context);
+ const before={editor:{version:2,updatedAt:'2026-10-28T00:00:00.000Z',scenes:[{id:'id-one',text:'private text',durationMs:null},{id:'id-two',text:'other',durationMs:1234}]},video:{version:1,title:'private title'},hashes:{'private-file-name':'original-sha'}};
+ const reorder=v=>Array.isArray(v)?v.map(reorder):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).reverse().map(k=>[k,reorder(v[k])])):v;
+ assert.notEqual(JSON.stringify(before),JSON.stringify(reorder(before)),'reproduce original false failure');
+ const same=await window.editorTimingDiff(before,reorder(before));assert.equal(same.changeCount,0);assert.ok(same.keyOrderCount>0);
+ for(const mutate of [p=>p.editor.scenes[0].durationMs=17,p=>p.editor.scenes.reverse(),p=>p.editor.updatedAt='later',p=>p.video.title='changed',p=>p.hashes['private-file-name']='modified-sha',p=>delete p.editor.scenes[0].text]){
+  const after=structuredClone(before);mutate(after);const diff=await window.editorTimingDiff(before,after);assert.ok(diff.changeCount>0);const json=JSON.stringify(diff);for(const sensitive of ['private text','private title','private-file-name','original-sha','modified-sha'])assert.ok(!json.includes(sensitive),'diagnostics redact '+sensitive);
+ }
+});
+
+test('invalid-draft assertion accepts reordered W3C JSON but still fails for DTO/media corruption',async()=>{
+ const vm=require('node:vm'),state={editor:{updatedAt:'previous',scenes:[{id:'stable-id',text:'private',durationMs:null}]},video:{version:1},hashes:{'sensitive.wav':'sha-original'}};
+ const context={crypto:require('node:crypto').webcrypto,TextEncoder,setTimeout:callback=>callback(),document:{getElementById:id=>id==='editorTimingError'?{hidden:false}:id==='exportSrt'?{disabled:true}:{textContent:'—'}},ShortsEditor:{backupSnapshot(){throw Error('invalid input');}},studioUiSnapshot:async()=>structuredClone(state)};
+ context.window=context;vm.runInNewContext(fs.readFileSync('tests/editor-timing-fixture.js','utf8'),context);
+ const before={hashes:{...state.hashes},video:{...state.video},editor:{scenes:state.editor.scenes.map(s=>({durationMs:s.durationMs,text:s.text,id:s.id})),updatedAt:'previous'}};
+ assert.equal(await context.editorTimingErrorAssert(before),true);assert.equal(context.editorTimingLastDiff.changeCount,0);assert.ok(context.editorTimingLastDiff.keyOrderCount>0);
+ for(const mutate of [s=>s.editor.updatedAt='later',s=>s.editor.scenes[0].durationMs=1234,s=>s.hashes['sensitive.wav']='different']){
+  const bad=structuredClone(before);mutate(bad);await assert.rejects(context.editorTimingErrorAssert(bad),{code:'EDITOR_SNAPSHOT_MISMATCH'});
+ }
+});

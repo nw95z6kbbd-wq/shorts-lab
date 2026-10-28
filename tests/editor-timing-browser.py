@@ -54,13 +54,26 @@ def run():
         page.locator('.studio-scene-duration').first.fill('2.345');page.evaluate('editorTimingStartTrace()');page.locator('#editorTimingMode').select_option('reading');check(page)
         page.locator('#editorTimingMode').select_option('manual')
         def duration_diagnostic():return page.evaluate('({events:editorTimingEvents,field:document.querySelector(".studio-scene-duration").value,duration:ShortsEditor.backupSnapshot().scenes[0].durationMs})')
-        assert page.locator('.studio-scene-duration').first.input_value()=='2,345', {'stage':'normalization before clear',**duration_diagnostic()}
+        assert check(page)['project']['scenes'][0]['durationMs']==2345, {'stage':'override retained across modes',**duration_diagnostic()}
+        # select_option dispatches input/change without moving focus. WebKit
+        # keeps the duration focused even while temporarily disabled; raw text
+        # is intentionally retained until a real blur. Assert formatting then.
+        page.locator('#editorTimingMode').focus()
+        assert page.locator('.studio-scene-duration').first.input_value()=='2,345', {'stage':'normalization after real blur',**duration_diagnostic()}
         page.locator('.studio-scene-duration').first.fill('')
         assert page.locator('.studio-scene-duration').first.input_value()=='', {'stage':'empty UI field',**duration_diagnostic()}
         assert check(page)['project']['scenes'][0]['durationMs'] is None, {'stage':'empty in-memory DTO',**duration_diagnostic()}
-        saved(page);before=snapshot(page)
+        committed=saved(page)
+        assert committed['state']['scenes'][0]['durationMs'] is None, 'committed DTO must retain null fallback'
+        before=snapshot(page);page.reload();page.wait_for_function('window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert');scripts(page);scenes(page)
+        assert snapshot(page)==before, 'read-only reload must not rewrite saved DTO or originals'
+        assert page.locator('.studio-scene-duration').first.input_value()==''
+        assert check(page)['project']['scenes'][0]['durationMs'] is None
+        # W3C transport may reorder object keys at every nesting level. Keep
+        # every DTO field/hash, but deliberately permute its JSON member order.
+        transported=json.loads(json.dumps(before,sort_keys=True))
         for raw in ['-1','NaN','Infinity','0','1.0001','9007199254740.992']:
-            field.fill(raw);assert field.input_value()==raw;assert page.evaluate('b=>editorTimingErrorAssert(b)',before)
+            field.fill(raw);assert field.input_value()==raw;assert page.evaluate('b=>editorTimingErrorAssert(b)',transported)
         field.fill('1,234');saved(page);check(page)
         # Chunk failure keeps typed 1ms draft, DB unchanged; explicit policy repair.
         page.locator('#tab-subtitles').click();page.locator('#editorSubtitleMode').select_option('chunks');check(page);srt(page,'exportSrtPanel');saved(page);before=snapshot(page)

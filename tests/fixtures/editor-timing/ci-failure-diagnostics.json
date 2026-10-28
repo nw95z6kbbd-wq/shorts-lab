@@ -1,0 +1,41 @@
+{
+  "sourceCommit": "0f373ae6e5c8f293317199e949ae462ac4fdeb51",
+  "workflowRun": "https://github.com/nw95z6kbbd-wq/shorts-lab/actions/runs/40729211034",
+  "webkit": {
+    "job": "122960763476",
+    "stage": "normalization before clear",
+    "field": "2.345",
+    "durationMs": 2345,
+    "activeDurationIndex": 0,
+    "events": [
+      "input:reading",
+      "change:reading",
+      "input:manual",
+      "change:manual"
+    ],
+    "blurEvents": 0,
+    "clearReached": false
+  },
+  "safari": {
+    "job": "122960763738",
+    "changeCount": 0,
+    "keyOrderCount": 15,
+    "keyOrderOnlyPaths": [
+      "$",
+      "editor",
+      "editor.audio.music",
+      "editor.exportSettings",
+      "editor.scenes.0",
+      "editor.scenes.1",
+      "editor.scenes.2",
+      "hashes",
+      "video",
+      "video.scenes.0",
+      "video.scenes.1",
+      "video.scenes.2",
+      "video.scenes.3",
+      "video.scenes.4",
+      "video.scenes.5"
+    ]
+  }
+}

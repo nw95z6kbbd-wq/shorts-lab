@@ -36,7 +36,8 @@ window.editorTimingErrorAssert = async function(before){
  if(!document.getElementById('exportSrt').disabled||document.getElementById('totalDuration').textContent!=='—')throw Error('Stale timing/export remains enabled');
  let blocked=false;try{ShortsEditor.backupSnapshot();}catch(e){blocked=true;}if(!blocked)throw Error('Incomplete ZIP snapshot must be rejected');
  await new Promise(r=>setTimeout(r,450));const actual=await studioUiSnapshot();
- if(JSON.stringify(actual)!==JSON.stringify(before))throw Error('Invalid draft changed saved projects or original media: '+JSON.stringify(await editorTimingDiff(before,actual)));return true;
+ const diff=await editorTimingDiff(before,actual);window.editorTimingLastDiff=diff;
+ if(diff.changeCount)throw Object.assign(Error('Invalid draft changed saved projects or original media: '+JSON.stringify(diff)),{code:'EDITOR_SNAPSHOT_MISMATCH'});return true;
 };
 // Native driver cannot capture downloads. Inspect the actual button handler's
 // Blob independently of the calculation assertions, retaining the real download.
@@ -53,9 +54,12 @@ window.editorTimingDiff = async function(before,after){
   if(Object.is(a,b))return;
   if(a&&b&&typeof a==='object'&&typeof b==='object'&&Array.isArray(a)===Array.isArray(b)){
    const ak=Object.keys(a),bk=Object.keys(b);if(JSON.stringify(ak)!==JSON.stringify(bk)&&ak.slice().sort().join('\0')===bk.slice().sort().join('\0'))orders.push(path||'$');
+   if(Array.isArray(a)&&a.length!==b.length)diffs.push({path:(path||'$')+'.length',before:a.length,after:b.length});
    for(const key of [...new Set([...ak,...bk])].sort()){
     const part=path==='hashes'?'asset#'+(await digest(key)).slice(0,12):key;
-    await visit(a[key],b[key],path?path+'.'+part:part);
+    const next=path?path+'.'+part:part;
+    if(!Object.hasOwn(a,key)||!Object.hasOwn(b,key))diffs.push({path:next,before:Object.hasOwn(a,key)?await summary(a[key]):{type:'missing'},after:Object.hasOwn(b,key)?await summary(b[key]):{type:'missing'},presenceChanged:true});
+    else await visit(a[key],b[key],next);
    }return;
   }
   diffs.push({path:path||'$',before:await summary(a),after:await summary(b)});

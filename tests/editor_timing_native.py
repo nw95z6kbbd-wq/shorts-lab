@@ -32,10 +32,12 @@ def check_native_editor_timing(root,script,command):
         event('.studio-scene-duration','1,234');assert check()['project']['scenes'][0]['durationMs']==1234
         event('#editorTimingMode','reading','change');assert check()['plan']['timing']['policy']=='editor-reading'
         event('#editorTimingMode','manual','change');assert check()['project']['scenes'][0]['durationMs']==1234
-        event('.studio-scene-duration','');assert check()['project']['scenes'][0]['durationMs'] is None;save()
+        event('.studio-scene-duration','');assert check()['project']['scenes'][0]['durationMs'] is None;assert save()['state']['scenes'][0]['durationMs'] is None
         before_error=execute('return await studioUiSnapshot();')
         for invalid in ['-1','NaN','Infinity','0','1.0001','9007199254740.992']:
             event('.studio-scene-duration',invalid);assert execute('return await editorTimingErrorAssert(arguments[0]);',[before_error])
+        transport=script('return editorTimingLastDiff;');assert transport['changeCount']==0,transport
+        print('::notice title=Native Safari snapshot equality::All DTO values and original SHA-256 match; reordered object containers: '+str(transport['keyOrderCount']),flush=True)
         event('.studio-scene-duration','1.234');check();save()
         event('#scene-input-0','один два три четыре пять шесть семь 🌌');script('document.getElementById("tab-subtitles").click();');event('#editorSubtitleMode','chunks','change');check();save();assert execute('return await editorTimingCaptureSrt("exportSrtPanel");')
         before_error=execute('return await studioUiSnapshot();');script('document.getElementById("tab-scenes").click();');event('.studio-scene-duration','0.001');assert execute('return await editorTimingErrorAssert(arguments[0]);',[before_error])
