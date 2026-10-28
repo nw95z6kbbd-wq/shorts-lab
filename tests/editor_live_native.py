@@ -14,7 +14,7 @@ def check_native_editor_live(root,script,command):
  try:
   command('POST','/url',{'url':f'http://127.0.0.1:{server.server_port}/index.html'})
   execute('await ShortsEditorReady;const end=Date.now()+25000;while(!window.ShortsVideoRestored){if(Date.now()>end)throw Error("Video restore timeout");await new Promise(r=>setTimeout(r,30));}return true;')
-  for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js','editor-canvas-fixture.js']:script((root/'tests'/name).read_text())
+  for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js','editor-canvas-fixture.js','ux-fixture.js']:script((root/'tests'/name).read_text())
   spec=json.loads((root/'tests/fixtures/editor-canvas/spec.json').read_text());template=(root/'tests/fixtures/editor-canvas/reference.svg').read_text();payload=media_payload()
   independent=execute('return await checkEditorCanvas(arguments[0],arguments[1],arguments[2]);',[spec,template,payload]);assert independent['combinations']==27
   profiles=execute('return await editorLiveVerifyProfiles(editorCanvasCaptures,arguments[0]);',[spec]);assert profiles['combinations']==27
@@ -26,6 +26,12 @@ def check_native_editor_live(root,script,command):
    execute('const s=document.querySelector(".studio-scene-camera");s.value=arguments[0];s.dispatchEvent(new Event("change",{bubbles:true}));await editorLiveReady();return true;',[camera])
   for transition in ['none','crossfade','slide','zoom']:
    execute('const s=document.querySelectorAll(".studio-scene-transition")[1];s.value=arguments[0];s.dispatchEvent(new Event("change",{bubbles:true}));await editorLiveReady();return await editorLiveFrameReference(arguments[1]);',[transition,payload])
+  geometry=[]
+  for width,height in [(1440,1000),(390,844),(1440,1000),(1000,900),(1440,700),(1440,480)]:
+   command('POST','/window/rect',{'width':width,'height':height})
+   geometry.append(execute('return await uxCheckEditorPreview();'))
+  print('::notice title=Native Safari preview geometry with originals::'+json.dumps([{'inner':g['inner'],'viewport':g['viewport']['client'],'column':g['column']['rect'],'frame':g['frame']['rect'],'position':g['column']['position']} for g in geometry]),flush=True)
+  command('POST','/window/rect',{'width':1000,'height':900})
   execute('await editorTimingWaitForSave();return true;');before=execute('return await studioUiSnapshot();')
   command('POST','/url',{'url':f'http://127.0.0.1:{server.server_port}/index.html'});execute('await ShortsEditorReady;return true;')
   for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js']:script((root/'tests'/name).read_text())

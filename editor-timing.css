@@ -18,7 +18,9 @@
 
 /* A single canonical Canvas; no CSS illustration or per-card image decoders. */
 .editor-canvas-frame{aspect-ratio:9/16;position:relative;width:100%;overflow:hidden;border-radius:10px;background:#16121c}
-#editorCanvas{width:100%;height:100%;display:block;font-synthesis:initial}#editorCanvas[hidden]{display:none}
+/* Keep the replaced Canvas out of intrinsic flex sizing. Safari otherwise
+   retains its old content height after the sticky media budget shrinks. */
+#editorCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;font-synthesis:initial}#editorCanvas[hidden]{display:none}
 .editor-preview-message{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;color:#c9b5da;font-size:12px;line-height:1.7;text-align:center;overflow:auto;background:#191320}.editor-preview-message[hidden]{display:none}
 .editor-preview-message[data-state=error]{color:#f1c5af}.editor-seek{display:block;width:calc(100% - 40px);margin:12px 20px;accent-color:#a67beb}
 .studio-visual-controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.studio-visual-controls label{display:grid;gap:5px;color:#ab9cb9;font-size:10px;flex:1;min-width:120px}.studio-visual-controls select{width:100%;min-height:36px;background:#19131f;border:1px solid #40334f;border-radius:6px;padding:7px;color:#e5dcf0;font-size:11px}

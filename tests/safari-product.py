@@ -183,7 +183,7 @@ def run():
             assert script('return document.getElementById("saveStatusText").textContent;')=='Сохранение…'
             script('const v=document.getElementById("studioViewport");v.scrollTop=v.scrollHeight;')
             command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));','args':[]})
-            print("::notice title=Native preview geometry before fix::"+json.dumps(script("return uxPreviewGeometry();")),flush=True)
+            print("::notice title=Native preview geometry::"+json.dumps(script("return uxPreviewSummary();")),flush=True)
             assert script('const r=document.querySelector(".preview-column").getBoundingClientRect();return r.top>=-1 && r.bottom<=document.getElementById("studioViewport").clientHeight+1;')
             assert not script('return uxToastOverlapsControls();')
             layout=script('return uxLayoutSnapshot();')

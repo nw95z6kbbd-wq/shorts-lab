@@ -50,7 +50,9 @@ def run():
         assert page.evaluate('async()=> (await ShortsBackupFormat.importArchive(await(await fetch(backupDownload.href)).blob())).manifest.version')==1;page.locator('#backupCancel').click()
         # Explicit duration setting is the upgrade action; preserve overrides in Reading.
         page.locator('#editorTimingMode').select_option('manual');field=page.locator('.studio-scene-duration').nth(1);field.fill('1,234')
-        assert field.evaluate('n=>n===document.activeElement');assert check(page)['project']['scenes'][1]['durationMs']==1234
+        focus=field.evaluate('n=>({focused:n===document.activeElement,field:n.id,active:document.activeElement?.id,value:n.value,disabled:n.disabled})')
+        assert focus['focused'], {'stage':'duration focus after fill',**focus}
+        assert check(page)['project']['scenes'][1]['durationMs']==1234, {'stage':'duration DTO after fill',**focus}
         page.locator('.studio-scene-duration').first.fill('2.345');page.evaluate('editorTimingStartTrace()');page.locator('#editorTimingMode').select_option('reading');check(page)
         page.locator('#editorTimingMode').select_option('manual')
         def duration_diagnostic():return page.evaluate('({events:editorTimingEvents,field:document.querySelector(".studio-scene-duration").value,duration:ShortsEditor.backupSnapshot().scenes[0].durationMs})')

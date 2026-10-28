@@ -19,7 +19,7 @@ def run():
    def launch():
     context=getattr(p,engine).launch_persistent_context(profile,**options);context.on('page',lambda page:page.on('pageerror',lambda e:errors.append(str(e))));return context
    def helpers(page):
-    for f in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js']:page.add_script_tag(content=(ROOT/'tests'/f).read_text())
+    for f in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js','ux-fixture.js']:page.add_script_tag(content=(ROOT/'tests'/f).read_text())
    def open_app(page):
     if entry.startswith('downloads/'):
      def offline(route):
@@ -46,6 +46,18 @@ def run():
    for transition in ['none','crossfade','slide','zoom']:
     page.locator('.studio-scene-transition').nth(1).select_option(transition);page.evaluate('editorLiveReady()');assert page.evaluate('p=>editorLiveFrameReference(p)',payload)
    page.evaluate('editorTimingWaitForSave()');before=page.evaluate('studioUiSnapshot()');page.locator('.studio-move').nth(1).click();page.evaluate('editorTimingWaitForSave()');after=page.evaluate('studioUiSnapshot()');assert {s['id']:s for s in before['editor']['scenes']}=={s['id']:s for s in after['editor']['scenes']};assert before['hashes']==after['hashes'] and before['video']==after['video']
+   # Reproduce Safari's narrow -> desktop resize with real decoded images.
+   for width,height in [(1440,1000),(390,844),(1440,948),(1000,900),(1440,700),(1440,480),(390,844)]:
+    page.set_viewport_size({'width':width,'height':height});geometry=page.evaluate('uxCheckEditorPreview()')
+    assert page.locator('#editorCanvas').is_visible();assert page.evaluate('ShortsMediaSessions.statistics().sessions')==1
+   page.set_viewport_size(options['viewport']);page.evaluate('uxCheckEditorPreview()')
+   # Reintroduce the measured Safari failure as an independent counterexample:
+   # normal-flow replaced content with a retained intrinsic 480px height.
+   page.set_viewport_size({'width':1440,'height':948});page.evaluate('uxCheckEditorPreview()')
+   rejected=page.evaluate("""async()=>{const c=document.getElementById('editorCanvas'),old=c.getAttribute('style');try{c.style.position='static';c.style.height='480px';await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));try{uxAssertEditorPreview();return false;}catch(e){return e.message.includes('frame is not 9:16')||e.message.includes('Canvas exceeds');}}finally{old===null?c.removeAttribute('style'):c.setAttribute('style',old);}}""")
+   assert rejected, 'layout assertion must detect the retained Canvas height'
+   page.set_viewport_size(options['viewport']);page.evaluate('uxCheckEditorPreview()')
+   print(f'PASS [{engine} preview geometry]: desktop/narrow/short viewport, real images, 9:16, sticky bounds, reachable controls; intrinsic-height mutant rejected',flush=True)
    # Invalid content and declared MIME do not replace the saved original.
    old=page.evaluate('ShortsEditor.backupSnapshot().scenes[0].imageId')
    corrupt=__import__('base64').b64decode(payload[0]['base64'])[:33]+struct.pack('>I',3)+b'IDATbad'+bytes(4)+struct.pack('>I',0)+b'IEND'+bytes(4)
