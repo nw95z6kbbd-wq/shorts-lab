@@ -114,8 +114,8 @@ class SafariBaselineTests(unittest.TestCase):
             finally:
                 target.write_text(text)
 
-    def test_all_seven_existing_guard_counterexamples_still_fail(self):
-        self.assertEqual(verify_guard_rejects_changes(), 7)
+    def test_all_seven_existing_and_editor_dispatch_counterexamples_still_fail(self):
+        self.assertEqual(verify_guard_rejects_changes(), 8)
 
     def test_ci_keeps_guard_native_safari_and_preflight_mandatory(self):
         workflow = WORKFLOW.read_text()

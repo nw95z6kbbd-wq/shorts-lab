@@ -1,8 +1,8 @@
 (function (root, factory) {
   'use strict';
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'));
-  else root.ShortsRenderPlan = factory(root.ShortsCore);
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (C) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'), require('./editor-profile.js'));
+  else root.ShortsRenderPlan = factory(root.ShortsCore, root.ShortsEditorProfile);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (C, E) {
   'use strict';
   const KIND = 'shorts-render-plan', VERSION = 1;
   const error = (code, text) => Object.assign(new Error(text), { code });
@@ -36,7 +36,7 @@
       const endMs = weighted ? Math.round(durationMs * weight / sum) : startMs + scene.durationMs;
       end = endMs;
       const groups = spec.subtitles.enabled === false ? [] : spec.subtitles.policy === 'editor-scene'
-        ? (C.countWords(scene.text) ? [String(scene.text).trim().split(/\s+/u).filter(Boolean)] : []) : chunks(scene.text);
+        ? (String(scene.text).trim() ? [String(scene.text).trim().split(/\s+/u).filter(Boolean)] : []) : chunks(scene.text);
       const wordSum = groups.reduce((total, group) => total + group.length, 0);
       let offset = 0;
       const sceneCues = groups.map(words => {
@@ -61,12 +61,16 @@
     return { title: plan.title, theme: draft.theme, caption: draft.caption, durationMs: plan.durationMs, timeline: plan.timeline, cues: plan.cues };
   }
   function isPlan(plan) { return plan?.kind === KIND; }
+  function firstEndingAfter(items,time) {
+    let lo=0,hi=items.length;while(lo<hi){const mid=lo+Math.floor((hi-lo)/2);if(time<items[mid].endMs)hi=mid;else lo=mid+1;}
+    return items[lo] || items[items.length-1] || null;
+  }
   function frameAt(plan, elapsedMs) {
     if (isPlan(plan) && plan.version !== VERSION) throw error('UNSUPPORTED', 'Неизвестная версия RenderPlan.');
     if (!plan?.timeline?.length || plan.durationMs <= 0) throw error('EMPTY', 'В расчётном плане нет сцен с положительной длительностью.');
     const time = Math.max(0, Math.min(plan.durationMs - 1, Number(elapsedMs) || 0));
-    const scene = plan.timeline.find(scene => time < scene.endMs) || plan.timeline[plan.timeline.length - 1];
-    const cue = scene.cues.find(cue => time < cue.endMs) || scene.cues[scene.cues.length - 1] || null;
+    const scene = firstEndingAfter(plan.timeline,time);
+    const cue = firstEndingAfter(scene.cues,time);
     const highlight = !isPlan(plan) || plan.subtitles.highlight === 'estimated-word';
     const activeWord = cue && highlight ? Math.min(cue.words.length - 1, Math.floor((time - cue.startMs) / (cue.endMs - cue.startMs) * cue.words.length)) : -1;
     return { time, scene, cue, activeWord, localMs: time - scene.startMs };
@@ -78,6 +82,11 @@
     if (!isPlan(plan)) return; // Existing public renderer/recorder callers remain valid.
     if (plan.version !== VERSION) throw error('UNSUPPORTED', 'Неизвестная версия RenderPlan.');
     if (!plan.timeline.length || plan.durationMs <= 0) throw error('EMPTY', 'Добавьте сцены с положительной длительностью.');
+    if (!['editor','video'].includes(plan.source?.mode)) throw error('SETTINGS','Неизвестный профиль RenderPlan.');
+    if (plan.source.mode === 'editor') {
+      E.assertAppearance(plan.appearance);
+      if (plan.theme !== plan.appearance.resolved.theme || plan.caption !== plan.appearance.resolved.caption) throw error('SETTINGS','Несогласованные параметры Editor RenderPlan.');
+    } else if (plan.appearance?.requested?.namespace !== 'video') throw error('SETTINGS','Профили Editor и Video нельзя смешивать.');
     if (!plan.appearance.supported) throw error('APPEARANCE', 'Canvas-renderer пока не воспроизводит запрошенное оформление точно. Подмена темы отключена.');
     if (plan.output.width !== 720 || plan.output.height !== 1280 || plan.output.fps !== 24) throw error('OUTPUT', 'Параметры RenderPlan не поддерживаются текущим renderer.');
   }

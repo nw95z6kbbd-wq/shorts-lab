@@ -1,0 +1,82 @@
+{
+  "text": "Своё видео\nПрямо сейчас",
+  "themes": [
+    "cosmos",
+    "dusk",
+    "minimal"
+  ],
+  "captions": [
+    "accent",
+    "classic",
+    "outline"
+  ],
+  "sizes": [
+    "small",
+    "medium",
+    "large"
+  ],
+  "fonts": {
+    "small": 50,
+    "medium": 62.5,
+    "large": 75
+  },
+  "classicMedium": 57.5,
+  "weights": {
+    "accent": 750,
+    "classic": 600,
+    "outline": 800
+  },
+  "textArea": {
+    "x": 42.5,
+    "y": 512,
+    "width": 635,
+    "height": 576
+  },
+  "paddingTop": {
+    "accent": 15,
+    "classic": 27.5,
+    "outline": 15
+  },
+  "lineHeight": 1.3,
+  "textColors": {
+    "plain": "#ffffff",
+    "accent": "#c4a2ff"
+  },
+  "backgroundProbes": [
+    [
+      10,
+      300
+    ],
+    [
+      710,
+      700
+    ],
+    [
+      10,
+      850
+    ],
+    [
+      350,
+      200
+    ],
+    [
+      100,
+      1120
+    ]
+  ],
+  "geometryTolerancePx": 0.001,
+  "glyphMaskMinimumIoU": 0.8,
+  "orb": [
+    349.2,
+    416.4,
+    262.8
+  ],
+  "ring": [
+    388.9,
+    36.96
+  ],
+  "horizon": [
+    748.8,
+    288
+  ]
+}

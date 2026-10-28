@@ -1,0 +1,28 @@
+<!-- Independent reference drawing from the documented 720×1280 contract.
+     Placeholders are filled only from the normative test spec, never production. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280" viewBox="0 0 720 1280">
+ <defs>
+  <linearGradient id="cosmos" x1="0" y1="0" x2="720" y2="1280" gradientUnits="userSpaceOnUse"><stop stop-color="#121527"/><stop offset=".5" stop-color="#1b1329"/><stop offset=".85" stop-color="#352346"/><stop offset="1" stop-color="#81647e"/></linearGradient>
+  <linearGradient id="dusk" x1="0" y1="0" x2="200" y2="1280" gradientUnits="userSpaceOnUse"><stop stop-color="#352543"/><stop offset=".55" stop-color="#6e4161"/><stop offset="1" stop-color="#c77d65"/></linearGradient>
+  <radialGradient id="minimal" cx="360" cy="0" r="1100" gradientUnits="userSpaceOnUse"><stop stop-color="#35303f"/><stop offset=".75" stop-color="#17151e"/></radialGradient>
+  <radialGradient id="glow" cx="{{glowX}}" cy="384" r="600" gradientUnits="userSpaceOnUse"><stop stop-color="{{glowColor}}"/><stop offset="1" stop-color="{{glowColor}}" stop-opacity="0"/></radialGradient>
+  <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1280" gradientUnits="userSpaceOnUse"><stop stop-color="#0b081a" stop-opacity=".267"/><stop offset=".2" stop-color="#0b081a" stop-opacity="0"/><stop offset=".78" stop-color="#0b081a" stop-opacity="0"/><stop offset="1" stop-color="#0b081a" stop-opacity=".533"/></linearGradient>
+  <radialGradient id="orb-cosmos" cx="349.2" cy="416.4" fx="454" fy="537" r="262.8" gradientUnits="userSpaceOnUse"><stop stop-color="#a98bb5" stop-opacity=".251"/><stop offset=".45" stop-color="#342845"/><stop offset="1" stop-color="#151421"/></radialGradient>
+  <radialGradient id="orb-dusk" cx="349.2" cy="416.4" fx="454" fy="537" r="262.8" gradientUnits="userSpaceOnUse"><stop stop-color="#efb588"/><stop offset=".4" stop-color="#a96e7b"/><stop offset="1" stop-color="#6a4566"/></radialGradient>
+  <linearGradient id="horizon-cosmos" x1="0" y1="-288" x2="0" y2="288" gradientUnits="userSpaceOnUse"><stop stop-color="#c0a7b9"/><stop offset=".18" stop-color="#49304f"/><stop offset=".58" stop-color="#151120"/></linearGradient>
+  <linearGradient id="horizon-dusk" x1="0" y1="-288" x2="0" y2="288" gradientUnits="userSpaceOnUse"><stop stop-color="#c6918c"/><stop offset=".3" stop-color="#502d4c"/><stop offset=".7" stop-color="#211527"/></linearGradient>
+ </defs>
+ <rect width="720" height="1280" fill="url(#{{theme}})"/>
+ <rect width="720" height="1280" fill="url(#glow)" opacity="{{glowOpacity}}"/>
+ <g opacity="{{decorOpacity}}">
+  <circle cx="349.2" cy="416.4" r="262.8" fill="url(#orb-{{theme}})"/>
+  <ellipse cx="349.2" cy="416.4" rx="388.9" ry="36.96" transform="rotate(-50 349.2 416.4)" fill="none" stroke="#b59cc8" stroke-opacity=".188" stroke-width="2.5"/>
+  <g transform="translate(403.2 1273.6) rotate(-13)"><ellipse rx="748.8" ry="288" fill="url(#horizon-{{theme}})"/></g>
+ </g>
+ <rect width="720" height="1280" fill="url(#shade)"/>
+ <!-- Independent probes cover clean sky, orb and horizon, away from UI. -->
+ <g id="caption" opacity="{{textOpacity}}" font-family="Arial, sans-serif" font-size="{{font}}" font-weight="{{weight}}" text-anchor="middle" dominant-baseline="middle">
+  <text x="360" y="{{y1}}" fill="#ffffff">Своё видео</text>
+  <text x="360" y="{{y2}}" fill="{{color2}}">Прямо сейчас</text>
+ </g>
+</svg>

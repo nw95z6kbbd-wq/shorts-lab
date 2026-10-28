@@ -189,6 +189,7 @@
 
   function render(canvas, plan, elapsedMs, resources) {
     window.ShortsRenderPlan.assertRenderable(plan);
+    if (plan?.source?.mode === 'editor') return window.ShortsEditorCanvas.render(canvas, plan, elapsedMs, resources);
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('Браузер не смог создать Canvas для видео.');
     const frame = V.frameAt(plan, elapsedMs);

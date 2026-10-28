@@ -49,8 +49,9 @@ window.prepareRuntimeSessionChecks = async function () {
     assert(M.statistics().sessions===0,'modules have no background sessions');
     const e=create('editor',editor),v=create('video',video);await Promise.all([e.prepare(),v.prepare()]);
     assert(contexts===0&&maxContexts===1,'actual image/audio preparation is serial and never starts playback');
-    assert(e.status().renderable===false&&v.status().renderable,'appearance support remains explicit');
-    await expect(e.record({canvas}),'APPEARANCE');
+    assert(e.status().renderable&&v.status().renderable,'both explicit profiles are supported');
+    const unsupported={...e.plan,appearance:{...e.plan.appearance,supported:false}};await expect(ShortsVideoRecorder.record({canvas,plan:unsupported}),'APPEARANCE');
+    e.renderFrame(canvas,0);
     assert(JSON.stringify(e.snapshot)===JSON.stringify(editor)&&JSON.stringify(v.plan)===JSON.stringify(A.fromVideo(video)),'pure unchanged DTO/plan');
     let refused=false;try{JSON.stringify(v);}catch(err){refused=err.code==='RUNTIME';}assert(refused,'runtime object serialization refused');
     const lease=v.acquire();leases.push(lease);

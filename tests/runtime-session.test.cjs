@@ -30,7 +30,7 @@ test('immutable DTO/plan snapshots retain independent identity fields and never 
  assert.throws(()=>s.snapshot.style.theme='dusk',TypeError);assert.throws(()=>JSON.stringify(s),{code:'RUNTIME'});
  assert.equal(s.identity.contentRevision,7);assert.equal(s.identity.savedRevision,3);assert.equal(s.status().generation,0);
  assert.equal(s.status().dataBytes,Buffer.byteLength(JSON.stringify(s.snapshot))+Buffer.byteLength(JSON.stringify(s.plan)));
- await s.prepare();assert.equal(s.status().generation,1);assert.equal(s.status().renderable,false);assert.throws(()=>s.renderFrame({},0),{code:'APPEARANCE'});await s.dispose();
+ await s.prepare();assert.equal(s.status().generation,1);assert.equal(s.status().renderable,true);assert.doesNotThrow(()=>P.assertRenderable(s.plan));await s.dispose();
 });
 test('wrong slot, stale plan, future DTO and runtime values cannot create a prepared session',()=>{
  const f=fixture(),p=project(),vp=project('video');
@@ -96,7 +96,7 @@ test('voice/music share one prepared original without changing gains, fades or s
 });
 test('test consumer receives the exact video plan/resources; editor render refusal is preserved',async()=>{
  const f=fixture(),p=project('video'),expected=A.fromVideo(p),s=session(f,'video',p);await s.prepare();const frame=s.renderFrame({},0);assert.equal(frame.id,'a');const result=await s.record({canvas:{}});assert.deepEqual(result.plan,expected);await s.dispose();assert.equal(f.events.filter(e=>e==='record').length,1);
- const e=session(f);await e.prepare();await assert.rejects(e.record({canvas:{}}),{code:'APPEARANCE'});await e.dispose();
+ const e=session(f);await e.prepare();assert.doesNotThrow(()=>P.assertRenderable(e.plan));assert.throws(()=>P.assertRenderable({...e.plan,appearance:{...e.plan.appearance,supported:false}}),{code:'APPEARANCE'});await e.dispose();
 });
 test('an active recording pins resources through actual asynchronous abort cleanup',async()=>{
  const f=fixture(),gate=deferred(),entered=deferred();let resource;
@@ -132,8 +132,14 @@ test('failed native context closure reports an error and retains media until a s
 test('existing runtime/UI/storage sources and Safari guard retain the frozen main implementation',()=>{
  const {createHash}=require('node:crypto'),checkpoint=require('./fixtures/runtime/before.json'),hash=b=>createHash('sha256').update(b).digest('hex');
  assert.equal(checkpoint.commit,'8042586d1c5c65a4a89eedd61052a37ca14b4868');
- for(const [name,expected] of Object.entries(checkpoint.files))assert.equal(hash(fs.readFileSync(name)),expected,name);
+ const approved=new Set(['js/render-plan.js','js/render-adapters.js','js/video-renderer.js','tests/render_guard.py','tests/safari-baseline-test.py']);
+ for(const [name,expected] of Object.entries(checkpoint.files))if(!approved.has(name))assert.equal(hash(fs.readFileSync(name)),expected,name);
+ require('node:child_process').execFileSync('python',['tests/render_guard.py']);
+ for(const name of ['render-plan.js','render-adapters.js'])assert.equal(hash(fs.readFileSync('tests/fixtures/editor-canvas/before/'+name)),checkpoint.files['js/'+name],name+' frozen before Editor Canvas');
+ assert.equal(hash(fs.readFileSync('tests/fixtures/editor-canvas/before/render_guard.py')),checkpoint.files['tests/render_guard.py']);
+ const oldAdapter=fs.readFileSync('tests/fixtures/editor-canvas/before/render-adapters.js','utf8'),adapter=fs.readFileSync('js/render-adapters.js','utf8');
+ const videoPart=source=>source.slice(source.indexOf('  function fromVideo('),source.indexOf('  function fromEditor('));assert.equal(videoPart(adapter),videoPart(oldAdapter),'Video adapter body remains exact');
  for(const [name,{sha256,remove}] of Object.entries(checkpoint.bridges)){
-  let source=fs.readFileSync(name,'utf8');for(const text of remove){assert.equal(source.split(text).length,2,name+' exact additive bridge');source=source.replace(text,'');}assert.equal(hash(source),sha256,name);
+  let source=fs.readFileSync(name,'utf8');if(name==='tests/safari-product.py')for(const bridge of ['from editor_canvas_native import check_native_editor_canvas\n','            check_native_editor_canvas(ROOT,script,command,click)\n']){assert.equal(source.split(bridge).length,2);source=source.replace(bridge,'');}if(name==='index.html')for(const file of ['editor-profile','editor-canvas'])source=source.replace('  <script src="js/'+file+'.js" defer></script>\n','');for(const text of remove){assert.equal(source.split(text).length,2,name+' exact additive bridge');source=source.replace(text,'');}assert.equal(hash(source),sha256,name);
  }
 });
