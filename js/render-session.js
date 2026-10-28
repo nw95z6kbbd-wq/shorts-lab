@@ -12,9 +12,10 @@
   const MAX_DATA_BYTES = 16 * 1048576;
   const error = (code,message,cause) => Object.assign(new Error(message,cause?{cause}:undefined),{code});
   let sequence=0;
+  const encoder=new TextEncoder(),receipts=new WeakMap();
   function immutable(value,budget={bytes:0},ancestors=new Set()) {
     const charge=n=>{budget.bytes+=n;if(budget.bytes>MAX_DATA_BYTES)throw error('DATA_BUDGET','Снимок и план превышают технический бюджет JSON 16 МиБ.');};
-    const stringBytes=text=>{if(text.length>MAX_DATA_BYTES-budget.bytes)charge(MAX_DATA_BYTES+1);return new TextEncoder().encode(JSON.stringify(text)).length;};
+    const stringBytes=(text,key=false)=>{if(text.length>MAX_DATA_BYTES-budget.bytes)charge(MAX_DATA_BYTES+1);const cache=key?(budget.keys||=new Map()):(budget.strings||=new Map());if(cache.has(text))return cache.get(text);const size=encoder.encode(JSON.stringify(text)).length;if(cache.size<128)cache.set(text,size);return size;};
     if(value===null || typeof value==='boolean'){charge(value===null?4:value?4:5);return value;}
     if(typeof value==='number'){if(!Number.isFinite(value))throw error('DATA','В снимке есть нечисловое значение.');charge(JSON.stringify(value).length);return value;}
     if(typeof value==='string'){charge(stringBytes(value));return value;}
@@ -25,7 +26,7 @@
     for(const key of keys){
       const descriptor=Object.getOwnPropertyDescriptor(value,key);
       if(typeof key!=='string'||!descriptor.enumerable||!Object.hasOwn(descriptor,'value'))throw error('DATA','Свойства снимка должны быть обычными данными.');
-      if(!array)charge(stringBytes(key)+1);
+      if(!array)charge(stringBytes(key,true)+1);
       Object.defineProperty(result,key,{value:immutable(descriptor.value,budget,ancestors),enumerable:true,writable:true,configurable:true});
     }
     ancestors.delete(value);return Object.freeze(result);
@@ -34,18 +35,24 @@
     if(a===b)return true;if(!a||!b||typeof a!=='object'||typeof b!=='object'||Array.isArray(a)!==Array.isArray(b))return false;
     const keys=Object.keys(a);return keys.length===Object.keys(b).length&&keys.every(k=>Object.hasOwn(b,k)&&same(a[k],b[k]));
   }
-  function create({slot,project,plan,projectId=project?.id,contentRevision,savedRevision=null,limits,signal}={}) {
+  function create({slot,project,plan,projectId=project?.id,contentRevision,savedRevision=null,limits,signal,previewTimeMs=null}={}) {
     if(!['editor','video'].includes(slot)||typeof projectId!=='string'||!projectId||!Number.isSafeInteger(contentRevision)||contentRevision<0||(savedRevision!==null&&(!Number.isSafeInteger(savedRevision)||savedRevision<0)))throw error('IDENTITY','Укажите независимые slot, projectId, contentRevision и savedRevision (или null).');
-    const budget={bytes:0},snapshot=immutable(project,budget),frozenPlan=immutable(plan,budget);
+    if(previewTimeMs!==null&&(!Number.isFinite(previewTimeMs)||previewTimeMs<0))throw error('OFFSET','Некорректная позиция кадра.');
+    const certified=receipts.get(project)?.get(plan),budget={bytes:certified??0};
+    const snapshot=certified===undefined?immutable(project,budget):project,frozenPlan=certified===undefined?immutable(plan,budget):plan;
     if(slot==='editor'&&snapshot.id!==projectId)throw error('IDENTITY','Идентификатор снимка Студии не совпадает с владельцем сессии.');
     let expected;try{expected=slot==='editor'?io.adapters.fromEditor(snapshot):io.adapters.fromVideo(snapshot);}catch(e){throw e.code?e:error('PROJECT',e.message||'Неподдерживаемые данные проекта.',e);}
     if(!io.plan.isPlan(frozenPlan)||!same(expected,frozenPlan))throw error('PLAN_MISMATCH','RenderPlan не соответствует слоту и этой редакции снимка проекта.');
     const identity=Object.freeze({slot,projectId,contentRevision,savedRevision,sessionId:'render-'+ ++sequence});
     const uses=new Set();let disposed=false,closing,cleanupFailure=null;
     const noJSON=()=>{throw error('RUNTIME','Управляющую сессию нельзя сохранять как данные проекта.');};
+    // A preview owns the complete immutable DTO/plan, but only a bounded frame
+    // window of originals. No audio is decoded and partial windows cannot record.
+    const windowFrame=previewTimeMs===null?null:io.plan.frameAt(frozenPlan,previewTimeMs);
+    const windowScenes=windowFrame?[windowFrame.scene,...(windowFrame.scene.transition!=='none'&&windowFrame.scene.index?[frozenPlan.timeline[windowFrame.scene.index-1]]:[])]:null;
     const needed=new Map();
-    for(const scene of frozenPlan.timeline)if(scene.visual==='image')needed.set(scene.imageId,{id:scene.imageId,kind:'image'});
-    for(const role of ['voice','music']){const id=frozenPlan.audio[role].assetId;if(id){if(needed.get(id)?.kind==='image')throw error('REFERENCES','Изображение нельзя использовать как аудио.');needed.set(id,{id,kind:'audio'});}}
+    for(const scene of windowScenes||frozenPlan.timeline)if(scene.visual==='image')needed.set(scene.imageId,{id:scene.imageId,kind:'image'});
+    for(const role of windowFrame?[]:['voice','music']){const id=frozenPlan.audio[role].assetId;if(id){if(needed.get(id)?.kind==='image')throw error('REFERENCES','Изображение нельзя использовать как аудио.');needed.set(id,{id,kind:'audio'});}}
     let renderable=true;try{io.plan.assertRenderable(frozenPlan);}catch(_){renderable=false;}
     const media=io.media.create({owner:identity,limits});
     function alive(){if(disposed)throw error('STATE','Runtime-сессия закрыта.');}
@@ -54,6 +61,7 @@
     function busy(){alive();if(uses.size)throw error('BUSY','Остановите текущего потребителя перед новым воспроизведением или записью.');}
     function finishUse(use){use.lease.release();uses.delete(use);}
     async function playAudio({offsetSeconds=0}={}) {
+      if(windowFrame)throw error('PREVIEW_ONLY','Сессия кадра не подготавливает аудио.');
       busy();if(!Number.isFinite(offsetSeconds)||offsetSeconds<0||offsetSeconds>frozenPlan.durationMs/1000)throw error('OFFSET','Некорректная позиция аудио.');
       const use={kind:'audio',lease:acquire(),abort:new AbortController()},options={...borrowed(use.lease),offsetSeconds};uses.add(use);
       let context,mix,stopPromise,timer;
@@ -86,6 +94,7 @@
       }catch(e){await stop();throw e.code?e:error('AUDIO_PLAYBACK',e.message||'Не удалось запустить аудио.',e);}
     }
     async function record({canvas,onProgress,onFormat,signal:external}={}){
+      if(windowFrame)throw error('PREVIEW_ONLY','Для записи нужна полная подготовка медиа.');
       busy();io.plan.assertRenderable(frozenPlan);
       const use={kind:'record',lease:acquire(),abort:new AbortController()};uses.add(use);
       const stop=()=>use.abort.abort();use.stop=stop;external?.addEventListener('abort',stop,{once:true});if(external?.aborted)stop();
@@ -105,9 +114,9 @@
     signal?.addEventListener('abort',lifetimeAbort,{once:true});if(signal?.aborted)lifetimeAbort();
     return Object.freeze({identity,snapshot,plan:frozenPlan,
       prepare:options=>{alive();return media.prepare([...needed.values()],options);}, acquire,
-      renderFrame(canvas,time){alive();io.plan.assertRenderable(frozenPlan);if([...uses].some(use=>use.kind==='record'))throw error('BUSY','Canvas занят записью сессии.');const lease=acquire();try{return io.render(canvas,frozenPlan,time,lease.resources);}finally{lease.release();}},
+      renderFrame(canvas,time){alive();io.plan.assertRenderable(frozenPlan);if(windowFrame&&io.plan.frameAt(frozenPlan,time).scene.id!==windowFrame.scene.id)throw error('FRAME_WINDOW','Подготовьте окно новой сцены.');if([...uses].some(use=>use.kind==='record'))throw error('BUSY','Canvas занят записью сессии.');const lease=acquire();try{return io.render(canvas,frozenPlan,time,lease.resources);}finally{lease.release();}},
       playAudio,record,cancel,dispose:()=>close(false),
-      status(){const s=media.status();return Object.freeze({...s,state:s.state==='ready'&&s.consumers?'use':s.state,identity,renderable,disposed,dataBytes:budget.bytes,neededMedia:needed.size,ownedConsumers:uses.size,error:cleanupFailure?{code:cleanupFailure.code,message:cleanupFailure.message}:s.error});},toJSON:noJSON});
+      status(){const s=media.status();return Object.freeze({...s,state:s.state==='ready'&&s.consumers?'use':s.state,identity,renderable,disposed,dataBytes:budget.bytes,neededMedia:needed.size,previewSceneId:windowFrame?.scene.id||null,ownedConsumers:uses.size,error:cleanupFailure?{code:cleanupFailure.code,message:cleanupFailure.message}:s.error});},toJSON:noJSON});
   }
-  return Object.freeze({create,MAX_DATA_BYTES});
+  return Object.freeze({create,snapshotData:(project,plan)=>{const budget={bytes:0};const data=Object.freeze({project:immutable(project,budget),plan:immutable(plan,budget)});if(!data.project||typeof data.project!=='object'||!data.plan||typeof data.plan!=='object')throw error('DATA','Снимок проекта и план должны быть JSON-объектами.');receipts.set(data.project,new WeakMap([[data.plan,budget.bytes]]));return data;},createPreview:options=>{if(!Number.isFinite(options?.timeMs)||options.timeMs<0)throw error('OFFSET','Укажите позицию кадра в миллисекундах.');return create({...options,previewTimeMs:options.timeMs});},MAX_DATA_BYTES});
 });

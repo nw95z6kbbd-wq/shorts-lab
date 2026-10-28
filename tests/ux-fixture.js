@@ -46,3 +46,54 @@ window.uxToastOverlapsControls = () => {
   });
 };
 void 0;
+
+// Geometry only: no project text, filenames or source media in CI diagnostics.
+window.uxPreviewGeometry = () => {
+  const rect = e => {const r=e.getBoundingClientRect();return Object.fromEntries(['x','y','top','bottom','width','height'].map(k=>[k,r[k]]));};
+  const elements={};
+  for(const selector of ['#studioViewport','.workspace','#mainContent','.studio-grid','.preview-column','.preview-panel','.portrait-wrap','#portrait','#editorCanvas','.playback','#editorSeek','.preview-note','.appearance-panel']){
+    const e=document.querySelector(selector),s=getComputedStyle(e);
+    elements[selector]={rect:rect(e),client:[e.clientWidth,e.clientHeight],scroll:[e.scrollWidth,e.scrollHeight,e.scrollLeft,e.scrollTop],css:{position:s.position,top:s.top,width:s.width,height:s.height,minHeight:s.minHeight,aspectRatio:s.aspectRatio,overflow:s.overflow,display:s.display,alignItems:s.alignItems,alignSelf:s.alignSelf,flexShrink:s.flexShrink,mediaHeight:s.getPropertyValue('--preview-media-height')},className:e.className};
+  }
+  return {userAgent:navigator.userAgent,inner:[innerWidth,innerHeight],document:[document.documentElement.clientWidth,document.documentElement.clientHeight,document.documentElement.scrollWidth,document.documentElement.scrollHeight,scrollX,scrollY],visual:visualViewport&&{width:visualViewport.width,height:visualViewport.height,offsetTop:visualViewport.offsetTop,offsetLeft:visualViewport.offsetLeft,scale:visualViewport.scale},devicePixelRatio,elements};
+};
+window.uxPreviewSummary = () => {
+  const g=uxPreviewGeometry(),e=g.elements;
+  const pick=s=>({rect:e[s].rect,position:e[s].css.position,mediaHeight:e[s].css.mediaHeight});
+  return {inner:g.inner,visual:g.visual,dpr:g.devicePixelRatio,viewport:{...pick('#studioViewport'),client:e['#studioViewport'].client,scroll:e['#studioViewport'].scroll},column:pick('.preview-column'),wrap:pick('.portrait-wrap'),frame:pick('#portrait'),canvas:pick('#editorCanvas'),appearance:pick('.appearance-panel')};
+};
+window.uxAssertEditorPreview = () => {
+  const g=uxPreviewGeometry(),e=g.elements,v=e['#studioViewport'].rect,c=e['.preview-column'],f=e['#portrait'].rect,canvas=e['#editorCanvas'].rect;
+  const fail=why=>{throw Error('Editor preview geometry: '+why+' '+JSON.stringify(uxPreviewSummary()));};
+  if(document.documentElement.scrollWidth>innerWidth)fail('horizontal document overflow');
+  if(Math.abs(f.height-f.width*16/9)>1)fail('frame is not 9:16');
+  if(!document.getElementById('editorCanvas').hidden && ['x','y','width','height'].some(k=>Math.abs(canvas[k]-f[k])>1))fail('Canvas exceeds or does not fill its frame');
+  if(editorCanvas.width!==720||editorCanvas.height!==1280)fail('backing resolution changed');
+  if(c.css.position==='sticky'&&(c.rect.top<v.top-1||c.rect.bottom>v.top+e['#studioViewport'].client[1]+1))fail('sticky column outside scroll viewport');
+  return uxPreviewSummary();
+};
+window.uxCheckEditorPreview = async () => {
+  const paint=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  const v=document.getElementById('studioViewport');v.scrollTop=v.scrollHeight;await paint();
+  const summary=uxAssertEditorPreview();
+  // An oversized/static column need not fit all at once, but every control and
+  // the full 9:16 frame must remain reachable by normal workspace scrolling.
+  for(const selector of ['#portrait','#playPreview','#editorSeek','#captionSize','.theme-swatch:last-child']){
+    const element=document.querySelector(selector);element.scrollIntoView({block:'center',inline:'nearest'});await paint();
+    const r=element.getBoundingClientRect(),view=v.getBoundingClientRect(),top=view.top+v.clientTop,bottom=top+v.clientHeight;
+    if(r.top<top-1||r.bottom>bottom+1)throw Error('Editor preview unreachable '+selector+' '+JSON.stringify(uxPreviewSummary()));
+  }
+  return summary;
+};
+
+// Native Safari evidence: compare the previous flex wrapper with block layout
+// at the same width/budget. Restore every inline property before assertions.
+window.uxProbeEditorWrapper = async () => {
+  const wrap=document.querySelector('.preview-column .portrait-wrap'),frame=document.getElementById('portrait');
+  const before=wrap.getAttribute('style'),margin=frame.getAttribute('style');
+  const paint=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  let flex;
+  try {wrap.style.display='flex';frame.style.marginInline='0';await paint();flex=uxPreviewSummary();}
+  finally {before===null?wrap.removeAttribute('style'):wrap.setAttribute('style',before);margin===null?frame.removeAttribute('style'):frame.setAttribute('style',margin);await paint();}
+  return {previousFlex:flex,currentBlock:uxPreviewSummary()};
+};

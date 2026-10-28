@@ -47,6 +47,11 @@ window.prepareRuntimeSessionChecks = async function () {
   const assert=(ok,text)=>{if(!ok)throw Error('Runtime: '+text);},delay=()=>new Promise(r=>setTimeout(r,0));
   const wait=async fn=>{for(let i=0;i<200&&!fn();i++)await delay();assert(fn(),'async operation started');};
   const expect=async(p,code)=>{let caught;try{await p;}catch(e){caught=e;}assert(caught?.code===code,'expected '+code+', got '+caught?.code+': '+caught?.message);};
+  // The application now has a real Editor consumer. Leave it through the
+  // public mode control before starting the isolated owner/leak accounting.
+  document.getElementById('openVideoMode').click();
+  const editorClosed=Date.now()+10000;
+  while(M.statistics().sessions){assert(Date.now()<editorClosed,'Editor UI releases all runtime owners on mode exit');await new Promise(r=>setTimeout(r,20));}
   const sessions=[],leases=[],gates=[],staged=[];let playback;
   const trace={phase:'prepare'};
   window.runtimeSessionDiagnostics=()=>({trace:{...trace},contexts,maxContexts,urls:urls.size,pool:M.statistics(),sessions:sessions.map(s=>s.status())});

@@ -47,10 +47,18 @@ def run():
         first=page.locator('.scene-card').first;first.locator('.studio-move').nth(1).click();reordered=check(page)['project'];assert [s['id'] for s in reordered['scenes']]==[ids[1],ids[0],ids[2]] and reordered['selectedSceneId']==ids[0]
         saved(page);srt(page)
         page.locator('[data-backup-export]:visible').first.click();expect(page.locator('#backupDownload')).to_be_visible()
-        assert page.evaluate('async()=> (await ShortsBackupFormat.importArchive(await(await fetch(backupDownload.href)).blob())).manifest.version')==1;page.locator('#backupCancel').click()
+        assert page.evaluate('async()=> (await ShortsBackupFormat.importArchive(await(await fetch(backupDownload.href)).blob())).manifest.version')==1
+        # close() hides the dialog synchronously, but its close event restores
+        # opener focus in a later task. Await that actual event before asserting
+        # typing focus; otherwise the ZIP handler can legitimately take it back.
+        page.evaluate('window.timingZipClosed=false;document.getElementById("backupDialog").addEventListener("close",()=>{window.timingZipClosed=true;},{once:true});')
+        page.locator('#backupCancel').click();page.wait_for_function('window.timingZipClosed')
+        expect(page.locator('[data-backup-export]:visible').first).to_be_focused()
         # Explicit duration setting is the upgrade action; preserve overrides in Reading.
         page.locator('#editorTimingMode').select_option('manual');field=page.locator('.studio-scene-duration').nth(1);field.fill('1,234')
-        assert field.evaluate('n=>n===document.activeElement');assert check(page)['project']['scenes'][1]['durationMs']==1234
+        focus=field.evaluate('n=>({focused:n===document.activeElement,field:n.id,active:document.activeElement?.id,value:n.value,disabled:n.disabled})')
+        assert focus['focused'], {'stage':'duration focus after fill',**focus}
+        assert check(page)['project']['scenes'][1]['durationMs']==1234, {'stage':'duration DTO after fill',**focus}
         page.locator('.studio-scene-duration').first.fill('2.345');page.evaluate('editorTimingStartTrace()');page.locator('#editorTimingMode').select_option('reading');check(page)
         page.locator('#editorTimingMode').select_option('manual')
         def duration_diagnostic():return page.evaluate('({events:editorTimingEvents,field:document.querySelector(".studio-scene-duration").value,duration:ShortsEditor.backupSnapshot().scenes[0].durationMs})')

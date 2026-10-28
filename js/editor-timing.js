@@ -39,6 +39,14 @@
       const scene=project.version===2?C.upgradeProject({...project,version:1,scenes:[basic],selectedSceneId:sceneId}).scenes[0]:basic;
       return {...project,scenes:[...project.scenes,scene],selectedSceneId:sceneId};
     }
+    if(['image','visual','camera','transition'].includes(type)){
+      const next=C.upgradeProject(project),index=next.scenes.findIndex(s=>s.id===id);if(index<0)throw failure('Сцена больше не существует.');
+      if(type==='image'){
+        if(value!==null&&(!value||typeof value.id!=='string'||typeof value.name!=='string'))throw failure('Неверная ссылка на изображение.');
+        Object.assign(next.scenes[index],{imageId:value?.id||null,imageName:value?.name||'',visual:value?'image':'animated'});
+      }else next.scenes[index][type]=value;
+      return C.parseProject(next); // strict existing DTO validation, no new schema
+    }
     const index=project.scenes.findIndex(scene=>scene.id===id);if(index<0)throw failure('Сцена больше не существует.');
     const scenes=project.scenes.slice();
     if(type==='move'){
