@@ -20,6 +20,13 @@ def check_native_editor_canvas(root,script,command,click):
         return command_result(command('POST','/execute/async',{'script':diagnostics+'\nconst done=arguments[arguments.length-1];Promise.resolve().then(async()=>{'+code+'}).then(value=>done({ok:true,value}),e=>done({ok:false,failure:ShortsRuntimeDiagnostics.failure(e)}));','args':args or []}))
     grants=[]
     args=[json.loads((root/'tests/fixtures/editor-canvas/spec.json').read_text()),(root/'tests/fixtures/editor-canvas/reference.svg').read_text(),media_payload()]
+    def check_recording():
+        for name in ['runtime-session-fixture.js','editor-canvas-recording.js']:script((root/'tests'/name).read_text())
+        execute('await prepareEditorCanvasRecording(arguments[0]);return true;',[media_payload()]);click('#editorRecordProbe');recording=execute('return await finishEditorCanvasRecording();');assert not recording.get('skipped'),recording
+        print('::notice title=Native Safari Editor recording verified::'+json.dumps(recording),flush=True)
+        if os.environ.get('GITHUB_STEP_SUMMARY'):
+            with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
+                summary.write('\n### Editor Canvas — actual Safari recording\n\n```json\n'+json.dumps(recording,ensure_ascii=False,indent=2)+'\n```\n')
     try:
         for entry in [f'http://127.0.0.1:{server.server_port}/index.html',(root/'index.html').as_uri(),(root/'downloads/Shorts-Studio.html').as_uri()]:
             print('::notice title=Native Safari Editor Canvas entry::'+entry,flush=True)
@@ -52,12 +59,7 @@ def check_native_editor_canvas(root,script,command,click):
             if os.environ.get('GITHUB_STEP_SUMMARY'):
                 with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
                     summary.write('\n### Editor Canvas — actual Safari entry\n\n```json\n'+json.dumps(evidence,ensure_ascii=False,indent=2)+'\n```\n')
-        for name in ['runtime-session-fixture.js','editor-canvas-recording.js']:script((root/'tests'/name).read_text())
-        execute('await prepareEditorCanvasRecording(arguments[0]);return true;',[media_payload()]);click('#editorRecordProbe');recording=execute('return await finishEditorCanvasRecording();');assert not recording.get('skipped'),recording
-        print('::notice title=Native Safari Editor recording verified::'+json.dumps(recording),flush=True)
-        if os.environ.get('GITHUB_STEP_SUMMARY'):
-            with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
-                summary.write('\n### Editor Canvas — actual Safari recording\n\n```json\n'+json.dumps(recording,ensure_ascii=False,indent=2)+'\n```\n')
+            if entry.startswith('http:') or entry.endswith('/downloads/Shorts-Studio.html'):check_recording()
     finally:
         for grant in grants:grant.unlink(missing_ok=True)
         server.shutdown();server.server_close()

@@ -47,7 +47,7 @@ def run():
             except Exception:
                 diagnostic=page.evaluate('window.runtimeSessionDiagnostics?.()')
                 try:
-                    data=page.evaluate('async()=>{if(!window.runtimeRecordedBlob)return null;const r=new FileReader();const done=new Promise((resolve,reject)=>{r.onload=()=>resolve(r.result.split(",")[1]);r.onerror=reject;});r.readAsDataURL(runtimeRecordedBlob);return done;}')
+                    data=page.evaluate('async()=>{if(!window.runtimeRecordedBlob)return null;const r=new FileReader();const done=new Promise((resolve,reject)=>{r.onload=()=>resolve(r.result.slice(r.result.lastIndexOf(",")+1));r.onerror=reject;});r.readAsDataURL(runtimeRecordedBlob);return done;}')
                     if data:
                         folder=ROOT/'test-results/runtime-session';folder.mkdir(parents=True,exist_ok=True)
                         video=folder/'failure.webm';video.write_bytes(base64.b64decode(data))
