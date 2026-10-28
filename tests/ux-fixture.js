@@ -46,3 +46,14 @@ window.uxToastOverlapsControls = () => {
   });
 };
 void 0;
+
+// Geometry only: no project text, filenames or source media in CI diagnostics.
+window.uxPreviewGeometry = () => {
+  const rect = e => {const r=e.getBoundingClientRect();return Object.fromEntries(['x','y','top','bottom','width','height'].map(k=>[k,r[k]]));};
+  const elements={};
+  for(const selector of ['#studioViewport','.workspace','#mainContent','.studio-grid','.preview-column','.preview-panel','.portrait-wrap','#portrait','#editorCanvas','.playback','#editorSeek','.preview-note','.appearance-panel']){
+    const e=document.querySelector(selector),s=getComputedStyle(e);
+    elements[selector]={rect:rect(e),client:[e.clientWidth,e.clientHeight],scroll:[e.scrollWidth,e.scrollHeight,e.scrollLeft,e.scrollTop],css:{position:s.position,top:s.top,width:s.width,height:s.height,minHeight:s.minHeight,aspectRatio:s.aspectRatio,overflow:s.overflow,display:s.display,alignItems:s.alignItems,alignSelf:s.alignSelf,flexShrink:s.flexShrink,mediaHeight:s.getPropertyValue('--preview-media-height')},className:e.className};
+  }
+  return {userAgent:navigator.userAgent,inner:[innerWidth,innerHeight],document:[document.documentElement.clientWidth,document.documentElement.clientHeight,document.documentElement.scrollWidth,document.documentElement.scrollHeight,scrollX,scrollY],visual:visualViewport&&{width:visualViewport.width,height:visualViewport.height,offsetTop:visualViewport.offsetTop,offsetLeft:visualViewport.offsetLeft,scale:visualViewport.scale},devicePixelRatio,elements};
+};
