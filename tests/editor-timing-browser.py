@@ -51,8 +51,8 @@ def run():
         # Explicit duration setting is the upgrade action; preserve overrides in Reading.
         page.locator('#editorTimingMode').select_option('manual');field=page.locator('.studio-scene-duration').nth(1);field.fill('1,234')
         assert field.evaluate('n=>n===document.activeElement');assert check(page)['project']['scenes'][1]['durationMs']==1234
-        page.locator('.studio-scene-duration').first.fill('2.345');page.locator('#editorTimingMode').select_option('reading');check(page)
-        page.locator('#editorTimingMode').select_option('manual');assert page.locator('.studio-scene-duration').first.input_value()=='2,345';page.locator('.studio-scene-duration').first.fill('');assert check(page)['project']['scenes'][0]['durationMs'] is None
+        page.locator('.studio-scene-duration').first.fill('2.345');page.evaluate('editorTimingStartTrace()');page.locator('#editorTimingMode').select_option('reading');check(page)
+        page.locator('#editorTimingMode').select_option('manual');assert page.locator('.studio-scene-duration').first.input_value()=='2,345';page.locator('.studio-scene-duration').first.fill('');assert check(page)['project']['scenes'][0]['durationMs'] is None, page.evaluate('({events:editorTimingEvents,field:document.querySelector(".studio-scene-duration").value,duration:ShortsEditor.backupSnapshot().scenes[0].durationMs})')
         saved(page);before=snapshot(page)
         for raw in ['-1','NaN','Infinity','0','1.0001','9007199254740.992']:
             field.fill(raw);assert field.input_value()==raw;assert page.evaluate('b=>editorTimingErrorAssert(b)',before)
