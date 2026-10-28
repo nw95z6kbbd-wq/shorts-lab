@@ -4,6 +4,8 @@ import json
 import os
 import subprocess
 import threading
+import tempfile
+from pathlib import Path
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
 from editor_canvas_diagnostics import save_editor_diagnostics
@@ -16,35 +18,21 @@ def check_native_editor_canvas(root,script,command,click):
     diagnostics=(root/'tests/runtime-diagnostics.js').read_text()
     def execute(code,args=None):
         return command_result(command('POST','/execute/async',{'script':diagnostics+'\nconst done=arguments[arguments.length-1];Promise.resolve().then(async()=>{'+code+'}).then(value=>done({ok:true,value}),e=>done({ok:false,failure:ShortsRuntimeDiagnostics.failure(e)}));','args':args or []}))
+    grants=[]
     args=[json.loads((root/'tests/fixtures/editor-canvas/spec.json').read_text()),(root/'tests/fixtures/editor-canvas/reference.svg').read_text(),media_payload()]
     try:
         for entry in [f'http://127.0.0.1:{server.server_port}/index.html',(root/'index.html').as_uri(),(root/'downloads/Shorts-Studio.html').as_uri()]:
             print('::notice title=Native Safari Editor Canvas entry::'+entry,flush=True)
             if entry.startswith('file:'):
-                # LaunchServices performs the normal user document-open handoff,
-                # granting Safari access to this specific local test document.
-                # WebDriver alone cannot mint that macOS sandbox extension.
+                # A script-free sibling document obtains normal native folder
+                # access without launching a second app or requiring AppleScript.
+                # The actual app remains unmodified and is loaded by WebDriver.
                 from urllib.parse import unquote, urlparse
-                assert script('return location.href;')!=entry,'Do not close the active automated entry'
-                subprocess.run(['/usr/bin/open','-g','-a','Safari',unquote(urlparse(entry).path)],check=True)
-                # The document-open handoff creates a normal Safari document.
-                # Close that exact test URL before loading a second copy under
-                # WebDriver; do not leave two file-origin apps opening the DB.
-                apple='''tell application "Safari"
-set targetURL to '''+json.dumps(entry)+'''
-repeat 30 times
-set matches to (every document whose URL is targetURL)
-if (count of matches) > 0 then
-set openedCount to count of matches
-close matches
-return openedCount
-end if
-delay 0.1
-end repeat
-error "LaunchServices test document was not observable"
-end tell'''
-                opened=subprocess.run(['/usr/bin/osascript','-e',apple],check=True,capture_output=True,text=True,timeout=8)
-                assert int(opened.stdout.strip())>0,opened.stdout
+                folder=Path(unquote(urlparse(entry).path)).parent
+                with tempfile.NamedTemporaryFile(dir=folder,prefix='.shorts-ci-file-grant-',suffix='.html',delete=False) as file:
+                    grant=Path(file.name);grants.append(grant)
+                    file.write(b'<!doctype html><meta charset="utf-8"><title>Shorts Studio local test access</title><p>Native file access for the adjacent Shorts Studio test document.</p>')
+                subprocess.run(['/usr/bin/open','-g','-a','Safari',str(grant)],check=True)
             command('POST','/url',{'url':entry})
             startup=execute('''const errors=[];addEventListener('error',e=>errors.push(e.message||e.target?.src||'script error'),true);addEventListener('unhandledrejection',e=>errors.push(ShortsRuntimeDiagnostics.failure(e.reason)));
               let editorReady='absent',observed;const observe=()=>{if(window.ShortsEditorReady&&observed!==window.ShortsEditorReady){observed=window.ShortsEditorReady;editorReady='pending';Promise.resolve(observed).then(()=>editorReady='ready',e=>{editorReady='rejected';errors.push(ShortsRuntimeDiagnostics.failure(e));});}};observe();
@@ -70,4 +58,6 @@ end tell'''
         if os.environ.get('GITHUB_STEP_SUMMARY'):
             with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
                 summary.write('\n### Editor Canvas — actual Safari recording\n\n```json\n'+json.dumps(recording,ensure_ascii=False,indent=2)+'\n```\n')
-    finally:server.shutdown();server.server_close()
+    finally:
+        for grant in grants:grant.unlink(missing_ok=True)
+        server.shutdown();server.server_close()
