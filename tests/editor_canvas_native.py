@@ -25,7 +25,26 @@ def check_native_editor_canvas(root,script,command,click):
                 # granting Safari access to this specific local test document.
                 # WebDriver alone cannot mint that macOS sandbox extension.
                 from urllib.parse import unquote, urlparse
+                assert script('return location.href;')!=entry,'Do not close the active automated entry'
                 subprocess.run(['/usr/bin/open','-g','-a','Safari',unquote(urlparse(entry).path)],check=True)
+                # The document-open handoff creates a normal Safari document.
+                # Close that exact test URL before loading a second copy under
+                # WebDriver; do not leave two file-origin apps opening the DB.
+                apple='''tell application "Safari"
+set targetURL to '''+json.dumps(entry)+'''
+repeat 30 times
+set matches to (every document whose URL is targetURL)
+if (count of matches) > 0 then
+set openedCount to count of matches
+close matches
+return openedCount
+end if
+delay 0.1
+end repeat
+error "LaunchServices test document was not observable"
+end tell'''
+                opened=subprocess.run(['/usr/bin/osascript','-e',apple],check=True,capture_output=True,text=True,timeout=8)
+                assert int(opened.stdout.strip())>0,opened.stdout
             command('POST','/url',{'url':entry})
             startup=execute('''const errors=[];addEventListener('error',e=>errors.push(e.message||e.target?.src||'script error'),true);addEventListener('unhandledrejection',e=>errors.push(ShortsRuntimeDiagnostics.failure(e.reason)));
               let editorReady='absent',observed;const observe=()=>{if(window.ShortsEditorReady&&observed!==window.ShortsEditorReady){observed=window.ShortsEditorReady;editorReady='pending';Promise.resolve(observed).then(()=>editorReady='ready',e=>{editorReady='rejected';errors.push(ShortsRuntimeDiagnostics.failure(e));});}};observe();
