@@ -14,7 +14,31 @@ window.ShortsEditorReady = (async function () {
   let pendingConfirmation = null;
   const sceneNodes = new Map(), durationErrors = new Map();
   let timing = { plan: null, byId: new Map(), error: null }, lastGoodProject = null, commandError = null;
-  let subtitlesDirty = true, lastSelectedSceneId = null;
+  let subtitlesDirty = true, lastSelectedSceneId = null, previewRevision = 0, playEpoch = 0, editorVisible = true;
+  const imageStates = new Map();
+  const livePreview = window.ShortsEditorPreview.create({ canvas: $('editorCanvas'), onState: previewState });
+  const imageUploads = window.ShortsEditorImages.create({
+    owner: () => project.id,
+    valid: (id, owner) => editorVisible && !timing.error && project.id === owner && project.selectedSceneId === id && project.scenes.some(s => s.id === id),
+    accept: (id, image) => { if (timing.error) return false; T.edit(project, { type: 'image', id, value: image }); editScene({ type: 'image', id, value: image }, true); return true; },
+    onState: (id, state, error) => { imageStates.set(id, { state, message: error?.message || (state === 'loading' ? 'Проверяем и загружаем оригинал…' : state === 'ready' ? 'Оригинал принят. Состояние сохранения — в уведомлении.' : 'Загрузка отменена.') }); updateSceneTimings(id); if (project.selectedSceneId === id && state === 'loading') { livePreview.suspend(); previewState({ state: 'loading' }); } else if (project.selectedSceneId === id && state === 'error') previewState({ state: 'error', error }); }
+  });
+
+  function previewState({ state, error, timeMs, sceneId }) {
+    $('portrait').dataset.previewState = state;
+    $('editorCanvas').hidden = state !== 'ready'; $('editorPreviewMessage').hidden = state === 'ready';
+    $('editorPreviewMessage').dataset.state = state;
+    if (state !== 'error') delete $('editorPreviewMessage').dataset.code;
+    if (state === 'ready') { $('editorCanvas').dataset.timeMs = String(Math.floor(timeMs)); $('editorCanvas').dataset.sceneId = sceneId; return; }
+    if (state === 'loading') $('editorPreviewMessage').textContent = 'Подготавливаем кадр и исходные изображения…';
+    else {
+      const number = project.scenes.findIndex(s => s.id === project.selectedSceneId) + 1;
+      $('editorPreviewMessage').textContent = error?.code === 'TEXT_OVERFLOW' ? 'Сцена ' + number + ': текст не помещается. Сократите текст, уменьшите размер или явно выберите группы субтитров.' :
+        (error?.message || 'Предпросмотр недоступен.') + (['MEMORY_BUDGET','IMAGE_BUDGET'].includes(error?.code) ? ' Используйте меньшие изображения или переход «Без перехода».' : '');
+      $('editorPreviewMessage').dataset.code = error?.code || 'EMPTY';
+      if (state === 'error') pausePlayback();
+    }
+  }
 
   function recalculate() {
     try {
@@ -23,7 +47,9 @@ window.ShortsEditorReady = (async function () {
       timing = { ...T.compile(project), error: null };
       lastGoodProject = project;
     } catch (error) { timing = { plan: null, byId: new Map(), error }; }
-    subtitlesDirty = true;
+    subtitlesDirty = true; previewRevision++;
+    if (timing.error) imageUploads.cancel();
+    imageUploads.retain(new Set([project,lastGoodProject].filter(Boolean).flatMap(p => p.scenes.map(s => s.imageId).filter(Boolean))));
   }
 
   function showTimingError() {
@@ -53,6 +79,7 @@ window.ShortsEditorReady = (async function () {
 
   function editScene(command, reconcile = false) {
     pausePlayback();
+    if (command.type === 'remove') { imageUploads.cancel(); imageStates.delete(command.id); }
     try {
       project = T.edit(project, command);
       if (command.type === 'duration') durationErrors.delete(command.id);
@@ -229,8 +256,32 @@ window.ShortsEditorReady = (async function () {
       (button.disabled ? fallback : button).focus({ preventScroll: true });
     };
     up.addEventListener('click', () => move(-1, up, down)); down.addEventListener('click', () => move(1, down, up));
-    controls.append(durationLabel, up, down); content.append(top, textarea, controls); card.append(select, content);
-    return { card, select, textarea, timingText, label, remove, duration, up, down };
+    controls.append(durationLabel, up, down);
+    const visuals = element('div', 'studio-visual-controls'), settings = {};
+    for (const [key, title, options] of [
+      ['visual','Фон',[['animated','Анимированный фон'],['image','Изображение']]],
+      ['camera','Камера',[['zoom-in','Приближение'],['zoom-out','Отдаление'],['pan-left','Панорама влево'],['pan-right','Панорама вправо'],['static','Без движения']]],
+      ['transition','Переход к сцене',[['none','Без перехода'],['crossfade','Растворение'],['slide','Сдвиг'],['zoom','Мягкий зум']]]
+    ]) {
+      const titleNode = element('label', '', title), input = element('select', 'studio-scene-' + key);
+      for (const [value, text] of options) { const option = element('option', '', text); option.value = value; input.append(option); }
+      input.setAttribute('aria-label', title + ' сцены'); input.addEventListener('change', () => { selectScene(scene.id); editScene({ type: key, id: scene.id, value: input.value }); });
+      titleNode.append(input); visuals.append(titleNode); settings[key] = input;
+    }
+    const images = element('div', 'studio-image-controls'), upload = element('button', 'button button-secondary'), imageFile = element('input');
+    imageFile.type = 'file'; imageFile.hidden = true; imageFile.accept = 'image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp'; imageFile.id = 'studio-image-' + scene.id;
+    upload.addEventListener('click', () => imageFile.click());
+    imageFile.addEventListener('change', () => {
+      const file = imageFile.files[0]; imageFile.value = ''; if (!file || timing.error) return;
+      try { C.upgradeProject(project); } catch (error) { imageStates.set(scene.id, { state: 'error', message: error.message }); updateSceneTimings(); return; }
+      selectScene(scene.id); imageUploads.load(scene.id, file);
+    });
+    const removeImage = element('button', 'text-button', 'Удалить изображение');
+    removeImage.addEventListener('click', () => { imageUploads.cancel(); imageStates.delete(scene.id); editScene({ type: 'image', id: scene.id, value: null }, true); });
+    const imageName = element('span', 'studio-image-name'), imageState = element('span', 'studio-image-state'); imageState.setAttribute('role', 'status');
+    images.append(upload, imageFile, removeImage, imageName, imageState);
+    content.append(top, textarea, controls, visuals, images); card.append(select, content);
+    return { card, select, textarea, timingText, label, remove, duration, up, down, settings, upload, removeImage, imageName, imageState };
   }
 
   function renderScenes() {
@@ -262,8 +313,8 @@ window.ShortsEditorReady = (async function () {
     updateSceneTimings(); updateSelectedScene();
   }
 
-  function updateSceneTimings() {
-    for (const scene of project.scenes) {
+  function updateSceneTimings(onlyId) {
+    for (const scene of typeof onlyId === 'string' ? project.scenes.filter(s => s.id === onlyId) : project.scenes) {
       const node = sceneNodes.get(scene.id), row = timing.byId.get(scene.id); if (!node) continue;
       const text = row ? C.srtTime(row.startMs) + ' → ' + C.srtTime(row.endMs) + ' · ' + T.seconds(row.durationMs) + ' сек' : 'Не рассчитано';
       if (node.timingText.textContent !== text) node.timingText.textContent = text;
@@ -271,6 +322,17 @@ window.ShortsEditorReady = (async function () {
         if (row) { if (node.card.dataset[field] !== String(row[field])) node.card.dataset[field] = String(row[field]); }
         else delete node.card.dataset[field];
       }
+      for (const key of ['visual','camera','transition']) {
+        const input = node.settings[key], value = scene[key] || ({ visual: 'animated', camera: 'zoom-in', transition: 'crossfade' })[key];
+        if (input.value !== value) input.value = value;
+        const disabled = !!timing.error || (key === 'camera' && scene.visual !== 'image'); if (input.disabled !== disabled) input.disabled = disabled;
+        if (key === 'visual') input.querySelector('[value=image]').disabled = !scene.imageId;
+      }
+      const uploadLabel = scene.imageId ? 'Заменить изображение' : 'Добавить изображение'; if (node.upload.textContent !== uploadLabel) node.upload.textContent = uploadLabel; if (node.upload.disabled !== !!timing.error) node.upload.disabled = !!timing.error;
+      node.removeImage.hidden = !scene.imageId; node.removeImage.disabled = !!timing.error;
+      const name = scene.imageName || (scene.imageId ? 'Исходное изображение' : ''); if (node.imageName.textContent !== name) node.imageName.textContent = name;
+      const imageStatus = imageStates.get(scene.id); node.imageState.dataset.state = imageStatus?.state || '';
+      if (node.imageState.textContent !== (imageStatus?.message || '')) node.imageState.textContent = imageStatus?.message || '';
       node.duration.disabled = project.timing !== 'manual';
       node.duration.setAttribute('aria-invalid', String(durationErrors.has(scene.id)));
       node.duration.title = durationErrors.get(scene.id)?.message || 'Пусто — длительность из RenderPlan по тексту; сохранённое значение действует в ручном режиме.';
@@ -305,41 +367,33 @@ window.ShortsEditorReady = (async function () {
     $('playPreview').setAttribute('aria-label', playing ? 'Приостановить предпросмотр' : 'Воспроизвести предпросмотр');
     $('currentTime').textContent = timing.plan ? T.clock(Math.floor(elapsedMs)) : '—';
     const total = timing.plan?.durationMs || 0;
+    $('editorSeek').max = String(total); $('editorSeek').disabled = !total; if (document.activeElement !== $('editorSeek')) $('editorSeek').value = String(Math.floor(elapsedMs));
     $('timelineProgress').style.width = (total ? Math.min(100, elapsedMs / total * 100) : 0) + '%';
   }
 
   function renderPreview() {
     const index = project.scenes.findIndex(scene => scene.id === project.selectedSceneId);
     const scene = project.scenes[index];
-    $('portrait').className = `portrait theme-${project.style.theme} caption-${project.style.caption} size-${project.style.size}`;
+    $('portrait').className = `editor-canvas-frame theme-${project.style.theme} caption-${project.style.caption} size-${project.style.size}`;
     $('portraitScene').textContent = scene ? String(index + 1).padStart(2, '0') + ' / ' + String(project.scenes.length).padStart(2, '0') : '00 / 00';
     const row = timing.byId.get(scene?.id)?.scene;
     const cue = row ? P.frameAt(timing.plan, Math.max(row.startMs, Math.min(row.endMs - 1, elapsedMs))).cue : null;
-    const text = cue?.text || (scene?.text.trim() ? '' : scene ? 'Ваша сцена начинается здесь' : 'У каждой истории есть начало. Какое будет у вашей?');
-    const words = text.split(/\s+/u);
-    const preview = $('previewText');
-    preview.hidden = project.subtitles?.enabled === false || !!timing.error;
-    preview.replaceChildren();
-    preview.classList.toggle('long-caption', words.length > 28 && words.length <= 60);
-    preview.classList.toggle('very-long-caption', words.length > 60);
-    if (words.length > 2) {
-      preview.append(document.createTextNode(words.slice(0, -2).join(' ') + ' '), element('mark', '', words.slice(-2).join(' ')));
-    } else preview.textContent = text;
-    preview.scrollTop = 0;
-    const segments = document.createDocumentFragment();
-    // Keep the indicator legible even for very large projects.
-    const first = Math.max(0, index - 11);
-    const last = Math.min(project.scenes.length, first + 24);
-    for (let i = first; i < last; i++) segments.append(element('span', i < index ? 'passed' : i === index ? 'current' : ''));
-    $('portraitSegments').replaceChildren(segments);
-    $('prevScene').disabled = index <= 0;
-    $('nextScene').disabled = index < 0 || index >= project.scenes.length - 1;
+    const preview = $('previewText'); preview.hidden = project.subtitles?.enabled === false || !!timing.error;
+    preview.textContent = cue?.text || ''; // Accessible transcript, never a second visual renderer.
+    $('prevScene').disabled = index <= 0; $('nextScene').disabled = index < 0 || index >= project.scenes.length - 1;
     updatePlaybackUI();
+    if (!editorVisible || document.hidden) return Promise.resolve(false);
+    if (timing.error || !row) {
+      livePreview.suspend(); previewState({ state: 'empty', error: timing.error || { code: 'EMPTY', message: scene ? 'У выбранной сцены нулевая длительность. Добавьте текст или задайте ручное время.' : 'Добавьте сцены, чтобы увидеть Canvas-предпросмотр.' } });
+      return Promise.resolve(false);
+    }
+    return livePreview.draw({ project, plan: timing.plan, time: Math.max(row.startMs, Math.min(row.endMs - 1, elapsedMs)), revision: previewRevision });
   }
 
   function selectScene(id) {
     if (!project.scenes.some(scene => scene.id === id)) return;
     pausePlayback();
+    if (project.selectedSceneId !== id) imageUploads.cancel();
     project = { ...project, selectedSceneId: id };
     elapsedMs = sceneStart(id);
     updateSelectedScene();
@@ -348,6 +402,7 @@ window.ShortsEditorReady = (async function () {
   }
 
   function pausePlayback() {
+    playEpoch++;
     if (!playing) return;
     playing = false;
     cancelAnimationFrame(animationFrame);
@@ -357,19 +412,21 @@ window.ShortsEditorReady = (async function () {
 
   function play() {
     if (playing) { pausePlayback(); return; }
-    const plan = timing.plan; if (!plan?.timeline.length) return;
+    const plan = timing.plan; if (!plan?.timeline.length || !editorVisible) return;
     const total = plan.durationMs;
     if (elapsedMs >= total) elapsedMs = 0;
-    playing = true; playbackAnchor = performance.now() - elapsedMs;
-    updatePlaybackUI(); let lastCue = null;
-    function frame(now) {
-      if (!playing) return;
-      elapsedMs = Math.min(total, now - playbackAnchor);
+    playing = true; const epoch = ++playEpoch; playbackAnchor = performance.now() - elapsedMs;
+    updatePlaybackUI();
+    async function frame(now) {
+      if (!playing || epoch !== playEpoch) return;
+      elapsedMs = Math.min(total, Math.max(0, Math.floor(now - playbackAnchor)));
       const value = P.frameAt(plan, elapsedMs);
-      if (value.scene.id !== project.selectedSceneId || value.cue !== lastCue) {
-        project = { ...project, selectedSceneId: value.scene.id }; lastCue = value.cue;
-        updateSelectedScene(); renderPreview();
-      }
+      project = { ...project, selectedSceneId: value.scene.id }; updateSelectedScene();
+      const before = performance.now(), ready = await renderPreview();
+      if (!playing || epoch !== playEpoch) return;
+      // Resource preparation pauses the preview clock instead of skipping scenes.
+      playbackAnchor += performance.now() - before;
+      if (!ready) { pausePlayback(); return; }
       updatePlaybackUI();
       if (elapsedMs >= total) { pausePlayback(); return; }
       animationFrame = requestAnimationFrame(frame);
@@ -408,6 +465,7 @@ window.ShortsEditorReady = (async function () {
   function replaceProject(nextProject) {
     pausePlayback();
     try { T.compile(nextProject); } catch (error) { toast('Проект не заменён: ' + error.message); return false; }
+    imageUploads.cancel(); imageStates.clear(); livePreview.suspend();
     project = nextProject; durationErrors.clear(); commandError = null; lastGoodProject = null;
     view = 'script';
     renderAll();
@@ -434,6 +492,7 @@ window.ShortsEditorReady = (async function () {
     if (same) { setView('scenes'); toast('Сцены уже соответствуют сценарию. Можно приступать к правкам.'); return; }
     const action = () => {
       pausePlayback();
+      imageUploads.cancel(); imageStates.clear();
       const scenes = C.createScenes(project.script);
       project = C.parseProject({ ...project, scenes, sourceScript: project.script, selectedSceneId: scenes[0]?.id || null });
       durationErrors.clear(); commandError = null;
@@ -532,6 +591,19 @@ window.ShortsEditorReady = (async function () {
     if (index < project.scenes.length - 1) selectScene(project.scenes[index + 1].id);
   });
   $('playPreview').addEventListener('click', play);
+  $('editorSeek').addEventListener('input', event => {
+    if (!timing.plan?.durationMs) return; pausePlayback(); imageUploads.cancel();
+    elapsedMs = Math.min(timing.plan.durationMs, Number(event.target.value));
+    project = { ...project, selectedSceneId: P.frameAt(timing.plan, elapsedMs).scene.id }; updateSelectedScene(); renderPreview(); changed();
+  });
+  const modeObserver = new MutationObserver(() => {
+    const visible = document.querySelector('.workspace').dataset.mode !== 'video'; if (visible === editorVisible) return;
+    editorVisible = visible;
+    if (!visible) { pausePlayback(); imageUploads.cancel(); livePreview.suspend(); } else renderPreview();
+  });
+  modeObserver.observe(document.querySelector('.workspace'), { attributes: true, attributeFilter: ['data-mode'] });
+  window.addEventListener('pagehide', () => { imageUploads.cancel(); livePreview.suspend(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { imageUploads.cancel(); livePreview.suspend(); } else if (editorVisible) renderPreview(); });
   document.querySelectorAll('[data-caption]').forEach(button => button.addEventListener('click', () => {
     project = { ...project, style: { ...project.style, caption: button.dataset.caption } }; recalculate();
     renderAppearance(); renderPreview(); changed();

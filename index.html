@@ -25,7 +25,6 @@
   <script src="js/backup-format.js" defer></script>
   <script src="js/integrations.js" defer></script>
   <script src="js/editor-timing.js" defer></script>
-  <script src="js/app.js" defer></script>
   <script src="js/editor-canvas.js" defer></script>
   <script src="js/video-renderer.js" defer></script>
   <script src="js/video-audio.js" defer></script>
@@ -33,6 +32,9 @@
   <script src="js/video-media.js" defer></script>
   <script src="js/media-session.js" defer></script>
   <script src="js/render-session.js" defer></script>
+  <script src="js/editor-preview.js" defer></script>
+  <script src="js/editor-images.js" defer></script>
+  <script src="js/app.js" defer></script>
   <script src="js/video-ui.js" defer></script>
   <script src="js/product-ui.js" defer></script>
   <script src="js/ux.js" defer></script>
@@ -137,8 +139,8 @@
 
         <aside class="preview-column" aria-label="Предпросмотр видео">
           <section class="preview-panel panel"><div class="preview-heading"><h2><svg><use href="#i-play"/></svg>Предпросмотр</h2><span class="format-badge">9:16</span></div>
-            <div class="portrait-wrap"><div class="portrait theme-cosmos caption-accent size-medium" id="portrait"><div class="cosmic-orb" aria-hidden="true"></div><div class="cosmic-horizon" aria-hidden="true"></div><div class="portrait-grain" aria-hidden="true"></div><div class="portrait-top"><span class="portrait-brand"><svg><use href="#i-logo"/></svg>SHORTS STUDIO</span><span id="portraitScene">01 / 08</span></div><div id="portraitSegments" class="portrait-segments" aria-hidden="true"></div><div class="portrait-caption" id="previewText"></div><div class="portrait-bottom"><span>У каждой истории есть начало</span><span>✦</span></div></div></div>
-            <div class="playback"><button class="icon-button" id="prevScene" aria-label="Предыдущая сцена"><svg><use href="#i-prev"/></svg></button><button class="play-button" id="playPreview" aria-label="Воспроизвести предпросмотр"><svg><use href="#i-play"/></svg></button><button class="icon-button" id="nextScene" aria-label="Следующая сцена"><svg><use href="#i-next"/></svg></button><span class="playback-time"><span id="currentTime">0:00</span><span>/</span><span id="previewDuration">0:00</span></span></div><div class="timeline"><div id="timelineProgress"></div></div><div class="preview-note"><span class="tiny-dot"></span>Текстовый предпросмотр · без звука</div>
+            <div class="portrait-wrap"><div class="editor-canvas-frame" id="portrait"><canvas id="editorCanvas" width="720" height="1280" aria-label="Canvas-предпросмотр Студии 720 на 1280" aria-describedby="previewText editorPreviewMessage" hidden></canvas><div id="editorPreviewMessage" class="editor-preview-message" role="status" aria-live="polite">Подготавливаем предпросмотр…</div></div></div><span id="portraitScene" class="sr-only"></span><p id="previewText" class="sr-only"></p>
+            <div class="playback"><button class="icon-button" id="prevScene" aria-label="Предыдущая сцена"><svg><use href="#i-prev"/></svg></button><button class="play-button" id="playPreview" aria-label="Воспроизвести предпросмотр"><svg><use href="#i-play"/></svg></button><button class="icon-button" id="nextScene" aria-label="Следующая сцена"><svg><use href="#i-next"/></svg></button><span class="playback-time"><span id="currentTime">0:00</span><span>/</span><span id="previewDuration">0:00</span></span></div><div class="timeline"><div id="timelineProgress"></div></div><label class="sr-only" for="editorSeek">Позиция предпросмотра Студии</label><input id="editorSeek" class="editor-seek" type="range" min="0" max="0" step="1" value="0"><div class="preview-note"><span class="tiny-dot"></span>Canvas · 720 × 1280 · без звука</div>
           </section>
           <section class="appearance-panel panel"><h2><svg><use href="#i-captions"/></svg>Стиль субтитров</h2><div class="caption-styles" role="group" aria-label="Стиль субтитров"><button data-caption="accent" class="caption-style active" aria-pressed="true"><span>Аа<span>Бб</span></span>Акцент</button><button data-caption="classic" class="caption-style" aria-pressed="false"><span>Аа Бб</span>Классика</button><button data-caption="outline" class="caption-style" aria-pressed="false"><span>Аа Бб</span>Контур</button></div><div class="appearance-row"><label for="captionSize">Размер текста</label><select id="captionSize"><option value="small">Маленький</option><option value="medium" selected>Средний</option><option value="large">Крупный</option></select></div><div class="appearance-row"><span id="backgroundLabel">Настроение</span><div class="theme-options" role="group" aria-labelledby="backgroundLabel"><button class="theme-swatch cosmos active" data-theme="cosmos" aria-label="Космос" title="Космос" aria-pressed="true"></button><button class="theme-swatch dusk" data-theme="dusk" aria-label="Сумерки" title="Сумерки" aria-pressed="false"></button><button class="theme-swatch minimal" data-theme="minimal" aria-label="Минимализм" title="Минимализм" aria-pressed="false"></button></div></div><p class="appearance-note">Оформление применяется к предпросмотру. SRT содержит только текст и таймкоды.</p></section>
         </aside>

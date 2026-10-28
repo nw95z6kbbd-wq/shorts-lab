@@ -60,6 +60,7 @@ jobs:
           python tests/check-errors.py tests/studio-data-browser.py
           python tests/check-errors.py tests/studio-ui-browser.py
           python tests/check-errors.py tests/editor-timing-browser.py
+          python tests/check-errors.py tests/editor-live-browser.py
           python tests/check-errors.py tests/project-db-browser.py
           python tests/check-errors.py tests/project-migration-browser.py
           python tests/check-errors.py tests/browser.py
@@ -113,6 +114,7 @@ jobs:
           PERSISTENCE_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/project-browser.py
           STUDIO_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/studio-ui-browser.py
           TIMING_ENTRY=downloads/Shorts-Studio.html TIMING_MOBILE=1 python tests/check-errors.py tests/editor-timing-browser.py
+          LIVE_ENTRY=downloads/Shorts-Studio.html LIVE_MOBILE=1 python tests/check-errors.py tests/editor-live-browser.py
       - name: Check portable ZIP backups and restored video
         run: |
           python tests/check-errors.py tests/backup-browser.py
@@ -200,6 +202,10 @@ jobs:
         run: |
           TIMING_BROWSER=webkit python tests/check-errors.py tests/editor-timing-browser.py
           TIMING_BROWSER=webkit TIMING_ENTRY=downloads/Shorts-Studio.html TIMING_MOBILE=1 python tests/check-errors.py tests/editor-timing-browser.py
+      - name: Check actual Editor Canvas UI in WebKit and offline mobile
+        run: |
+          LIVE_BROWSER=webkit python tests/check-errors.py tests/editor-live-browser.py
+          LIVE_BROWSER=webkit LIVE_ENTRY=downloads/Shorts-Studio.html LIVE_MOBILE=1 python tests/check-errors.py tests/editor-live-browser.py
       - name: Check Editor Canvas profiles in WebKit and offline mobile
         run: |
           EDITOR_BROWSER=webkit python tests/check-errors.py tests/editor-canvas-browser.py

@@ -44,6 +44,8 @@
   async function dimensions(blob) {
     const b = new Uint8Array(await blob.slice(0, 262144).arrayBuffer()), v = new DataView(b.buffer);
     const text = (at, n) => String.fromCharCode(...b.subarray(at, at + n));
+    const actual=b.length>=8&&[137,80,78,71,13,10,26,10].every((x,i)=>b[i]===x)?'image/png':b[0]===255&&b[1]===216?'image/jpeg':text(0,4)==='RIFF'&&text(8,4)==='WEBP'?'image/webp':null;
+    if(actual&&blob.type&&blob.type!=='application/octet-stream'&&blob.type!==actual)throw error('MEDIA_TYPE','MIME изображения не совпадает с его содержимым.');
     if (b.length >= 24 && [137,80,78,71,13,10,26,10].every((x,i) => b[i] === x)) {
       let p = 8;
       while (p + 8 <= b.length) {

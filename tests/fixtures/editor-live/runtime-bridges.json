@@ -1,0 +1,52 @@
+{
+  "js/render-session.js": [
+    {
+      "old": "  function create({slot,project,plan,projectId=project?.id,contentRevision,savedRevision=null,limits,signal}={}) {\n",
+      "new": "  function create({slot,project,plan,projectId=project?.id,contentRevision,savedRevision=null,limits,signal,previewTimeMs=null}={}) {\n"
+    },
+    {
+      "old": "",
+      "new": "    if(previewTimeMs!==null&&(!Number.isFinite(previewTimeMs)||previewTimeMs<0))throw error('OFFSET','Некорректная позиция кадра.');\n"
+    },
+    {
+      "old": "",
+      "new": "    // A preview owns the complete immutable DTO/plan, but only a bounded frame\n    // window of originals. No audio is decoded and partial windows cannot record.\n    const windowFrame=previewTimeMs===null?null:io.plan.frameAt(frozenPlan,previewTimeMs);\n    const windowScenes=windowFrame?[windowFrame.scene,...(windowFrame.scene.transition!=='none'&&windowFrame.scene.index?[frozenPlan.timeline[windowFrame.scene.index-1]]:[])]:null;\n"
+    },
+    {
+      "old": "    for(const scene of frozenPlan.timeline)if(scene.visual==='image')needed.set(scene.imageId,{id:scene.imageId,kind:'image'});\n    for(const role of ['voice','music']){const id=frozenPlan.audio[role].assetId;if(id){if(needed.get(id)?.kind==='image')throw error('REFERENCES','Изображение нельзя использовать как аудио.');needed.set(id,{id,kind:'audio'});}}\n",
+      "new": "    for(const scene of windowScenes||frozenPlan.timeline)if(scene.visual==='image')needed.set(scene.imageId,{id:scene.imageId,kind:'image'});\n    for(const role of windowFrame?[]:['voice','music']){const id=frozenPlan.audio[role].assetId;if(id){if(needed.get(id)?.kind==='image')throw error('REFERENCES','Изображение нельзя использовать как аудио.');needed.set(id,{id,kind:'audio'});}}\n"
+    },
+    {
+      "old": "",
+      "new": "      if(windowFrame)throw error('PREVIEW_ONLY','Сессия кадра не подготавливает аудио.');\n"
+    },
+    {
+      "old": "",
+      "new": "      if(windowFrame)throw error('PREVIEW_ONLY','Для записи нужна полная подготовка медиа.');\n"
+    },
+    {
+      "old": "      renderFrame(canvas,time){alive();io.plan.assertRenderable(frozenPlan);if([...uses].some(use=>use.kind==='record'))throw error('BUSY','Canvas занят записью сессии.');const lease=acquire();try{return io.render(canvas,frozenPlan,time,lease.resources);}finally{lease.release();}},\n",
+      "new": "      renderFrame(canvas,time){alive();io.plan.assertRenderable(frozenPlan);if(windowFrame&&io.plan.frameAt(frozenPlan,time).scene.id!==windowFrame.scene.id)throw error('FRAME_WINDOW','Подготовьте окно новой сцены.');if([...uses].some(use=>use.kind==='record'))throw error('BUSY','Canvas занят записью сессии.');const lease=acquire();try{return io.render(canvas,frozenPlan,time,lease.resources);}finally{lease.release();}},\n"
+    },
+    {
+      "old": "      status(){const s=media.status();return Object.freeze({...s,state:s.state==='ready'&&s.consumers?'use':s.state,identity,renderable,disposed,dataBytes:budget.bytes,neededMedia:needed.size,ownedConsumers:uses.size,error:cleanupFailure?{code:cleanupFailure.code,message:cleanupFailure.message}:s.error});},toJSON:noJSON});\n",
+      "new": "      status(){const s=media.status();return Object.freeze({...s,state:s.state==='ready'&&s.consumers?'use':s.state,identity,renderable,disposed,dataBytes:budget.bytes,neededMedia:needed.size,previewSceneId:windowFrame?.scene.id||null,ownedConsumers:uses.size,error:cleanupFailure?{code:cleanupFailure.code,message:cleanupFailure.message}:s.error});},toJSON:noJSON});\n"
+    },
+    {
+      "old": "  return Object.freeze({create,MAX_DATA_BYTES});\n",
+      "new": "  return Object.freeze({create,snapshotData:(project,plan)=>{const budget={bytes:0};return Object.freeze({project:immutable(project,budget),plan:immutable(plan,budget)});},createPreview:options=>{if(!Number.isFinite(options?.timeMs)||options.timeMs<0)throw error('OFFSET','Укажите позицию кадра в миллисекундах.');return create({...options,previewTimeMs:options.timeMs});},MAX_DATA_BYTES});\n"
+    }
+  ],
+  "js/media-session.js": [
+    {
+      "old": "",
+      "new": "    const actual=b.length>=8&&[137,80,78,71,13,10,26,10].every((x,i)=>b[i]===x)?'image/png':b[0]===255&&b[1]===216?'image/jpeg':text(0,4)==='RIFF'&&text(8,4)==='WEBP'?'image/webp':null;\n    if(actual&&blob.type&&blob.type!=='application/octet-stream'&&blob.type!==actual)throw error('MEDIA_TYPE','MIME изображения не совпадает с его содержимым.');\n"
+    }
+  ],
+  "js/editor-timing.js": [
+    {
+      "old": "",
+      "new": "    if(['image','visual','camera','transition'].includes(type)){\n      const next=C.upgradeProject(project),index=next.scenes.findIndex(s=>s.id===id);if(index<0)throw failure('Сцена больше не существует.');\n      if(type==='image'){\n        if(value!==null&&(!value||typeof value.id!=='string'||typeof value.name!=='string'))throw failure('Неверная ссылка на изображение.');\n        Object.assign(next.scenes[index],{imageId:value?.id||null,imageName:value?.name||'',visual:value?'image':'animated'});\n      }else next.scenes[index][type]=value;\n      return C.parseProject(next); // strict existing DTO validation, no new schema\n    }\n"
+    }
+  ]
+}
