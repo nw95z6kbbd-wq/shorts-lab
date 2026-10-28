@@ -6,6 +6,7 @@ import json
 import threading
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
+from editor_timing_native import check_native_editor_timing
 
 
 def check_native_studio_data(root,script,command):
@@ -53,6 +54,7 @@ def check_native_studio_data(root,script,command):
             assert async_script('return await testStudioRecoverySafety(arguments[0]);',[baseline])
             print('::notice title=Native Safari recovery verified::Missing version in a corrupt head still recovers both known previous states, commits edits and retains the original image; explicitly future DTO versions remain blocked.',flush=True)
         finally:recovery.shutdown();recovery.server_close()
+        check_native_editor_timing(root,script,command)
 
 
     finally:server.shutdown();server.server_close()

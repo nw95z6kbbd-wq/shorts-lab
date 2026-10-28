@@ -115,6 +115,26 @@ body{overflow:hidden}
 @media(max-width:360px){.mobile-filebar{padding-inline:14px;gap:4px 10px}.mobile-filebar .text-button{font-size:9px}.backup-dialog{padding:19px}.backup-actions>.button{flex:1 1 auto;white-space:normal}}
 
 </style>
+  <style>
+/* Studio-only additions; the frozen Video/CSS rendering path is untouched. */
+.studio-timing-controls,.studio-subtitle-controls{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:14px 0;color:#bcb1cc;font-size:12px;min-width:0}
+.studio-timing-controls label,.studio-subtitle-controls label{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0}
+.studio-timing-controls select,.studio-subtitle-controls select,.studio-scene-duration{background:#141018;color:#e5dcf0;border:1px solid #40334f;border-radius:6px;padding:7px 9px;min-height:36px;max-width:100%}
+.studio-timing-controls output{margin-left:auto;color:#d0b3f5;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-width:0}
+.studio-timing-controls p{width:100%;font-size:10px;line-height:1.7;color:#93849f}
+.studio-subtitle-controls{padding-inline:21px;border-block:1px solid #28232e}.studio-subtitle-controls input{accent-color:#ab7fea}
+.studio-scene-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin-top:10px;min-width:0}
+.studio-scene-controls label{display:grid;gap:4px;font-size:10px;color:#a99bb6;margin-right:auto;min-width:0}
+.studio-scene-duration{width:130px;font-size:12px;font-variant-numeric:tabular-nums}.studio-scene-duration:disabled{opacity:.5}.studio-scene-duration[aria-invalid=true]{border-color:#df9b76;box-shadow:0 0 0 1px #df9b7640}
+.studio-move,.studio-timing-error button{border:1px solid #443450;color:#ceb1ed;background:#241b2c;border-radius:6px;padding:7px 10px;min-height:36px;font-size:11px}
+.studio-move:hover:not(:disabled),.studio-timing-error button:hover:not(:disabled){background:#342342}.studio-move:disabled{opacity:.35}
+.studio-timing-error{padding:14px 20px;margin:12px 16px;border:1px solid #755143;border-radius:8px;background:#2b201c;color:#efc3ab;font-size:12px;line-height:1.7}.studio-timing-error button{margin-top:8px}
+#scenesSection .scene-card-top{flex-wrap:wrap;gap:5px}#scenesSection .scene-meta-row{min-width:0;max-width:100%}#scenesSection .scene-timing{white-space:normal;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;font-size:9px}
+#scriptStudio #totalDuration{font-size:clamp(17px,1.8vw,25px);overflow-wrap:anywhere}#scriptStudio .playback-time{flex-wrap:wrap;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.stat-value:has(#totalDuration){min-width:0}#totalDuration{overflow-wrap:anywhere;font-size:clamp(17px,1.8vw,25px)}
+@media(max-width:620px){.studio-scene-controls label{width:100%;margin-right:0}.studio-scene-duration{width:100%}.studio-move{flex:1;min-height:44px}.studio-timing-controls label{width:100%}.studio-timing-controls select{flex:1;min-width:0}.studio-timing-controls output{margin-left:0}.studio-subtitle-controls{padding-inline:14px}.studio-subtitle-controls label{width:100%}.studio-subtitle-controls select{flex:1}.studio-timing-error{margin-inline:10px;padding:12px}.studio-timing-error button{min-height:44px}}
+
+</style>
 </head>
 <body>
   <div id="studioViewport" class="studio-viewport" role="region" aria-label="Рабочая область Shorts Studio" tabindex="0">
@@ -175,7 +195,7 @@ body{overflow:hidden}
       <section class="stats" aria-label="Статистика проекта">
         <div class="stat"><span class="stat-icon"><svg><use href="#i-pen"/></svg></span><div><span class="stat-label">Слов в сценарии</span><div class="stat-value"><strong id="wordCount">0</strong><span>слов</span></div></div><span class="stat-decoration">Aa</span></div>
         <div class="stat"><span class="stat-icon"><svg><use href="#i-scenes"/></svg></span><div><span class="stat-label">Сцен в проекте</span><div class="stat-value"><strong id="sceneCount">0</strong><span>сцен</span></div></div><span class="stat-note">Ваша раскадровка</span></div>
-        <div class="stat"><span class="stat-icon"><svg><use href="#i-clock"/></svg></span><div><span class="stat-label">Длительность сцен</span><div class="stat-value"><strong id="totalDuration">0:00</strong><span>≈ озвучка</span></div></div><span class="speed-badge">150 слов/мин</span></div>
+        <div class="stat"><span class="stat-icon"><svg><use href="#i-clock"/></svg></span><div><span class="stat-label">Длительность сцен</span><div class="stat-value"><strong id="totalDuration">0:00</strong><span>по сценам</span></div></div><span class="speed-badge" id="editorTimingBadge">150 слов/мин</span></div>
       </section>
 
       <div id="storageWarning" class="notice warning" role="alert" hidden>Браузер не позволяет сохранить проект на устройстве. Скачайте файл проекта, чтобы не потерять работу.</div>
@@ -199,16 +219,17 @@ body{overflow:hidden}
         <div class="editor-column">
           <div class="editor-panel panel">
             <div class="editor-tabs" role="tablist" aria-label="Редактор"><button id="tab-script" class="editor-tab active" data-view="script" role="tab" aria-controls="pane-script" aria-selected="true"><svg><use href="#i-pen"/></svg>Сценарий</button><button id="tab-scenes" class="editor-tab" data-view="scenes" role="tab" aria-controls="scenesSection" aria-selected="false" tabindex="-1"><svg><use href="#i-scenes"/></svg>Сцены<span class="tab-count" id="tabSceneCount">0</span></button><button id="tab-subtitles" class="editor-tab" data-view="subtitles" role="tab" aria-controls="pane-subtitles" aria-selected="false" tabindex="-1"><svg><use href="#i-captions"/></svg>Субтитры</button></div>
+            <div id="editorTimingError" class="studio-timing-error" role="alert" hidden><p id="editorTimingErrorText"></p><button id="editorResetTiming" type="button">Отменить несохранённую правку</button></div>
             <section id="pane-script" role="tabpanel" aria-labelledby="tab-script">
               <div class="script-heading"><div><h2>Сначала — хорошая история</h2><p>Напишите сценарий или вставьте готовый текст.</p></div><button class="text-button" id="loadDemo"><svg><use href="#i-sparkles"/></svg>Пример</button></div>
               <label for="scriptText" class="sr-only">Текст сценария</label><textarea id="scriptText" class="script-textarea" placeholder="О чём будет ваш следующий Short?\n\nНачните с цепляющей фразы, расскажите самое интересное и оставьте зрителю мысль, которой захочется поделиться." spellcheck="true"></textarea>
-              <div class="script-footer"><div class="script-meta"><span id="scriptWordCount">0 слов</span><span class="meta-dot">·</span><span><svg><use href="#i-clock"/></svg><span id="scriptDuration">≈ 0 сек</span></span></div><span class="keyboard-hint">Идея начинается с одной строки</span></div>
+              <div class="script-footer"><div class="script-meta"><span id="scriptWordCount">0 слов</span><span class="meta-dot">·</span><span><svg><use href="#i-clock"/></svg><span id="scriptDuration" title="Оценка исходного сценария по 150 слов/мин; длительности отредактированных сцен рассчитаны отдельно">≈ 0 сек</span></span></div><span class="keyboard-hint">Идея начинается с одной строки</span></div>
               <div class="split-bar"><div><span class="split-icon"><svg><use href="#i-sparkles"/></svg></span><p>Один клик — и история обретает форму.<small>Каждое предложение станет отдельной сценой.</small></p></div><button id="splitScenes" class="button button-primary"><svg><use href="#i-scenes"/></svg>Разбить на сцены</button></div>
             </section>
-            <section id="pane-subtitles" role="tabpanel" aria-labelledby="tab-subtitles" hidden><div class="script-heading"><div><h2>Слова в нужный момент</h2><p>Субтитры обновляются вместе со сценами.</p></div><span class="format-badge">.SRT</span></div><div id="subtitleList" class="subtitle-list"></div><div class="subtitles-footer"><p>Таймкоды рассчитаны при темпе 150 слов в минуту.</p><button class="button button-primary" id="exportSrtPanel"><svg><use href="#i-download"/></svg>Скачать .srt</button></div></section>
+            <section id="pane-subtitles" role="tabpanel" aria-labelledby="tab-subtitles" hidden><div class="script-heading"><div><h2>Слова в нужный момент</h2><p>Субтитры обновляются вместе со сценами.</p></div><span class="format-badge">.SRT</span></div><div class="studio-subtitle-controls"><label><input id="editorSubtitlesEnabled" type="checkbox" checked> Субтитры включены</label><label for="editorSubtitleMode">Реплики<select id="editorSubtitleMode" aria-describedby="editorSubtitleHint"><option value="scene">По сценам</option><option value="chunks">Группы по 6 слов</option></select></label></div><div id="subtitleList" class="subtitle-list"></div><div class="subtitles-footer"><p id="editorSubtitleHint">Таймкоды берутся из общего RenderPlan.</p><button class="button button-primary" id="exportSrtPanel"><svg><use href="#i-download"/></svg>Скачать .srt</button></div></section>
           </div>
 
-          <section id="scenesSection" class="scenes-section" aria-labelledby="scenesTitle"><div class="section-heading"><div><h2 id="scenesTitle">Сцены проекта <span id="sceneHeadingCount">0</span></h2><p>Маленькие фрагменты большой истории.</p></div><button class="text-button" id="addScene"><svg><use href="#i-plus"/></svg>Добавить сцену</button></div><div id="scriptChanged" class="notice" hidden><svg><use href="#i-info"/></svg><span>Сценарий изменён. Нажмите «Разбить на сцены», чтобы заменить текущие сцены новым текстом.</span></div><div id="sceneList" class="scene-list"></div><p class="scene-footnote" id="sceneFootnote">Предпросмотр и SRT используют текст сцен. Правки сцен не меняют исходный сценарий.</p></section>
+          <section id="scenesSection" class="scenes-section" aria-labelledby="scenesTitle"><div class="section-heading"><div><h2 id="scenesTitle">Сцены проекта <span id="sceneHeadingCount">0</span></h2><p>Маленькие фрагменты большой истории.</p></div><button class="text-button" id="addScene"><svg><use href="#i-plus"/></svg>Добавить сцену</button></div><div class="studio-timing-controls"><label for="editorTimingMode">Длительности<select id="editorTimingMode" aria-describedby="editorTimingHelp"><option value="reading">Авто · 150 слов/мин</option><option value="manual">Вручную</option></select></label><output id="editorTimingSummary" aria-live="polite">Итого: 0:00</output><p id="editorTimingHelp">Авто — по тексту сцен. Вручную: секунды с точностью до 0,001; пусто — авто. Ручные значения сохраняются при переключении режимов.</p></div><div id="scriptChanged" class="notice" hidden><svg><use href="#i-info"/></svg><span>Сценарий изменён. Нажмите «Разбить на сцены», чтобы заменить текущие сцены новым текстом.</span></div><div id="sceneList" class="scene-list"></div><p class="scene-footnote" id="sceneFootnote">Предпросмотр и SRT используют текст сцен. Правки сцен не меняют исходный сценарий.</p></section>
           <footer class="editor-bottom"><span class="tiny-dot"></span>Всё для первого шага. Ничего лишнего.<span class="bottom-format">СОЗДАНО ДЛЯ 9:16</span></footer>
         </div>
 
@@ -690,6 +711,14 @@ document.addEventListener("DOMContentLoaded", () => {
     for (let i = 0; i < words.length; i += size) result.push(words.slice(i, i + size));
     return result;
   }
+  // Editor DTO permits all safe integer milliseconds. Avoid precision loss in
+  // duration * wordCount, including the final cue's exact scene boundary.
+  function editorPortion(duration, part, total) {
+    if (!part) return 0;
+    if (part === total) return duration;
+    const divisor = BigInt(total);
+    return Number((BigInt(duration) * BigInt(part) * 2n + divisor) / (2n * divisor));
+  }
   function build(spec) {
     const video = spec.timing.policy.startsWith('video-'), manual = spec.timing.policy === 'video-manual';
     if (!['video-auto', 'video-manual', 'editor-reading', 'editor-manual-or-reading'].includes(spec.timing.policy)) throw error('POLICY', 'Неизвестная политика длительности.');
@@ -718,10 +747,11 @@ document.addEventListener("DOMContentLoaded", () => {
         ? (String(scene.text).trim() ? [String(scene.text).trim().split(/\s+/u).filter(Boolean)] : []) : chunks(scene.text);
       const wordSum = groups.reduce((total, group) => total + group.length, 0);
       let offset = 0;
+      const portion = part => video ? Math.round((endMs - startMs) * part / wordSum) : editorPortion(endMs - startMs, part, wordSum);
       const sceneCues = groups.map(words => {
-        const start = startMs + Math.round((endMs - startMs) * offset / wordSum);
+        const start = startMs + portion(offset);
         offset += words.length;
-        const cue = { startMs: start, endMs: startMs + Math.round((endMs - startMs) * offset / wordSum), text: spec.subtitles.policy === 'editor-scene' ? scene.text.trim() : words.join(' '), words };
+        const cue = { startMs: start, endMs: startMs + portion(offset), text: spec.subtitles.policy === 'editor-scene' ? scene.text.trim() : words.join(' '), words };
         cues.push(cue); return cue;
       });
       if (spec.subtitles.policy === 'editor-chunks-6' && sceneCues.some(cue => cue.endMs <= cue.startMs)) throw error('SUBTITLES', 'Для коротких групп субтитров недостаточно миллисекунд. Увеличьте длительность сцены или явно выберите субтитры по сценам.');
@@ -838,7 +868,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // A legacy import may omit updatedAt. It is irrelevant to rendering; do not
     // let the DTO normalizer consult the wall clock for this temporary value.
     const inputProject = raw.version === 1 && typeof raw.updatedAt !== 'string' ? { ...raw, updatedAt: '' } : raw;
-    const project = C.upgradeProject(inputProject), manual = project.timing === 'manual';
+    let project;
+    if (raw.version === 1) {
+      const legacy = C.parseProject(inputProject);
+      // Only defaults come from a DTO 2 template. Legacy project/scene IDs are
+      // never migrated, regenerated or subjected to new media-ID restrictions.
+      const defaults = C.upgradeProject({ ...legacy, id: 'editor-plan-defaults', scenes: [{ id: 'scene-defaults', text: '' }], selectedSceneId: 'scene-defaults' });
+      project = { ...defaults, id: legacy.id, selectedSceneId: legacy.selectedSceneId, scenes: legacy.scenes.map(scene => ({ ...defaults.scenes[0], ...scene })) };
+    } else project = C.upgradeProject(inputProject);
+    const manual = project.timing === 'manual';
     const voice = { ...project.audio.voice }, music = { assetId: project.audio.music.assetId, name: project.audio.music.name,
       volume: project.audio.music.volume, fadeInSeconds: project.audio.music.fadeInMs / 1000, fadeOutSeconds: project.audio.music.fadeOutMs / 1000 };
     const scenes = project.scenes.map(s => ({ ...s, durationMs: manual && s.durationMs !== null ? s.durationMs : C.durationMs(s.text) }));
@@ -1831,9 +1869,74 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+(function(root,factory){
+  'use strict';
+  if(typeof module==='object'&&module.exports)module.exports=factory(require('./core.js'),require('./render-adapters.js'));
+  else root.ShortsEditorTiming=factory(root.ShortsCore,root.ShortsRenderAdapters);
+})(typeof globalThis!=='undefined'?globalThis:this,function(C,A){
+  'use strict';
+  const failure=message=>Object.assign(new Error(message),{code:'EDITOR_INPUT'});
+  function parseSeconds(raw){
+    const value=String(raw).trim();if(!value)return null;
+    if(!/^(?:\d+(?:[.,]\d{1,3})?|[.,]\d{1,3})$/.test(value))throw failure('Введите положительную длительность в секундах, не более трёх знаков после запятой. Пустое поле — расчёт по тексту.');
+    const [whole,fraction='']=value.replace(',','.').split('.'),ms=BigInt(whole||'0')*1000n+BigInt(fraction.padEnd(3,'0'));
+    if(ms<1n||ms>BigInt(Number.MAX_SAFE_INTEGER))throw failure('Длительность должна быть от 1 до '+Number.MAX_SAFE_INTEGER+' целых миллисекунд.');
+    return Number(ms);
+  }
+  function seconds(ms){return ms==null?'':String(Math.floor(ms/1000))+(ms%1000?','+String(ms%1000).padStart(3,'0').replace(/0+$/,''):'');}
+  function clock(ms){return Math.floor(ms/60000)+':'+String(Math.floor(ms/1000)%60).padStart(2,'0')+(ms%1000?','+String(ms%1000).padStart(3,'0'):'');}
+  function compile(project){
+    const plan=A.fromEditor(project),rows=new Map(plan.timeline.map(row=>[row.id,row])),byId=new Map();let cursor=0;
+    project.scenes.forEach((scene,index)=>{
+      const row=rows.get(scene.id);if(row)cursor=row.endMs;
+      byId.set(scene.id,{id:scene.id,index,startMs:row?row.startMs:cursor,endMs:row?row.endMs:cursor,durationMs:row?row.endMs-row.startMs:0,scene:row||null});
+    });
+    return {plan,byId};
+  }
+  function edit(project,command){
+    const {type,id,value}=command;
+    if(type==='timing'){
+      if(!['reading','manual'].includes(value))throw failure('Неизвестный режим длительности.');
+      return (project.timing||'reading')===value?project:{...C.upgradeProject(project),timing:value};
+    }
+    if(type==='subtitle-mode'||type==='subtitle-enabled'){
+      const key=type==='subtitle-mode'?'mode':'enabled',current=project.subtitles?.[key]??(key==='mode'?'scene':true);
+      if(key==='mode'?!['scene','chunks'].includes(value):typeof value!=='boolean')throw failure('Неверная настройка субтитров.');
+      if(current===value)return project;const next=C.upgradeProject(project);return {...next,subtitles:{...next.subtitles,[key]:value}};
+    }
+    if(type==='add'){
+      if(project.scenes.length>=5000)throw failure('В проекте уже 5 000 сцен.');
+      const sceneId=C.id(),basic={id:sceneId,text:''};
+      const scene=project.version===2?C.upgradeProject({...project,version:1,scenes:[basic],selectedSceneId:sceneId}).scenes[0]:basic;
+      return {...project,scenes:[...project.scenes,scene],selectedSceneId:sceneId};
+    }
+    const index=project.scenes.findIndex(scene=>scene.id===id);if(index<0)throw failure('Сцена больше не существует.');
+    const scenes=project.scenes.slice();
+    if(type==='move'){
+      if(![-1,1].includes(value))throw failure('Неверное направление перемещения.');
+      const target=index+value;if(target<0||target>=scenes.length)return project;
+      [scenes[index],scenes[target]]=[scenes[target],scenes[index]];
+    }else if(type==='remove'){
+      scenes.splice(index,1);
+      return {...project,scenes,selectedSceneId:project.selectedSceneId===id?(scenes[Math.min(index,scenes.length-1)]?.id||null):project.selectedSceneId};
+    }else if(type==='text'){
+      if(typeof value!=='string')throw failure('Текст сцены должен быть строкой.');scenes[index]={...scenes[index],text:value};
+    }else if(type==='duration'){
+      if(project.timing!=='manual')throw failure('Сначала включите ручные длительности.');
+      scenes[index]={...scenes[index],durationMs:parseSeconds(value)};
+    }else throw failure('Неизвестное действие Студии.');
+    return {...project,scenes};
+  }
+  return Object.freeze({compile,edit,parseSeconds,seconds,clock});
+});
+
+}, { once: true });
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
 window.ShortsEditorReady = (async function () {
   'use strict';
-  const C = window.ShortsCore;
+  const C = window.ShortsCore, T = window.ShortsEditorTiming, P = window.ShortsRenderPlan;
   const $ = id => document.getElementById(id);
   const loaded = await window.ShortsStorage.load();
   let project = loaded.project || C.createProject(true);
@@ -1845,7 +1948,60 @@ window.ShortsEditorReady = (async function () {
   let elapsedMs = 0;
   let playbackAnchor = 0;
   let pendingConfirmation = null;
-  const sceneNodes = new Map();
+  const sceneNodes = new Map(), durationErrors = new Map();
+  let timing = { plan: null, byId: new Map(), error: null }, lastGoodProject = null, commandError = null;
+  let subtitlesDirty = true, lastSelectedSceneId = null;
+
+  function recalculate() {
+    try {
+      const inputError = commandError || durationErrors.values().next().value;
+      if (inputError) throw inputError;
+      timing = { ...T.compile(project), error: null };
+      lastGoodProject = project;
+    } catch (error) { timing = { plan: null, byId: new Map(), error }; }
+    subtitlesDirty = true;
+  }
+
+  function showTimingError() {
+    const error = timing.error;
+    $('editorTimingError').hidden = !error;
+    $('editorTimingErrorText').textContent = error ? 'Правки не сохранены: ' + error.message : '';
+    $('editorResetTiming').disabled = !lastGoodProject;
+    if (error) {
+      updateSaveStatus('Ошибка сохранения', true);
+      if ($('storageWarning').hidden || $('storageWarning').dataset.timingError) {
+        $('storageWarning').hidden = false;
+        $('storageWarning').dataset.timingError = 'true';
+        $('storageWarning').textContent = 'Исправьте или отмените правку в Студии. ' + error.message;
+      }
+    } else if ($('storageWarning').dataset.timingError) {
+      delete $('storageWarning').dataset.timingError;
+      $('storageWarning').hidden = true;
+      $('storageWarning').textContent = '';
+    }
+  }
+
+  function refreshTimingViews() {
+    renderStats(); updateSceneTimings();
+    if (view === 'subtitles') renderSubtitles();
+    renderPreview();
+  }
+
+  function editScene(command, reconcile = false) {
+    pausePlayback();
+    try {
+      project = T.edit(project, command);
+      if (command.type === 'duration') durationErrors.delete(command.id);
+      if (command.type === 'remove') durationErrors.delete(command.id);
+      commandError = null;
+    } catch (error) {
+      if (command.type === 'duration') durationErrors.set(command.id, error);
+      else commandError = error;
+    }
+    recalculate(); elapsedMs = sceneStart(project.selectedSceneId);
+    if (reconcile) renderScenes();
+    changed(); refreshTimingViews();
+  }
 
   function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -1879,6 +2035,7 @@ window.ShortsEditorReady = (async function () {
   async function saveNow() {
     clearTimeout(saveTimer); clearTimeout(maxSaveTimer); maxSaveTimer = null;
     const epoch = saveEpoch;
+    if (timing.error) { showTimingError(); return false; }
     updateSaveStatus('Сохранение…');
     const result = await window.ShortsStorage.save(project);
     if (epoch === saveEpoch) {
@@ -1896,6 +2053,7 @@ window.ShortsEditorReady = (async function () {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveNow, 300);
     if (!maxSaveTimer) maxSaveTimer = setTimeout(saveNow, 2000);
+    if (timing.error) showTimingError(); else lastGoodProject = project;
   }
 
   function confirmAction(title, description, label, action) {
@@ -1939,24 +2097,37 @@ window.ShortsEditorReady = (async function () {
       $('scenesSection').removeAttribute('role');
       $('scenesSection').setAttribute('aria-labelledby', 'scenesTitle');
     }
+    if (view === 'subtitles' && subtitlesDirty) renderSubtitles();
     if (focusTab) $('tab-' + view).focus();
   }
 
   function renderStats() {
-    const words = C.countWords(project.script);
-    const duration = C.totalDuration(project.scenes);
+    const words = C.countWords(project.script), plan = timing.plan;
     $('wordCount').textContent = words;
     $('scriptWordCount').textContent = C.wordLabel(words);
+    // This is an explicitly labelled estimate of the original script, not scene timing.
     $('scriptDuration').textContent = '≈ ' + Math.ceil(C.durationMs(project.script) / 1000) + ' сек';
     for (const id of ['sceneCount', 'navSceneCount', 'tabSceneCount', 'sceneHeadingCount']) $(id).textContent = project.scenes.length;
-    $('totalDuration').textContent = C.clockTime(duration);
-    $('previewDuration').textContent = C.clockTime(duration);
+    for (const id of ['totalDuration', 'previewDuration']) {
+      $(id).textContent = plan ? T.clock(plan.durationMs) : '—';
+      if (plan) { $(id).dataset.durationMs = String(plan.durationMs); $(id).title = C.srtTime(plan.durationMs); }
+      else { delete $(id).dataset.durationMs; $(id).title = timing.error.message; }
+    }
+    $('editorTimingSummary').textContent = plan ? 'Итого: ' + T.clock(plan.durationMs) : 'Расчёт недоступен';
+    $('editorTimingMode').value = project.timing || 'reading';
+    $('editorTimingBadge').textContent = project.timing === 'manual' ? 'Ручной режим' : '150 слов/мин';
+    $('editorSubtitleMode').value = project.subtitles?.mode || 'scene';
+    $('editorSubtitlesEnabled').checked = project.subtitles?.enabled !== false;
+    $('editorSubtitleMode').disabled = project.subtitles?.enabled === false;
     $('splitScenes').disabled = words === 0;
-    $('exportSrt').disabled = duration === 0;
-    $('exportSrtPanel').disabled = duration === 0;
-    $('playPreview').disabled = duration === 0;
+    for (const id of ['exportSrt', 'exportSrtPanel']) $(id).disabled = !plan?.cues.length;
+    for (const id of ['saveProject', 'saveProjectMobile']) $(id).disabled = !!timing.error;
+    $('playPreview').disabled = !plan?.durationMs;
     $('scriptChanged').hidden = !project.scenes.length || project.script === project.sourceScript;
     $('sceneFootnote').hidden = !project.scenes.length;
+    $('editorSubtitleHint').textContent = !plan ? 'Исправьте ошибку расчёта.' : plan.subtitles.enabled === false ? 'Субтитры отключены: SRT не содержит реплик.' :
+      (plan.subtitles.policy === 'editor-scene' ? 'По одной реплике на сцену.' : 'Группы по шесть слов внутри границ сцены.') + ' Таймкоды берутся из общего RenderPlan.';
+    showTimingError();
   }
 
   function emptyState(title, description, showDemo = false) {
@@ -1970,105 +2141,106 @@ window.ShortsEditorReady = (async function () {
     return node;
   }
 
+  function createSceneCard(scene) {
+    const card = element('article', 'scene-card'); card.dataset.sceneId = scene.id;
+    const select = element('button', 'scene-select'); select.addEventListener('click', () => selectScene(scene.id));
+    const content = element('div', 'scene-content'), top = element('div', 'scene-card-top'), label = element('label');
+    const meta = element('div', 'scene-meta-row'), clock = element('span', 'scene-timing'), timingText = element('span');
+    clock.append(icon('clock'), timingText);
+    const remove = element('button', 'scene-delete'); remove.title = 'Удалить сцену'; remove.append(icon('trash'));
+    remove.addEventListener('click', () => deleteScene(scene.id)); meta.append(clock, remove); top.append(label, meta);
+    const textarea = element('textarea', 'scene-text'); textarea.value = scene.text;
+    textarea.placeholder = 'Что произойдёт в этой сцене?'; textarea.rows = 2; textarea.maxLength = 1000000;
+    textarea.addEventListener('focus', () => { if (project.selectedSceneId !== scene.id) selectScene(scene.id); });
+    textarea.addEventListener('input', () => editScene({ type: 'text', id: scene.id, value: textarea.value }));
+    const controls = element('div', 'studio-scene-controls'), durationLabel = element('label', '', 'Длительность, сек');
+    const duration = element('input', 'studio-scene-duration'); duration.type = 'text'; duration.inputMode = 'decimal';
+    duration.id = 'studio-duration-' + scene.id; duration.autocomplete = 'off'; durationLabel.htmlFor = duration.id;
+    duration.setAttribute('aria-describedby', 'editorTimingHelp');
+    duration.addEventListener('input', () => editScene({ type: 'duration', id: scene.id, value: duration.value }));
+    duration.addEventListener('blur', updateSceneTimings); durationLabel.append(duration);
+    const up = element('button', 'studio-move', '↑ Выше'), down = element('button', 'studio-move', '↓ Ниже');
+    const move = (direction, button, fallback) => {
+      editScene({ type: 'move', id: scene.id, value: direction }, true);
+      (button.disabled ? fallback : button).focus({ preventScroll: true });
+    };
+    up.addEventListener('click', () => move(-1, up, down)); down.addEventListener('click', () => move(1, down, up));
+    controls.append(durationLabel, up, down); content.append(top, textarea, controls); card.append(select, content);
+    return { card, select, textarea, timingText, label, remove, duration, up, down };
+  }
+
   function renderScenes() {
-    sceneNodes.clear();
-    const fragment = document.createDocumentFragment();
-    project.scenes.forEach((scene, index) => {
-      const card = element('article', 'scene-card');
-      card.dataset.sceneId = scene.id;
-      const select = element('button', 'scene-select', String(index + 1).padStart(2, '0'));
-      select.setAttribute('aria-label', `Показать сцену ${index + 1}`);
-      select.addEventListener('click', () => selectScene(scene.id));
-      const content = element('div', 'scene-content');
-      const top = element('div', 'scene-card-top');
-      const label = element('label', '', 'СЦЕНА ' + String(index + 1).padStart(2, '0'));
-      label.htmlFor = 'scene-input-' + index;
-      const meta = element('div', 'scene-meta-row');
-      const timing = element('span', 'scene-timing');
-      const timingText = element('span');
-      timing.append(icon('clock'), timingText);
-      const remove = element('button', 'scene-delete');
-      remove.setAttribute('aria-label', `Удалить сцену ${index + 1}`);
-      remove.title = 'Удалить сцену';
-      remove.append(icon('trash'));
-      remove.addEventListener('click', () => deleteScene(scene.id));
-      meta.append(timing, remove);
-      top.append(label, meta);
-      const textarea = element('textarea', 'scene-text');
-      textarea.id = 'scene-input-' + index;
-      textarea.value = scene.text;
-      textarea.placeholder = 'Что произойдёт в этой сцене?';
-      textarea.rows = 2;
-      textarea.maxLength = 1000000;
-      textarea.addEventListener('focus', () => { if (project.selectedSceneId !== scene.id) selectScene(scene.id); });
-      textarea.addEventListener('input', () => {
-        pausePlayback();
-        scene.text = textarea.value;
-        elapsedMs = sceneStart(scene.id);
-        changed();
-        renderStats();
-        updateSceneTimings();
-        renderSubtitles();
-        renderPreview();
+    const ids = new Set(project.scenes.map(scene => scene.id));
+    for (const [id, nodes] of sceneNodes) if (!ids.has(id)) { nodes.card.remove(); sceneNodes.delete(id); }
+    if (!project.scenes.length) {
+      $('sceneList').replaceChildren(emptyState('Здесь начнётся ваша история', 'Разбейте сценарий на сцены или добавьте первую сцену вручную.', !C.countWords(project.script)));
+    } else {
+      $('sceneList').querySelector('.empty-state')?.remove();
+      let cursor = $('sceneList').firstElementChild;
+      project.scenes.forEach((scene, index) => {
+        let nodes = sceneNodes.get(scene.id);
+        if (!nodes) { nodes = createSceneCard(scene); sceneNodes.set(scene.id, nodes); }
+        if (nodes.card === cursor) cursor = cursor.nextElementSibling;
+        else $('sceneList').insertBefore(nodes.card, cursor);
+        const number = String(index + 1).padStart(2, '0');
+        if (nodes.select.textContent !== number) nodes.select.textContent = number;
+        if (nodes.label.textContent !== 'СЦЕНА ' + number) nodes.label.textContent = 'СЦЕНА ' + number;
+        nodes.textarea.id = 'scene-input-' + index; nodes.label.htmlFor = nodes.textarea.id;
+        if (nodes.textarea.value !== scene.text) nodes.textarea.value = scene.text;
+        nodes.select.setAttribute('aria-label', 'Показать сцену ' + (index + 1));
+        nodes.remove.setAttribute('aria-label', 'Удалить сцену ' + (index + 1));
+        nodes.up.setAttribute('aria-label', 'Переместить сцену ' + (index + 1) + ' выше');
+        nodes.down.setAttribute('aria-label', 'Переместить сцену ' + (index + 1) + ' ниже');
+        nodes.duration.setAttribute('aria-label', 'Длительность сцены ' + (index + 1) + ', секунды');
+        nodes.up.disabled = index === 0; nodes.down.disabled = index === project.scenes.length - 1;
       });
-      content.append(top, textarea);
-      card.append(select, content);
-      fragment.append(card);
-      sceneNodes.set(scene.id, { card, select, textarea, timingText });
-    });
-    if (!project.scenes.length) fragment.append(emptyState('Здесь начнётся ваша история', 'Разбейте сценарий на сцены или добавьте первую сцену вручную.', !C.countWords(project.script)));
-    $('sceneList').replaceChildren(fragment);
-    updateSceneTimings();
-    updateSelectedScene();
+    }
+    updateSceneTimings(); updateSelectedScene();
   }
 
   function updateSceneTimings() {
-    let start = 0;
     for (const scene of project.scenes) {
-      const duration = C.durationMs(scene.text);
-      const seconds = (duration / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
-      const node = sceneNodes.get(scene.id);
-      if (node) node.timingText.textContent = C.clockTime(Math.floor(start / 1000) * 1000) + ' · ' + seconds + ' сек';
-      start += duration;
+      const node = sceneNodes.get(scene.id), row = timing.byId.get(scene.id); if (!node) continue;
+      const text = row ? C.srtTime(row.startMs) + ' → ' + C.srtTime(row.endMs) + ' · ' + T.seconds(row.durationMs) + ' сек' : 'Не рассчитано';
+      if (node.timingText.textContent !== text) node.timingText.textContent = text;
+      for (const field of ['startMs', 'endMs', 'durationMs']) {
+        if (row) { if (node.card.dataset[field] !== String(row[field])) node.card.dataset[field] = String(row[field]); }
+        else delete node.card.dataset[field];
+      }
+      node.duration.disabled = project.timing !== 'manual';
+      node.duration.setAttribute('aria-invalid', String(durationErrors.has(scene.id)));
+      node.duration.title = durationErrors.get(scene.id)?.message || 'Пусто — длительность из RenderPlan по тексту; сохранённое значение действует в ручном режиме.';
+      node.duration.placeholder = row ? 'Авто: ' + T.seconds(row.durationMs) : 'Авто';
+      if (document.activeElement !== node.duration && !durationErrors.has(scene.id)) node.duration.value = T.seconds(scene.durationMs);
     }
   }
 
   function renderSubtitles() {
-    const cues = C.timeline(project.scenes);
-    const fragment = document.createDocumentFragment();
+    if (view !== 'subtitles') { subtitlesDirty = true; return; }
+    const cues = timing.plan?.cues || [], fragment = document.createDocumentFragment();
     cues.forEach((cue, index) => {
-      const card = element('div', 'subtitle-cue');
+      const card = element('div', 'subtitle-cue'); card.dataset.startMs = String(cue.startMs); card.dataset.endMs = String(cue.endMs);
       card.append(element('span', 'cue-number', String(index + 1).padStart(2, '0')),
-        element('span', 'cue-time', C.srtTime(cue.startMs) + ' → ' + C.srtTime(cue.endMs)),
-        element('p', 'cue-text', C.wrapSubtitle(cue.text)));
+        element('span', 'cue-time', C.srtTime(cue.startMs) + ' → ' + C.srtTime(cue.endMs)), element('p', 'cue-text', C.wrapSubtitle(cue.text)));
       fragment.append(card);
     });
-    if (!cues.length) fragment.append(emptyState('Слова появятся здесь', 'Добавьте текст в сцены — мы автоматически подготовим субтитры с таймкодами.'));
-    $('subtitleList').replaceChildren(fragment);
+    if (!cues.length) fragment.append(emptyState(timing.error ? 'Расчёт недоступен' : project.subtitles?.enabled === false ? 'Субтитры отключены' : 'Слова появятся здесь', timing.error?.message || 'Субтитры используют только сцены с положительной длительностью.'));
+    $('subtitleList').replaceChildren(fragment); subtitlesDirty = false;
   }
 
-  function sceneStart(id) {
-    let total = 0;
-    for (const scene of project.scenes) {
-      if (scene.id === id) return total;
-      total += C.durationMs(scene.text);
-    }
-    return 0;
-  }
+  function sceneStart(id) { return timing.byId.get(id)?.startMs || 0; }
 
   function updateSelectedScene() {
-    for (const [id, nodes] of sceneNodes) {
-      const selected = id === project.selectedSceneId;
-      nodes.card.classList.toggle('selected', selected);
-      nodes.select.setAttribute('aria-pressed', String(selected));
-    }
+    const set = (id, selected) => { const node = sceneNodes.get(id); if (node) { node.card.classList.toggle('selected', selected); node.select.setAttribute('aria-pressed', String(selected)); } };
+    if (lastSelectedSceneId !== project.selectedSceneId) set(lastSelectedSceneId, false);
+    set(project.selectedSceneId, true); lastSelectedSceneId = project.selectedSceneId;
   }
 
   function updatePlaybackUI() {
     $('playPreview').querySelector('use').setAttribute('href', playing ? '#i-pause' : '#i-play');
     $('playPreview').setAttribute('aria-label', playing ? 'Приостановить предпросмотр' : 'Воспроизвести предпросмотр');
-    $('currentTime').textContent = C.clockTime(Math.floor(elapsedMs / 1000) * 1000);
-    const total = C.totalDuration(project.scenes);
+    $('currentTime').textContent = timing.plan ? T.clock(Math.floor(elapsedMs)) : '—';
+    const total = timing.plan?.durationMs || 0;
     $('timelineProgress').style.width = (total ? Math.min(100, elapsedMs / total * 100) : 0) + '%';
   }
 
@@ -2077,9 +2249,12 @@ window.ShortsEditorReady = (async function () {
     const scene = project.scenes[index];
     $('portrait').className = `portrait theme-${project.style.theme} caption-${project.style.caption} size-${project.style.size}`;
     $('portraitScene').textContent = scene ? String(index + 1).padStart(2, '0') + ' / ' + String(project.scenes.length).padStart(2, '0') : '00 / 00';
-    const text = scene?.text.trim() || (scene ? 'Ваша сцена начинается здесь' : 'У каждой истории есть начало. Какое будет у вашей?');
+    const row = timing.byId.get(scene?.id)?.scene;
+    const cue = row ? P.frameAt(timing.plan, Math.max(row.startMs, Math.min(row.endMs - 1, elapsedMs))).cue : null;
+    const text = cue?.text || (scene?.text.trim() ? '' : scene ? 'Ваша сцена начинается здесь' : 'У каждой истории есть начало. Какое будет у вашей?');
     const words = text.split(/\s+/u);
     const preview = $('previewText');
+    preview.hidden = project.subtitles?.enabled === false || !!timing.error;
     preview.replaceChildren();
     preview.classList.toggle('long-caption', words.length > 28 && words.length <= 60);
     preview.classList.toggle('very-long-caption', words.length > 60);
@@ -2101,7 +2276,7 @@ window.ShortsEditorReady = (async function () {
   function selectScene(id) {
     if (!project.scenes.some(scene => scene.id === id)) return;
     pausePlayback();
-    project.selectedSceneId = id;
+    project = { ...project, selectedSceneId: id };
     elapsedMs = sceneStart(id);
     updateSelectedScene();
     renderPreview();
@@ -2118,23 +2293,18 @@ window.ShortsEditorReady = (async function () {
 
   function play() {
     if (playing) { pausePlayback(); return; }
-    const cues = C.timeline(project.scenes);
-    if (!cues.length) return;
-    const total = C.totalDuration(project.scenes);
-    const selectedCue = cues.find(cue => cue.id === project.selectedSceneId);
+    const plan = timing.plan; if (!plan?.timeline.length) return;
+    const total = plan.durationMs;
     if (elapsedMs >= total) elapsedMs = 0;
-    else if (!selectedCue) elapsedMs = (cues.find(cue => cue.index >= project.scenes.findIndex(scene => scene.id === project.selectedSceneId)) || cues[0]).startMs;
-    playing = true;
-    playbackAnchor = performance.now() - elapsedMs;
-    updatePlaybackUI();
+    playing = true; playbackAnchor = performance.now() - elapsedMs;
+    updatePlaybackUI(); let lastCue = null;
     function frame(now) {
       if (!playing) return;
       elapsedMs = Math.min(total, now - playbackAnchor);
-      const cue = cues.find(cue => elapsedMs >= cue.startMs && elapsedMs < cue.endMs) || cues[cues.length - 1];
-      if (cue.id !== project.selectedSceneId) {
-        project.selectedSceneId = cue.id;
-        updateSelectedScene();
-        renderPreview();
+      const value = P.frameAt(plan, elapsedMs);
+      if (value.scene.id !== project.selectedSceneId || value.cue !== lastCue) {
+        project = { ...project, selectedSceneId: value.scene.id }; lastCue = value.cue;
+        updateSelectedScene(); renderPreview();
       }
       updatePlaybackUI();
       if (elapsedMs >= total) { pausePlayback(); return; }
@@ -2158,6 +2328,7 @@ window.ShortsEditorReady = (async function () {
   }
 
   function renderAll() {
+    recalculate(); elapsedMs = sceneStart(project.selectedSceneId);
     $('projectName').value = project.name;
     $('sidebarProjectName').textContent = project.name || 'Без названия';
     $('scriptText').value = project.script;
@@ -2172,12 +2343,13 @@ window.ShortsEditorReady = (async function () {
 
   function replaceProject(nextProject) {
     pausePlayback();
-    project = nextProject;
-    elapsedMs = sceneStart(project.selectedSceneId);
+    try { T.compile(nextProject); } catch (error) { toast('Проект не заменён: ' + error.message); return false; }
+    project = nextProject; durationErrors.clear(); commandError = null; lastGoodProject = null;
     view = 'script';
     renderAll();
     changed();
     saveNow();
+    return true;
   }
 
   function hasWork() {
@@ -2198,9 +2370,9 @@ window.ShortsEditorReady = (async function () {
     if (same) { setView('scenes'); toast('Сцены уже соответствуют сценарию. Можно приступать к правкам.'); return; }
     const action = () => {
       pausePlayback();
-      project.scenes = C.createScenes(project.script);
-      project.sourceScript = project.script;
-      project.selectedSceneId = project.scenes[0]?.id || null;
+      const scenes = C.createScenes(project.script);
+      project = C.parseProject({ ...project, scenes, sourceScript: project.script, selectedSceneId: scenes[0]?.id || null });
+      durationErrors.clear(); commandError = null;
       elapsedMs = 0;
       renderAll();
       changed();
@@ -2212,39 +2384,20 @@ window.ShortsEditorReady = (async function () {
 
   function addScene() {
     if (project.scenes.length >= 5000) { toast('В проекте уже 5 000 сцен.'); return; }
-    pausePlayback();
-    const scene = { id: C.id(), text: '' };
-    project.scenes.push(scene);
-    project.selectedSceneId = scene.id;
-    elapsedMs = sceneStart(scene.id);
-    renderStats();
-    renderScenes();
-    renderSubtitles();
-    renderPreview();
-    changed();
-    sceneNodes.get(scene.id).textarea.focus();
+    editScene({ type: 'add' }, true);
+    sceneNodes.get(project.selectedSceneId)?.textarea.focus();
   }
 
   function deleteScene(id) {
-    const index = project.scenes.findIndex(scene => scene.id === id);
-    if (index === -1) return;
+    const index = project.scenes.findIndex(scene => scene.id === id); if (index < 0) return;
     const scene = project.scenes[index];
     const action = () => {
-      pausePlayback();
-      project.scenes.splice(index, 1);
-      if (project.selectedSceneId === id) project.selectedSceneId = project.scenes[Math.min(index, project.scenes.length - 1)]?.id || null;
-      elapsedMs = sceneStart(project.selectedSceneId);
-      renderStats();
-      renderScenes();
-      renderSubtitles();
-      renderPreview();
-      changed();
+      editScene({ type: 'remove', id }, true);
       const focus = project.scenes[Math.min(index, project.scenes.length - 1)];
-      if (focus) sceneNodes.get(focus.id)?.select.focus();
-      else $('addScene').focus();
+      if (focus) sceneNodes.get(focus.id)?.select.focus(); else $('addScene').focus();
       toast('Сцена удалена.');
     };
-    if (scene.text.trim()) confirmAction('Удалить сцену ' + (index + 1) + '?', 'Текст этой сцены будет удалён из раскадровки и субтитров. Исходный сценарий останется.', 'Удалить сцену', action);
+    if (scene.text.trim() || scene.imageId || scene.durationMs != null || durationErrors.has(id)) confirmAction('Удалить сцену ' + (index + 1) + '?', 'Сцена и её параметры будут удалены из раскадровки и субтитров. Исходный сценарий останется.', 'Удалить сцену', action);
     else action();
   }
 
@@ -2260,7 +2413,8 @@ window.ShortsEditorReady = (async function () {
   }
 
   function exportSrt() {
-    const srt = C.generateSrt(project.scenes);
+    if (timing.error) { showTimingError(); return; }
+    const srt = P.generateSrt(timing.plan);
     if (!srt) { toast('Добавьте текст хотя бы в одну сцену.'); return; }
     download(srt, 'application/x-subrip;charset=utf-8', C.fileName(project.name) + '.srt');
     toast('Субтитры скачаны. Их можно импортировать в видеоредактор.');
@@ -2277,12 +2431,12 @@ window.ShortsEditorReady = (async function () {
   document.querySelector('.brand').addEventListener('click', event => { event.preventDefault(); setView('script'); });
   $('scriptText').maxLength = 1000000;
   $('scriptText').addEventListener('input', event => {
-    project.script = event.target.value;
+    project = { ...project, script: event.target.value };
     renderStats();
     changed();
   });
   $('projectName').addEventListener('input', event => {
-    project.name = event.target.value;
+    project = { ...project, name: event.target.value }; recalculate();
     $('sidebarProjectName').textContent = project.name || 'Без названия';
     document.title = (project.name || 'Без названия') + ' — Shorts Studio';
     changed();
@@ -2294,6 +2448,14 @@ window.ShortsEditorReady = (async function () {
     const action = () => { replaceProject(C.createProject()); $('projectName').focus(); $('projectName').select(); toast('Новый проект создан. Начните со своей идеи.'); };
     if (hasWork()) confirmAction('Начать новую историю?', 'Текущий проект будет заменён. Скачайте его, если захотите вернуться к нему позже.', 'Создать проект', action);
     else action();
+  });
+  $('editorTimingMode').addEventListener('change', event => editScene({ type: 'timing', value: event.target.value }));
+  $('editorSubtitleMode').addEventListener('change', event => editScene({ type: 'subtitle-mode', value: event.target.value }));
+  $('editorSubtitlesEnabled').addEventListener('change', event => editScene({ type: 'subtitle-enabled', value: event.target.checked }));
+  $('editorResetTiming').addEventListener('click', () => {
+    if (!lastGoodProject) return;
+    pausePlayback(); project = lastGoodProject; durationErrors.clear(); commandError = null;
+    renderAll(); changed();
   });
   $('exportSrt').addEventListener('click', exportSrt);
   $('exportSrtPanel').addEventListener('click', exportSrt);
@@ -2307,15 +2469,15 @@ window.ShortsEditorReady = (async function () {
   });
   $('playPreview').addEventListener('click', play);
   document.querySelectorAll('[data-caption]').forEach(button => button.addEventListener('click', () => {
-    project.style.caption = button.dataset.caption;
+    project = { ...project, style: { ...project.style, caption: button.dataset.caption } }; recalculate();
     renderAppearance(); renderPreview(); changed();
   }));
   document.querySelectorAll('[data-theme]').forEach(button => button.addEventListener('click', () => {
-    project.style.theme = button.dataset.theme;
+    project = { ...project, style: { ...project.style, theme: button.dataset.theme } }; recalculate();
     renderAppearance(); renderPreview(); changed();
   }));
   $('captionSize').addEventListener('change', event => {
-    project.style.size = event.target.value;
+    project = { ...project, style: { ...project.style, size: event.target.value } }; recalculate();
     renderPreview(); changed();
   });
   $('saveProject').addEventListener('click', () => {
@@ -2332,11 +2494,11 @@ window.ShortsEditorReady = (async function () {
     if (file.size > 5 * 1024 * 1024) { toast('Файл слишком большой. Максимальный размер проекта — 5 МБ.'); return; }
     try {
       const nextProject = C.parseProject(await file.text());
-      const action = () => { replaceProject(nextProject); toast('Проект «' + (project.name || 'Без названия') + '» открыт.'); };
+      const action = () => { if (replaceProject(nextProject)) toast('Проект «' + (project.name || 'Без названия') + '» открыт.'); };
       if (hasWork()) confirmAction('Открыть другой проект?', 'Текущий проект будет заменён содержимым файла. При необходимости сначала скачайте его.', 'Открыть проект', action);
       else action();
     } catch (error) {
-      toast('Не удалось открыть файл. Выберите корректный файл .shorts.json.');
+      toast('Не удалось открыть файл: ' + error.message);
     }
   });
   // Flush the debounce when leaving; visibilitychange also works on mobile browsers.
@@ -2358,7 +2520,7 @@ window.ShortsEditorReady = (async function () {
   // Additive bridge: the video mode can ask to open a script without touching the active project silently.
   window.ShortsEditor = Object.freeze({
     pause: pausePlayback,
-    backupSnapshot() { pausePlayback(); return structuredClone(project); },
+    backupSnapshot() { pausePlayback(); if (timing.error) throw new Error('Сначала исправьте или отмените несохранённую правку Студии: ' + timing.error.message); return structuredClone(project); },
     confirm: confirmAction,
     useScript({ title, scenes }) {
       if (!Array.isArray(scenes) || !scenes.length || scenes.length > 12 || scenes.some(scene => typeof scene.text !== 'string')) throw new Error('Нет сцен для переноса.');
@@ -2373,9 +2535,9 @@ window.ShortsEditorReady = (async function () {
       else action();
     }
   });
-  elapsedMs = sceneStart(project.selectedSceneId);
   renderAll();
-  if (loaded.error) {
+  if (timing.error) showTimingError();
+  else if (loaded.error) {
     $('storageWarning').hidden = false;
     $('storageWarning').textContent = loaded.error;
     updateSaveStatus(loaded.writable ? 'Проверьте сохранение проекта' : 'Ошибка сохранения', true);

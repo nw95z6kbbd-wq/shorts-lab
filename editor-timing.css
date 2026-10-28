@@ -1,0 +1,17 @@
+/* Studio-only additions; the frozen Video/CSS rendering path is untouched. */
+.studio-timing-controls,.studio-subtitle-controls{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:14px 0;color:#bcb1cc;font-size:12px;min-width:0}
+.studio-timing-controls label,.studio-subtitle-controls label{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0}
+.studio-timing-controls select,.studio-subtitle-controls select,.studio-scene-duration{background:#141018;color:#e5dcf0;border:1px solid #40334f;border-radius:6px;padding:7px 9px;min-height:36px;max-width:100%}
+.studio-timing-controls output{margin-left:auto;color:#d0b3f5;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;min-width:0}
+.studio-timing-controls p{width:100%;font-size:10px;line-height:1.7;color:#93849f}
+.studio-subtitle-controls{padding-inline:21px;border-block:1px solid #28232e}.studio-subtitle-controls input{accent-color:#ab7fea}
+.studio-scene-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin-top:10px;min-width:0}
+.studio-scene-controls label{display:grid;gap:4px;font-size:10px;color:#a99bb6;margin-right:auto;min-width:0}
+.studio-scene-duration{width:130px;font-size:12px;font-variant-numeric:tabular-nums}.studio-scene-duration:disabled{opacity:.5}.studio-scene-duration[aria-invalid=true]{border-color:#df9b76;box-shadow:0 0 0 1px #df9b7640}
+.studio-move,.studio-timing-error button{border:1px solid #443450;color:#ceb1ed;background:#241b2c;border-radius:6px;padding:7px 10px;min-height:36px;font-size:11px}
+.studio-move:hover:not(:disabled),.studio-timing-error button:hover:not(:disabled){background:#342342}.studio-move:disabled{opacity:.35}
+.studio-timing-error{padding:14px 20px;margin:12px 16px;border:1px solid #755143;border-radius:8px;background:#2b201c;color:#efc3ab;font-size:12px;line-height:1.7}.studio-timing-error button{margin-top:8px}
+#scenesSection .scene-card-top{flex-wrap:wrap;gap:5px}#scenesSection .scene-meta-row{min-width:0;max-width:100%}#scenesSection .scene-timing{white-space:normal;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;font-size:9px}
+#scriptStudio #totalDuration{font-size:clamp(17px,1.8vw,25px);overflow-wrap:anywhere}#scriptStudio .playback-time{flex-wrap:wrap;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.stat-value:has(#totalDuration){min-width:0}#totalDuration{overflow-wrap:anywhere;font-size:clamp(17px,1.8vw,25px)}
+@media(max-width:620px){.studio-scene-controls label{width:100%;margin-right:0}.studio-scene-duration{width:100%}.studio-move{flex:1;min-height:44px}.studio-timing-controls label{width:100%}.studio-timing-controls select{flex:1;min-width:0}.studio-timing-controls output{margin-left:0}.studio-subtitle-controls{padding-inline:14px}.studio-subtitle-controls label{width:100%}.studio-subtitle-controls select{flex:1}.studio-timing-error{margin-inline:10px;padding:12px}.studio-timing-error button{min-height:44px}}

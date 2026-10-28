@@ -55,7 +55,15 @@
     // A legacy import may omit updatedAt. It is irrelevant to rendering; do not
     // let the DTO normalizer consult the wall clock for this temporary value.
     const inputProject = raw.version === 1 && typeof raw.updatedAt !== 'string' ? { ...raw, updatedAt: '' } : raw;
-    const project = C.upgradeProject(inputProject), manual = project.timing === 'manual';
+    let project;
+    if (raw.version === 1) {
+      const legacy = C.parseProject(inputProject);
+      // Only defaults come from a DTO 2 template. Legacy project/scene IDs are
+      // never migrated, regenerated or subjected to new media-ID restrictions.
+      const defaults = C.upgradeProject({ ...legacy, id: 'editor-plan-defaults', scenes: [{ id: 'scene-defaults', text: '' }], selectedSceneId: 'scene-defaults' });
+      project = { ...defaults, id: legacy.id, selectedSceneId: legacy.selectedSceneId, scenes: legacy.scenes.map(scene => ({ ...defaults.scenes[0], ...scene })) };
+    } else project = C.upgradeProject(inputProject);
+    const manual = project.timing === 'manual';
     const voice = { ...project.audio.voice }, music = { assetId: project.audio.music.assetId, name: project.audio.music.name,
       volume: project.audio.music.volume, fadeInSeconds: project.audio.music.fadeInMs / 1000, fadeOutSeconds: project.audio.music.fadeOutMs / 1000 };
     const scenes = project.scenes.map(s => ({ ...s, durationMs: manual && s.durationMs !== null ? s.durationMs : C.durationMs(s.text) }));

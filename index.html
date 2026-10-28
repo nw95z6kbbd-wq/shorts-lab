@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="product.css">
   <link rel="stylesheet" href="ux.css">
   <link rel="stylesheet" href="backup.css">
+  <link rel="stylesheet" href="editor-timing.css">
   <script src="js/core.js" defer></script>
   <script src="js/product.js" defer></script>
   <script src="js/editor-profile.js" defer></script>
@@ -23,6 +24,7 @@
   <script src="js/zip-store.js" defer></script>
   <script src="js/backup-format.js" defer></script>
   <script src="js/integrations.js" defer></script>
+  <script src="js/editor-timing.js" defer></script>
   <script src="js/app.js" defer></script>
   <script src="js/editor-canvas.js" defer></script>
   <script src="js/video-renderer.js" defer></script>
@@ -95,7 +97,7 @@
       <section class="stats" aria-label="Статистика проекта">
         <div class="stat"><span class="stat-icon"><svg><use href="#i-pen"/></svg></span><div><span class="stat-label">Слов в сценарии</span><div class="stat-value"><strong id="wordCount">0</strong><span>слов</span></div></div><span class="stat-decoration">Aa</span></div>
         <div class="stat"><span class="stat-icon"><svg><use href="#i-scenes"/></svg></span><div><span class="stat-label">Сцен в проекте</span><div class="stat-value"><strong id="sceneCount">0</strong><span>сцен</span></div></div><span class="stat-note">Ваша раскадровка</span></div>
-        <div class="stat"><span class="stat-icon"><svg><use href="#i-clock"/></svg></span><div><span class="stat-label">Длительность сцен</span><div class="stat-value"><strong id="totalDuration">0:00</strong><span>≈ озвучка</span></div></div><span class="speed-badge">150 слов/мин</span></div>
+        <div class="stat"><span class="stat-icon"><svg><use href="#i-clock"/></svg></span><div><span class="stat-label">Длительность сцен</span><div class="stat-value"><strong id="totalDuration">0:00</strong><span>по сценам</span></div></div><span class="speed-badge" id="editorTimingBadge">150 слов/мин</span></div>
       </section>
 
       <div id="storageWarning" class="notice warning" role="alert" hidden>Браузер не позволяет сохранить проект на устройстве. Скачайте файл проекта, чтобы не потерять работу.</div>
@@ -119,16 +121,17 @@
         <div class="editor-column">
           <div class="editor-panel panel">
             <div class="editor-tabs" role="tablist" aria-label="Редактор"><button id="tab-script" class="editor-tab active" data-view="script" role="tab" aria-controls="pane-script" aria-selected="true"><svg><use href="#i-pen"/></svg>Сценарий</button><button id="tab-scenes" class="editor-tab" data-view="scenes" role="tab" aria-controls="scenesSection" aria-selected="false" tabindex="-1"><svg><use href="#i-scenes"/></svg>Сцены<span class="tab-count" id="tabSceneCount">0</span></button><button id="tab-subtitles" class="editor-tab" data-view="subtitles" role="tab" aria-controls="pane-subtitles" aria-selected="false" tabindex="-1"><svg><use href="#i-captions"/></svg>Субтитры</button></div>
+            <div id="editorTimingError" class="studio-timing-error" role="alert" hidden><p id="editorTimingErrorText"></p><button id="editorResetTiming" type="button">Отменить несохранённую правку</button></div>
             <section id="pane-script" role="tabpanel" aria-labelledby="tab-script">
               <div class="script-heading"><div><h2>Сначала — хорошая история</h2><p>Напишите сценарий или вставьте готовый текст.</p></div><button class="text-button" id="loadDemo"><svg><use href="#i-sparkles"/></svg>Пример</button></div>
               <label for="scriptText" class="sr-only">Текст сценария</label><textarea id="scriptText" class="script-textarea" placeholder="О чём будет ваш следующий Short?\n\nНачните с цепляющей фразы, расскажите самое интересное и оставьте зрителю мысль, которой захочется поделиться." spellcheck="true"></textarea>
-              <div class="script-footer"><div class="script-meta"><span id="scriptWordCount">0 слов</span><span class="meta-dot">·</span><span><svg><use href="#i-clock"/></svg><span id="scriptDuration">≈ 0 сек</span></span></div><span class="keyboard-hint">Идея начинается с одной строки</span></div>
+              <div class="script-footer"><div class="script-meta"><span id="scriptWordCount">0 слов</span><span class="meta-dot">·</span><span><svg><use href="#i-clock"/></svg><span id="scriptDuration" title="Оценка исходного сценария по 150 слов/мин; длительности отредактированных сцен рассчитаны отдельно">≈ 0 сек</span></span></div><span class="keyboard-hint">Идея начинается с одной строки</span></div>
               <div class="split-bar"><div><span class="split-icon"><svg><use href="#i-sparkles"/></svg></span><p>Один клик — и история обретает форму.<small>Каждое предложение станет отдельной сценой.</small></p></div><button id="splitScenes" class="button button-primary"><svg><use href="#i-scenes"/></svg>Разбить на сцены</button></div>
             </section>
-            <section id="pane-subtitles" role="tabpanel" aria-labelledby="tab-subtitles" hidden><div class="script-heading"><div><h2>Слова в нужный момент</h2><p>Субтитры обновляются вместе со сценами.</p></div><span class="format-badge">.SRT</span></div><div id="subtitleList" class="subtitle-list"></div><div class="subtitles-footer"><p>Таймкоды рассчитаны при темпе 150 слов в минуту.</p><button class="button button-primary" id="exportSrtPanel"><svg><use href="#i-download"/></svg>Скачать .srt</button></div></section>
+            <section id="pane-subtitles" role="tabpanel" aria-labelledby="tab-subtitles" hidden><div class="script-heading"><div><h2>Слова в нужный момент</h2><p>Субтитры обновляются вместе со сценами.</p></div><span class="format-badge">.SRT</span></div><div class="studio-subtitle-controls"><label><input id="editorSubtitlesEnabled" type="checkbox" checked> Субтитры включены</label><label for="editorSubtitleMode">Реплики<select id="editorSubtitleMode" aria-describedby="editorSubtitleHint"><option value="scene">По сценам</option><option value="chunks">Группы по 6 слов</option></select></label></div><div id="subtitleList" class="subtitle-list"></div><div class="subtitles-footer"><p id="editorSubtitleHint">Таймкоды берутся из общего RenderPlan.</p><button class="button button-primary" id="exportSrtPanel"><svg><use href="#i-download"/></svg>Скачать .srt</button></div></section>
           </div>
 
-          <section id="scenesSection" class="scenes-section" aria-labelledby="scenesTitle"><div class="section-heading"><div><h2 id="scenesTitle">Сцены проекта <span id="sceneHeadingCount">0</span></h2><p>Маленькие фрагменты большой истории.</p></div><button class="text-button" id="addScene"><svg><use href="#i-plus"/></svg>Добавить сцену</button></div><div id="scriptChanged" class="notice" hidden><svg><use href="#i-info"/></svg><span>Сценарий изменён. Нажмите «Разбить на сцены», чтобы заменить текущие сцены новым текстом.</span></div><div id="sceneList" class="scene-list"></div><p class="scene-footnote" id="sceneFootnote">Предпросмотр и SRT используют текст сцен. Правки сцен не меняют исходный сценарий.</p></section>
+          <section id="scenesSection" class="scenes-section" aria-labelledby="scenesTitle"><div class="section-heading"><div><h2 id="scenesTitle">Сцены проекта <span id="sceneHeadingCount">0</span></h2><p>Маленькие фрагменты большой истории.</p></div><button class="text-button" id="addScene"><svg><use href="#i-plus"/></svg>Добавить сцену</button></div><div class="studio-timing-controls"><label for="editorTimingMode">Длительности<select id="editorTimingMode" aria-describedby="editorTimingHelp"><option value="reading">Авто · 150 слов/мин</option><option value="manual">Вручную</option></select></label><output id="editorTimingSummary" aria-live="polite">Итого: 0:00</output><p id="editorTimingHelp">Авто — по тексту сцен. Вручную: секунды с точностью до 0,001; пусто — авто. Ручные значения сохраняются при переключении режимов.</p></div><div id="scriptChanged" class="notice" hidden><svg><use href="#i-info"/></svg><span>Сценарий изменён. Нажмите «Разбить на сцены», чтобы заменить текущие сцены новым текстом.</span></div><div id="sceneList" class="scene-list"></div><p class="scene-footnote" id="sceneFootnote">Предпросмотр и SRT используют текст сцен. Правки сцен не меняют исходный сценарий.</p></section>
           <footer class="editor-bottom"><span class="tiny-dot"></span>Всё для первого шага. Ничего лишнего.<span class="bottom-format">СОЗДАНО ДЛЯ 9:16</span></footer>
         </div>
 

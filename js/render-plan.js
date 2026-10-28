@@ -11,6 +11,14 @@
     for (let i = 0; i < words.length; i += size) result.push(words.slice(i, i + size));
     return result;
   }
+  // Editor DTO permits all safe integer milliseconds. Avoid precision loss in
+  // duration * wordCount, including the final cue's exact scene boundary.
+  function editorPortion(duration, part, total) {
+    if (!part) return 0;
+    if (part === total) return duration;
+    const divisor = BigInt(total);
+    return Number((BigInt(duration) * BigInt(part) * 2n + divisor) / (2n * divisor));
+  }
   function build(spec) {
     const video = spec.timing.policy.startsWith('video-'), manual = spec.timing.policy === 'video-manual';
     if (!['video-auto', 'video-manual', 'editor-reading', 'editor-manual-or-reading'].includes(spec.timing.policy)) throw error('POLICY', 'Неизвестная политика длительности.');
@@ -39,10 +47,11 @@
         ? (String(scene.text).trim() ? [String(scene.text).trim().split(/\s+/u).filter(Boolean)] : []) : chunks(scene.text);
       const wordSum = groups.reduce((total, group) => total + group.length, 0);
       let offset = 0;
+      const portion = part => video ? Math.round((endMs - startMs) * part / wordSum) : editorPortion(endMs - startMs, part, wordSum);
       const sceneCues = groups.map(words => {
-        const start = startMs + Math.round((endMs - startMs) * offset / wordSum);
+        const start = startMs + portion(offset);
         offset += words.length;
-        const cue = { startMs: start, endMs: startMs + Math.round((endMs - startMs) * offset / wordSum), text: spec.subtitles.policy === 'editor-scene' ? scene.text.trim() : words.join(' '), words };
+        const cue = { startMs: start, endMs: startMs + portion(offset), text: spec.subtitles.policy === 'editor-scene' ? scene.text.trim() : words.join(' '), words };
         cues.push(cue); return cue;
       });
       if (spec.subtitles.policy === 'editor-chunks-6' && sceneCues.some(cue => cue.endMs <= cue.startMs)) throw error('SUBTITLES', 'Для коротких групп субтитров недостаточно миллисекунд. Увеличьте длительность сцены или явно выберите субтитры по сценам.');
