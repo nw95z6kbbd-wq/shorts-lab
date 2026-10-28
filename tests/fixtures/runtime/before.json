@@ -1,0 +1,43 @@
+{
+  "commit": "8042586d1c5c65a4a89eedd61052a37ca14b4868",
+  "files": {
+    "js/app.js": "9e6eff054677c7d1658a6d63701e4bb7c5744d9f42664c2f3ac8f586562a761e",
+    "js/core.js": "620c99da3213c1b27c1854476a2a017324bd60b0b09aa3294599f1c6b8fc83ba",
+    "js/render-plan.js": "44f382260d25b13080c323a5792de19c1f17de8a5eef0209a615d2d39b2ec30d",
+    "js/render-adapters.js": "1c5fb20447bb632f7d631ebf564fcc5ed2868c9e2283ac84144c45e31c7761f8",
+    "js/video-core.js": "7a6d54124d8e058ce50d447c499fdebf06007b8a65aff1fbe18ada68ff60e8ba",
+    "js/video-renderer.js": "1fc5498590dfba2c5bfbeeed428f1943ab611e50666eb6737f81b69e0f255a3a",
+    "js/video-recorder.js": "bbb6ffd46c558778778fd149c6fab85c9651ac091c6f09cf86b06013d682d3ca",
+    "js/video-media.js": "11851498a4c7e44716f540c578ec3c0cf2fb9bd791ec913610d1fc1ab6dc78ef",
+    "js/video-audio.js": "5007d9a7ef2cd55ec24908a02cf275687fe594c612c3977ffeb4da541f51b647",
+    "js/video-ui.js": "7249856063dae03756e89fc5ea224afa95e68f794a1fe824da371ce6b6bdb010",
+    "js/project-db.js": "26dee9ac3bcb0fc083e92d87a9dceffe5a23a6dff498b33ecc4f071b7ac2349d",
+    "js/storage.js": "11b5132055f5667fe908b535da781b22f106aae13144c4d2c8629cd29ea38bdf",
+    "js/backup-format.js": "40a682d8efec7e5d579ca93138ea8b7ffd1b849399e8692ee910a8e7f5d94e1f",
+    "js/backup-ui.js": "a7a28c905c01414e57f21a8c5fe5059a921c3784b71246207f76d3b67d2d2a21",
+    "js/zip-store.js": "f04d916d492ae7a5f846b2cf5d8e1761f52fd5374cc94ff753ab174806ae9654",
+    "js/product.js": "131c3912f6a7a422c58ebf01b576e58e7c5219eb8609ab29b2799675fb2a8733",
+    "js/ux.js": "4c5631458f7a9df1a84c16b5813a5f39a63cf3d91110c8d09d6199374b818252",
+    "styles.css": "bc7cc114ebffe0a2b30e109b8425c4f908edf52b22f1ac1505061f5d9cbeaf34",
+    "video.css": "614f6735b701b2111861c15c7dbbcc80b97a317ee79933528a0b6183f7cc2266",
+    "ux.css": "6991b8aa321dc39d2b653f1bff9f448e6df8b31f6d067156a147f4cbe4bffc18",
+    "tests/render_guard.py": "85a9355f81e42d505687e2625563d29d63c03e160b6022add2766eb71def1912",
+    "tests/safari-baseline-test.py": "13bda5c5938ce7193429cc0f9480c55ad02e951f8360be0796278df7ebfbbd3b"
+  },
+  "bridges": {
+    "index.html": {
+      "sha256": "3d9b9ad8b841d43812a085615bca56010622643f258d60d21eb5a29bd3eba21d",
+      "remove": [
+        "  <script src=\"js/media-session.js\" defer></script>\n",
+        "  <script src=\"js/render-session.js\" defer></script>\n"
+      ]
+    },
+    "tests/safari-product.py": {
+      "sha256": "218159a573d84e2da9b1f9c611bf01a9f286de7cb09155f269ee5ace1e315aa2",
+      "remove": [
+        "from runtime_session_native import check_native_runtime\n",
+        "            check_native_runtime(ROOT,script,command,click)\n"
+      ]
+    }
+  }
+}

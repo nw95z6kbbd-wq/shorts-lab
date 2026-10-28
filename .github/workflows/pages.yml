@@ -81,6 +81,10 @@ jobs:
           fi
       - name: Check shared RenderPlan against frozen renderer
         run: python tests/check-errors.py tests/render-plan-browser.py
+      - name: Check runtime sessions and real recording
+        run: |
+          python tests/check-errors.py tests/runtime-session-browser.py
+          RUNTIME_MOBILE=1 python tests/check-errors.py tests/runtime-session-browser.py
       - name: Check real browser video and audio recording
         run: python tests/check-errors.py tests/video-browser.py
       - name: Check images and two-track video export
@@ -91,6 +95,8 @@ jobs:
         run: python scripts/prepare-site.py
       - name: Check offline standalone RenderPlan
         run: RENDER_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/render-plan-browser.py
+      - name: Check offline runtime sessions
+        run: RUNTIME_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/runtime-session-browser.py
       - name: Check product information and standalone version
         run: |
           python tests/check-errors.py tests/product-browser.py
@@ -169,6 +175,11 @@ jobs:
         run: |
           RENDER_BROWSER=webkit python tests/check-errors.py tests/render-plan-browser.py
           RENDER_BROWSER=webkit RENDER_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/render-plan-browser.py
+      - name: Check runtime sessions in WebKit and standalone
+        run: |
+          RUNTIME_BROWSER=webkit python tests/check-errors.py tests/runtime-session-browser.py
+          RUNTIME_BROWSER=webkit RUNTIME_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/runtime-session-browser.py
+          RUNTIME_BROWSER=webkit RUNTIME_MOBILE=1 RUNTIME_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/runtime-session-browser.py
       - name: Check portable ZIP backups in WebKit
         timeout-minutes: 3
         run: |
