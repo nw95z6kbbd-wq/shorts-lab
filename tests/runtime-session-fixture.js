@@ -1,4 +1,11 @@
 /* Real browser consumers; all writes below are test-owned staged corrupt inputs. */
+// Safari's recorded WebM probe must participate in document media rendering.
+// A detached element can expose metadata but never finish the first seek.
+window.mountRuntimeRecordedVideo = function (element, document = window.document) {
+  element.style='position:fixed;right:100px;bottom:0;width:90px;height:160px;z-index:20000';
+  document.body.append(element);
+  return () => { element.pause();element.removeAttribute('src');element.load();element.remove(); };
+};
 window.prepareRuntimeSessionChecks = async function () {
   const P=ShortsRenderPlan,A=ShortsRenderAdapters,S=ShortsRenderSessions,M=ShortsMediaSessions;
   const assert=(ok,text)=>{if(!ok)throw Error('Runtime: '+text);},delay=()=>new Promise(r=>setTimeout(r,0));
@@ -65,15 +72,16 @@ window.prepareRuntimeSessionChecks = async function () {
       trace.phase='stop-playback';await playback?.stop();trace.phase='capabilities';const support=ShortsVideoRecorder.capabilities(true,'webm');trace.capabilities=support;
       if(!support.supported)return{skipped:'Canvas/MediaRecorder codec unavailable'};
       trace.phase='recording';const result=await v.record({canvas,onFormat:type=>{trace.format=type;},onProgress:(fraction,ms)=>{trace.progress={fraction,ms};}});window.runtimeRecordedBlob=result.blob;trace.blob={size:result.blob.size,type:result.mimeType};trace.phase='metadata';
-      const url=URL.createObjectURL(result.blob),element=document.createElement('video');element.muted=true;element.playsInline=true;let timer;
+      const url=URL.createObjectURL(result.blob),element=document.createElement('video');element.muted=true;element.playsInline=true;const unmount=mountRuntimeRecordedVideo(element);let timer;
+      const probe=()=>({connected:element.isConnected,readyState:element.readyState,networkState:element.networkState,seeking:element.seeking,currentTime:element.currentTime,error:element.error?{code:element.error.code,message:element.error.message}:null});
       try {
         const metadata=await new Promise((resolve,reject)=>{timer=setTimeout(()=>reject(Error('Runtime recorded metadata timed out')),15000);const check=()=>{if(element.error)reject(Error('Recorded video decode error'));else if(element.videoWidth&&Number.isFinite(element.duration)&&element.duration>0)resolve({width:element.videoWidth,height:element.videoHeight,duration:element.duration,type:result.mimeType});};for(const event of ['loadedmetadata','loadeddata','durationchange','error'])element.addEventListener(event,check);element.src=url;element.load();});clearTimeout(timer);
         trace.metadata=metadata;trace.phase='frame-validation';
         assert(metadata.width===720&&metadata.height===1280&&metadata.duration>5.5&&metadata.duration<7.5,'actual complete runtime export');
         const sample=document.createElement('canvas');sample.width=sample.height=1;const x=sample.getContext('2d'),colors=[];
-        for(const t of [.5,2.7,4.8]){trace.seek=t;await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Runtime video seek timeout')),4000);element.onseeked=()=>{clearTimeout(timeout);resolve();};element.currentTime=t;});x.drawImage(element,300,400,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
-        const [r,b,g]=colors;assert(r[0]>r[2]*1.5&&b[2]>b[0]*1.5&&g[1]>g[0]*1.5,'actual session image order');return metadata;
-      }finally{clearTimeout(timer);element.pause();element.removeAttribute('src');element.load();URL.revokeObjectURL(url);}
+        for(const t of [.5,2.7,4.8]){trace.seek=t;assert(element.isConnected,'recorded probe participates in document media rendering');trace.probe=probe();await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>{trace.probe=probe();reject(Error('Runtime video seek timeout'));},4000);element.onseeked=()=>{clearTimeout(timeout);trace.probe=probe();resolve();};element.currentTime=t;});x.drawImage(element,300,400,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
+        trace.colors=colors;const [r,b,g]=colors;assert(r[0]>r[2]*1.5&&b[2]>b[0]*1.5&&g[1]>g[0]*1.5,'actual session image order');return metadata;
+      }finally{clearTimeout(timer);unmount();URL.revokeObjectURL(url);}
     })();window.runtimeRecordPromise.catch(e=>{trace.recordFailure={phase:trace.phase,...ShortsRuntimeDiagnostics.failure(e)};});}));
     window.finishRuntimeSessionChecks=async()=>{
       try {
