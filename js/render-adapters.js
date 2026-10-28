@@ -1,8 +1,8 @@
 (function (root, factory) {
   'use strict';
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'), require('./render-plan.js'));
-  else root.ShortsRenderAdapters = factory(root.ShortsCore, root.ShortsRenderPlan);
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (C, P) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./core.js'), require('./render-plan.js'), require('./editor-profile.js'));
+  else root.ShortsRenderAdapters = factory(root.ShortsCore, root.ShortsRenderPlan, root.ShortsEditorProfile);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (C, P, E) {
   'use strict';
   const videoThemes = ['mystery', 'space', 'sunrise', 'neon'], captions = ['accent', 'classic', 'outline'];
   function ids(scenes) {
@@ -50,6 +50,7 @@
     const raw = typeof input === 'string' ? JSON.parse(input) : input;
     if (!raw || !Array.isArray(raw.scenes)) throw new Error('Не удалось прочитать сцены ручной Студии.');
     if (typeof raw.id !== 'string' || !raw.id) throw new Error('Для расчёта нужен постоянный идентификатор проекта.');
+    E.style(raw.style,{partial:true});
     ids(raw.scenes); // Do not generate IDs during a deterministic calculation.
     // A legacy import may omit updatedAt. It is irrelevant to rendering; do not
     // let the DTO normalizer consult the wall clock for this temporary value.
@@ -62,9 +63,7 @@
       timing: { policy: manual ? 'editor-manual-or-reading' : 'editor-reading', wordsPerMinute: C.WORDS_PER_MINUTE },
       subtitles: { policy: project.subtitles.mode === 'chunks' ? 'editor-chunks-6' : 'editor-scene', enabled: project.subtitles.enabled,
         highlight: 'none', alignment: project.subtitles.mode === 'chunks' ? 'scene-proportional-estimate' : 'scene-boundaries' },
-      appearance: { requested: { namespace: 'editor', ...project.style },
-        resolved: { renderer: 'canvas-v1', theme: null, caption: null, size: null, layout: null }, supported: false,
-        limitations: ['editor-css-theme-not-supported', 'editor-css-caption-not-supported', 'editor-css-size-and-layout-not-supported'] },
+      appearance: E.resolve(project.style),
       audio: audio(voice, music), media: media(project.scenes, voice, music), exportSettings: { ...project.exportSettings } });
   }
   return Object.freeze({ fromEditor, fromVideo });

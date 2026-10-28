@@ -17,10 +17,12 @@ def prepare(output):
     favicon = quote((ROOT / "assets/favicon.svg").read_text(encoding="utf-8"), safe="")
     html = html.replace('href="assets/favicon.svg"', 'href="data:image/svg+xml,' + favicon + '"')
     scripts = re.findall(r'<script src="([^"]+)" defer></script>', html)
-    if scripts != ["js/core.js", "js/product.js", "js/render-plan.js", "js/render-adapters.js", "js/video-core.js", "js/project-db.js", "js/storage.js", "js/zip-store.js", "js/backup-format.js", "js/integrations.js", "js/app.js", "js/video-renderer.js", "js/video-audio.js", "js/video-recorder.js", "js/video-media.js", "js/media-session.js", "js/render-session.js", "js/video-ui.js", "js/product-ui.js", "js/ux.js", "js/backup-ui.js"]:
+    if scripts != ["js/core.js", "js/product.js", "js/editor-profile.js", "js/render-plan.js", "js/render-adapters.js", "js/video-core.js", "js/project-db.js", "js/storage.js", "js/zip-store.js", "js/backup-format.js", "js/integrations.js", "js/app.js", "js/editor-canvas.js", "js/video-renderer.js", "js/video-audio.js", "js/video-recorder.js", "js/video-media.js", "js/media-session.js", "js/render-session.js", "js/video-ui.js", "js/product-ui.js", "js/ux.js", "js/backup-ui.js"]:
         raise ValueError("Script order changed: update the single-file packaging before publication.")
     html = re.sub(r'\s*<script src="[^"]+" defer></script>', "", html)
-    inline = "\n".join('<script>\n' + (ROOT / src).read_text(encoding="utf-8").replace("</script", "<\\/script") + '\n</script>' for src in scripts)
+    # Inline classic scripts ignore defer. Keep the source page's after-parser
+    # initialization boundary, including in Safari file-origin storage.
+    inline = "\n".join('<script>\ndocument.addEventListener("DOMContentLoaded", () => {\n' + (ROOT / src).read_text(encoding="utf-8").replace("</script", "<\\/script") + '\n}, { once: true });\n</script>' for src in scripts)
     html = html.replace("</body>", inline + "\n</body>")
     if re.search(r'<script[^>]+src=|<link[^>]+href="(?:assets/|styles.css|video.css|product.css|ux.css|backup.css)', html):
         raise ValueError("The standalone HTML still references external application files.")

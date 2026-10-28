@@ -31,3 +31,33 @@ test('frame readiness rejects decoder errors and missing data instead of accepti
  await assert.rejects(window.waitRuntimeVideoFrame(new MetadataFirstVideo(),5),/frame readiness timeout/);
  const ready=new MetadataFirstVideo();ready.decoded();await window.waitRuntimeVideoFrame(ready,1000);
 });
+
+class PresentedVideo extends MetadataFirstVideo {
+ constructor(){super();this.decoded();this.callbacks=new Map();this.next=0;this.cancelled=[];}
+ requestVideoFrameCallback(callback){const id=++this.next;this.callbacks.set(id,callback);return id;}
+ cancelVideoFrameCallback(id){this.cancelled.push(id);this.callbacks.delete(id);}
+ present(time){const entries=[...this.callbacks];this.callbacks.clear();for(const [,callback] of entries)callback(0,{mediaTime:time});}
+}
+test('seeked and HAVE_ENOUGH_DATA do not permit reading an unpresented first texture',async()=>{
+ const video=new PresentedVideo();let read=false;
+ const pending=window.seekRuntimeVideoFrame(video,.5,1000).then(()=>{read=true;});
+ assert.equal(video.readyState,4);assert.equal(video.currentTime,.5);assert.equal(video.seekEvents,1);
+ await new Promise(r=>setTimeout(r,10));assert.equal(read,false,'old seek-only consumer would have read a black texture');
+ video.present(0);await new Promise(r=>setTimeout(r,10));assert.equal(read,false,'a stale frame cannot satisfy the target seek');
+ video.present(.5);await pending;assert.equal(read,true);assert.equal(video.callbacks.size,0);
+});
+test('missing presentation and decoder errors still fail, and cancel owned frame callbacks',async()=>{
+ const video=new PresentedVideo();await assert.rejects(window.seekRuntimeVideoFrame(video,.5,10),/presentation timeout/);assert.equal(video.callbacks.size,0);assert.ok(video.cancelled.length>0);
+ const broken=new PresentedVideo(),pending=window.seekRuntimeVideoFrame(broken,.5,1000);broken.error={code:3,message:'bad frame'};broken.dispatchEvent(new Event('error'));await assert.rejects(pending,/seek decode error: 3 bad frame/);assert.equal(broken.callbacks.size,0);
+ const fallback=new MetadataFirstVideo();fallback.decoded();await window.seekRuntimeVideoFrame(fallback,.5,1000);assert.equal(fallback.currentTime,.5,'non-rVFC engines still wait for the completed seek and paint boundary');
+});
+
+test('inline recording transport preserves bytes and container when MIME codecs contain commas',()=>{
+ const bytes=Buffer.from([0,1,2,3,240,255]),payload=bytes.toString('base64');
+ for(const mime of ['video/webm;codecs=vp9,opus','video/mp4;codecs=avc1.42e01e,mp4a.40.2']){
+  const data=window.runtimeRecordingDataURL(mime,'data:'+mime+';base64,'+payload);
+  assert.equal(data,'data:'+mime.split(';')[0]+';base64,'+payload);
+  assert.deepEqual(Buffer.from(data.slice(data.indexOf(',')+1),'base64'),bytes);
+ }
+ assert.throws(()=>window.runtimeRecordingDataURL('video/webm','invalid'),/Invalid recorded video data URL/);
+});

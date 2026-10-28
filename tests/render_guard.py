@@ -26,6 +26,7 @@ def assert_render_stack(root=ROOT,baseline=None):
     expected=(FIXTURE/'video-recorder-before.js').read_text();assert recorder==expected,'Encoder/capture loop changed outside approved resource bridge'
     if baseline:assert expected==(baseline/'js/video-recorder.js').read_text(),'Unexpected recorder baseline'
     renderer=(root/'js/video-renderer.js').read_text()
+    renderer=replace_once(renderer,"    if (plan?.source?.mode === 'editor') return window.ShortsEditorCanvas.render(canvas, plan, elapsedMs, resources);\n",'', 'editor-only dispatch')
     pairs=[('visual(ctx, plan, scene, time, resources)','visual(ctx, plan, scene, time)'),('(resources?.images || plan.images)?.get(scene.imageId)','plan.images?.get(scene.imageId)'),('render(canvas, plan, elapsedMs, resources)','render(canvas, plan, elapsedMs)'),('    window.ShortsRenderPlan.assertRenderable(plan);\n',''),("visual(ctx, plan, previous, previous.visual === 'image' ? previous.endMs : frame.time, resources)","visual(ctx, plan, previous, previous.visual === 'image' ? previous.endMs : frame.time)"),("visual(layer.getContext('2d', { alpha: false }), plan, frame.scene, frame.time, resources)","visual(layer.getContext('2d', { alpha: false }), plan, frame.scene, frame.time)"),('visual(ctx, plan, frame.scene, frame.time, resources)','visual(ctx, plan, frame.scene, frame.time)')]
     for new,old in pairs:renderer=replace_once(renderer,new,old,'renderer '+new)
     expected=(FIXTURE/'video-renderer-before.js').read_text();assert renderer==expected,'Drawing/transition implementation changed outside approved resource bridge'
@@ -49,7 +50,7 @@ def assert_render_stack(root=ROOT,baseline=None):
 
 def verify_guard_rejects_changes():
     files=list(json.loads((FIXTURE/'unchanged-runtime.json').read_text()))+['js/video-recorder.js','js/video-renderer.js','js/video-core.js']
-    attacks=[('js/video-recorder.js','videoBitsPerSecond: 2600000','videoBitsPerSecond: 1000000'),('js/video-renderer.js','Math.min(440,','Math.min(441,'),('js/video-audio.js','limiter.ratio.value = 20','limiter.ratio.value = 2'),('js/video-core.js','const WIDTH = 720','const WIDTH = 721'),('js/video-core.js','return shared().frameAt(plan, elapsedMs)','return shared().frameAt(plan, elapsedMs + 1)'),('js/core.js','WORDS_PER_MINUTE = 150','WORDS_PER_MINUTE = 151'),('styles.css',':root',':root /* changed */')]
+    attacks=[('js/video-recorder.js','videoBitsPerSecond: 2600000','videoBitsPerSecond: 1000000'),('js/video-renderer.js','Math.min(440,','Math.min(441,'),('js/video-audio.js','limiter.ratio.value = 20','limiter.ratio.value = 2'),('js/video-core.js','const WIDTH = 720','const WIDTH = 721'),('js/video-core.js','return shared().frameAt(plan, elapsedMs)','return shared().frameAt(plan, elapsedMs + 1)'),('js/core.js','WORDS_PER_MINUTE = 150','WORDS_PER_MINUTE = 151'),('styles.css',':root',':root /* changed */'),('js/video-renderer.js',"plan?.source?.mode === 'editor'","plan?.source?.mode !== 'editor'")]
     with tempfile.TemporaryDirectory(prefix='render-source-guard-') as folder:
         root=Path(folder)
         for file in files:

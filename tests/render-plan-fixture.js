@@ -46,10 +46,10 @@ window.testRenderPlanPixels = async function (cases, payload) {
     for(const f of cases)run(f.name,f.draft);
     const base=cases[0].draft;
     for(const transition of ['none','crossfade','slide','zoom'])run('gallery-'+transition,{...base,timing:'manual',scenes:['red','blue','green'].map((id,i)=>({id:'photo-'+i,text:i?'Сцена '+i:'',visual:'image',imageId:id,camera:['zoom-in','zoom-out','pan-left'][i],transition,durationSeconds:[1.2,1.7,2.1][i]}))});
-    const editor=ShortsCore.upgradeProject(ShortsCore.createProject(true)),ep=A.fromEditor(editor),original=pixels(target);
+    const editor=ShortsCore.upgradeProject(ShortsCore.createProject(true)),supported=A.fromEditor(editor),ep={...supported,appearance:{...supported.appearance,supported:false}},original=pixels(target);
     let refused=false;try{R.render(target,ep,0,resources);}catch(e){refused=e.code==='APPEARANCE';}assert(refused,'unsupported manual appearance must not be approximated');same(original,pixels(target),'refused manual frame');
     let recordingRefused=false;try{await ShortsVideoRecorder.record({canvas:target,plan:ep});}catch(e){recordingRefused=e.code==='APPEARANCE';}assert(recordingRefused,'recorder refuses unsupported appearance before capture');
-    return {frames,comparison:'all RGBA pixels identical',legacyApi:true,manualAppearance:'explicitly unsupported'};
+    return {frames,comparison:'all RGBA pixels identical',legacyApi:true,manualAppearance:'implemented editor profile; unsupported flag still refused'};
   }finally{for(const image of decoded)image.src='';for(const url of urls)URL.revokeObjectURL(url);}
 };
 window.installRenderPlanProbe = function () {

@@ -45,7 +45,7 @@ test('zero/short/long text and intentional silent images retain explicit timing 
  const p=editor();p.scenes[0].text='… 🌌';p.scenes[1].text='а';let plan=A.fromEditor(p);
  assert.equal(plan.durationMs,400);assert.equal(plan.timeline.length,1);assert.deepEqual(plan.omittedScenes,[{id:p.scenes[0].id,reason:'zero-reading-duration'}]);
  p.scenes[1].text='';plan=A.fromEditor(p);assert.equal(plan.durationMs,0);assert.deepEqual(plan.cues,[]);assert.throws(()=>P.frameAt(plan,0),{code:'EMPTY'});
- p.timing='manual';p.scenes[0].durationMs=1;p.scenes[0].visual='image';p.scenes[0].imageId='photo';plan=A.fromEditor(p);assert.equal(plan.durationMs,1);assert.equal(P.frameAt(plan,0).cue,null);
+ p.timing='manual';p.scenes[0].durationMs=1;p.scenes[0].visual='image';p.scenes[0].imageId='photo';plan=A.fromEditor(p);assert.equal(plan.durationMs,1);assert.equal(P.frameAt(plan,0).cue.text,'… 🌌');
  p.scenes=Array.from({length:5000},(_,i)=>({...p.scenes[0],id:'manual-'+i,text:'слово '.repeat(51),durationMs:1000}));
  plan=A.fromEditor(p);assert.equal(plan.timeline.length,5000);assert.equal(plan.durationMs,5000000);assert.ok(plan.timeline.every(s=>s.text.length>280));
 });
@@ -68,8 +68,8 @@ test('adapters retain independent media, camera, transitions, gains and exact le
 test('appearance is namespaced and exact: manual themes never map to video themes',()=>{
  for(const theme of ['cosmos','dusk','minimal'])for(const caption of ['accent','classic','outline'])for(const size of ['small','medium','large']){
   const p=editor();p.style={theme,caption,size};const plan=A.fromEditor(p);
-  assert.deepEqual(plan.appearance.requested,{namespace:'editor',theme,caption,size});assert.equal(plan.theme,null);assert.equal(plan.caption,null);assert.equal(plan.appearance.supported,false);assert.ok(plan.appearance.limitations.length);
-  assert.throws(()=>P.assertRenderable(plan),{code:'APPEARANCE'});assert.throws(()=>P.legacyView(plan,baseline.video),{code:'POLICY'});
+  assert.deepEqual(plan.appearance.requested,{namespace:'editor',theme,caption,size});assert.equal(plan.theme,theme);assert.equal(plan.caption,caption);assert.equal(plan.appearance.supported,true);assert.deepEqual(plan.appearance.limitations,[]);
+  assert.doesNotThrow(()=>P.assertRenderable(plan));assert.throws(()=>P.assertRenderable({...plan,appearance:{...plan.appearance,supported:false}}),{code:'APPEARANCE'});assert.throws(()=>P.legacyView(plan,baseline.video),{code:'POLICY'});
  }
  for(const theme of ['space','mystery','sunrise','neon']){const plan=A.fromVideo({...baseline.video,theme});assert.equal(plan.theme,theme);assert.equal(plan.appearance.resolved.theme,theme);assert.doesNotThrow(()=>P.assertRenderable(plan));}
 });
