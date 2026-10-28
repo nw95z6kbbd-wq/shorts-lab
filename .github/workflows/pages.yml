@@ -190,6 +190,13 @@ jobs:
         run: |
           EDITOR_BROWSER=webkit python tests/check-errors.py tests/editor-canvas-browser.py
           EDITOR_BROWSER=webkit EDITOR_MOBILE=1 EDITOR_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/editor-canvas-browser.py
+      - name: Preserve WebKit Editor visual diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-canvas-webkit-diagnostics
+          path: test-results/editor-canvas/
+          if-no-files-found: ignore
       - name: Check portable ZIP backups in WebKit
         timeout-minutes: 3
         run: |
@@ -257,3 +264,11 @@ jobs:
         env:
           SAFARI_BASELINE_ROOT: .safari-baseline
         run: python tests/safari-product.py
+
+      - name: Preserve Safari Editor visual diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-canvas-safari-diagnostics
+          path: test-results/editor-canvas/
+          if-no-files-found: ignore

@@ -1,5 +1,6 @@
 /* Independent SVG acceptance reference + real Canvas data/geometry checks. */
 window.checkEditorCanvas = async function(spec,template,payload){
+ window.editorCanvasFailure=null;
  const C=ShortsCore,A=ShortsRenderAdapters,R=ShortsVideoRenderer,P=ShortsRenderPlan;
  const check=(v,m)=>{if(!v)throw Error('Editor Canvas: '+m);};
  const canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;const ctx=canvas.getContext('2d',{alpha:false});
@@ -31,6 +32,13 @@ window.checkEditorCanvas = async function(spec,template,payload){
   // SVG/Canvas baseline rasterization can differ slightly; geometric draw
   // coordinates above have zero tolerance apart from floating point rounding.
   for(let dy=-3;dy<=3;dy++)for(let dx=-2;dx<=2;dx++){let union=0,intersection=0;for(let y=3;y<427;y++)for(let x=2;x<628;x++){const av=a[y*630+x],bv=b[(y+dy)*630+x+dx];union+=av|bv;intersection+=av&bv;}best=Math.max(best,intersection/union);}
+  if(best<spec.glyphMaskMinimumIoU){
+   const bounds=mask=>{let x0=630,y0=430,x1=-1,y1=-1,count=0;for(let y=0;y<430;y++)for(let x=0;x<630;x++)if(mask[y*630+x]){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);count++;}return {x0:x0+45,y0:y0+515,x1:x1+45,y1:y1+515,count};};
+   const maskPNG=(mask,other)=>{const c=document.createElement('canvas');c.width=630;c.height=430;const x=c.getContext('2d'),d=x.createImageData(630,430);for(let i=0;i<mask.length;i++){const j=i*4;if(other){d.data[j]=mask[i]?255:0;d.data[j+1]=other[i]?255:0;}else d.data[j]=d.data[j+1]=d.data[j+2]=mask[i]?255:0;d.data[j+3]=255;}x.putImageData(d,0,0);return c.toDataURL('image/png');};
+   const referencePNG=rc.toDataURL('image/png'),variants={};for(const baseline of ['middle','central','alphabetic']){const textSVG=svg.replace(/<text /g,'<text dominant-baseline="'+baseline+'" '),im=await imageFromBlob(new Blob([textSVG],{type:'image/svg+xml'}));rx.clearRect(0,0,720,1280);rx.drawImage(im,0,0);const mask=glyphMask(rx.getImageData(0,0,720,1280).data);variants[baseline]=bounds(mask);}
+   ctx.font=spec.weights[caption]+' '+font+'px Arial, sans-serif';ctx.textBaseline='middle';const m=ctx.measureText('Своё видео');
+   window.editorCanvasFailure={case:[theme,caption,size],iou:best,userAgent:navigator.userAgent,dpr:devicePixelRatio,canvas:{width:canvas.width,height:canvas.height,cssWidth:canvas.getBoundingClientRect().width,font:ctx.font,baseline:ctx.textBaseline,metrics:Object.fromEntries(['width','actualBoundingBoxLeft','actualBoundingBoxRight','actualBoundingBoxAscent','actualBoundingBoxDescent','fontBoundingBoxAscent','fontBoundingBoxDescent','emHeightAscent','emHeightDescent'].map(k=>[k,m[k]??null])),bounds:bounds(a)},svg:{bounds:bounds(b),perTextBaseline:variants},fontStatus:document.fonts.status,fontAvailable:document.fonts.check(font+'px Arial'),images:{canvas:canvas.toDataURL('image/png'),reference:referencePNG,canvasMask:maskPNG(a),svgMask:maskPNG(b),difference:maskPNG(a,b)}};
+  }
   check(best>=spec.glyphMaskMinimumIoU,'independent SVG glyph mask '+[theme,caption,size]+' IoU='+best);
   for(const [x,y] of spec.backgroundProbes){const i=(y*720+x)*4;for(let c=0;c<3;c++)check(Math.abs(actual[i+c]-expected[i+c])<=8,'independent SVG background '+theme+' at '+x+','+y+': '+[...actual.slice(i,i+3)]+' vs '+[...expected.slice(i,i+3)]);}
   captures.push({name:[theme,caption,size].join('-'),png:canvas.toDataURL('image/png')});summaries.push({theme,caption,size,font,svgIoU:best});

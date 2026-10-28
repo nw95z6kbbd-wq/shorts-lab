@@ -4,6 +4,7 @@ import json
 import threading
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
+from editor_canvas_diagnostics import save_editor_diagnostics
 from runtime_session_native import command_result
 
 def check_native_editor_canvas(root,script,command,click):
@@ -17,7 +18,13 @@ def check_native_editor_canvas(root,script,command,click):
     try:
         for entry in [f'http://127.0.0.1:{server.server_port}/index.html',(root/'index.html').as_uri(),(root/'downloads/Shorts-Studio.html').as_uri()]:
             command('POST','/url',{'url':entry});execute('const end=Date.now()+15000;while(!window.ShortsEditorCanvas||!window.ShortsVideoRestored){if(Date.now()>end)throw Error("Editor Canvas startup timeout");await new Promise(r=>setTimeout(r,30));}return true;')
-            script((root/'tests/editor-canvas-fixture.js').read_text());result=execute('return await checkEditorCanvas(...arguments[0]);',[args]);assert result['combinations']==27,result
+            script((root/'tests/editor-canvas-fixture.js').read_text())
+            try:
+                result=execute('return await checkEditorCanvas(...arguments[0]);',[args])
+            except Exception:
+                save_editor_diagnostics(script('return window.editorCanvasFailure;'),'safari')
+                raise
+            assert result['combinations']==27,result
             count=execute('return await rejectEditorVisualMutants(...arguments[0]);',[args]);assert count==3,count
             print('::notice title=Native Safari Editor Canvas verified::'+json.dumps({'entry':entry,'result':result,'visualCounterexamples':count}),flush=True)
         for name in ['runtime-session-fixture.js','editor-canvas-recording.js']:script((root/'tests'/name).read_text())

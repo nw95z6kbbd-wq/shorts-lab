@@ -11,6 +11,7 @@ import threading
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from playwright.sync_api import sync_playwright
 from backup_assets import media_payload
+from editor_canvas_diagnostics import save_editor_diagnostics
 ROOT=Path(__file__).resolve().parents[1]
 class Handler(SimpleHTTPRequestHandler):
     def log_message(self,*args):pass
@@ -32,7 +33,12 @@ def run():
             else:url=f'http://127.0.0.1:{server.server_port}/{entry}'
             page.goto(url);page.wait_for_function('window.ShortsEditorCanvas && window.ShortsVideoRestored')
             page.add_script_tag(content=(ROOT/'tests/editor-canvas-fixture.js').read_text())
-            result=page.evaluate('args=>checkEditorCanvas(...args)',[json.loads((ROOT/'tests/fixtures/editor-canvas/spec.json').read_text()),(ROOT/'tests/fixtures/editor-canvas/reference.svg').read_text(),media_payload()]);assert result['combinations']==27 and not errors,(result,errors)
+            try:
+                result=page.evaluate('args=>checkEditorCanvas(...args)',[json.loads((ROOT/'tests/fixtures/editor-canvas/spec.json').read_text()),(ROOT/'tests/fixtures/editor-canvas/reference.svg').read_text(),media_payload()])
+            except Exception:
+                save_editor_diagnostics(page.evaluate('window.editorCanvasFailure'),engine)
+                raise
+            assert result['combinations']==27 and not errors,(result,errors)
             counterexamples=page.evaluate('args=>rejectEditorVisualMutants(...args)',[json.loads((ROOT/'tests/fixtures/editor-canvas/spec.json').read_text()),(ROOT/'tests/fixtures/editor-canvas/reference.svg').read_text(),media_payload()]);assert counterexamples==3;result['visualCounterexamples']=counterexamples
             if os.environ.get('EDITOR_CAPTURES'):
                 folder=Path(os.environ['EDITOR_CAPTURES']);folder.mkdir(parents=True,exist_ok=True)
