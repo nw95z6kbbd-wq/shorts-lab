@@ -616,7 +616,7 @@ window.ShortsEditorReady = (async function () {
     changed();
   });
   $('projectName').addEventListener('input', event => {
-    project = { ...project, name: event.target.value }; recalculate();
+    pausePlayback(); project = { ...project, name: event.target.value }; recalculate();
     $('sidebarProjectName').textContent = project.name || 'Без названия';
     document.title = (project.name || 'Без названия') + ' — Shorts Studio';
     changed();

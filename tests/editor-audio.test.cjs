@@ -5,12 +5,12 @@ const audioFactory=require('../js/editor-audio.js'),mediaFactory=require('../js/
 const tick=()=>new Promise(r=>setTimeout(r,0));
 function gate(){let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};}
 function fixture(){
- const originals=new Map(),contexts=[],mixes=[];let decodeGate,closeFailure=false;
+ const originals=new Map(),contexts=[],mixes=[];let decodeGate,closeFailure=false,wall=0;
  const media=mediaFactory({original:async id=>originals.get(id),image:()=>{throw Error('audio-only session decoded image');},audio:async blob=>{if(decodeGate)await decodeGate.promise;if(await blob.text()==='broken')throw Error('bad audio');return {length:100,numberOfChannels:1,duration:1};}});
- const runtime=runtimeFactory({media,adapters:A,plan:P,context:()=>{const context={state:'suspended',currentTime:0,destination:{},async resume(){this.state='running';},async suspend(){this.state='suspended';},async close(){if(closeFailure)throw Error('close rejected');this.state='closed';}};contexts.push(context);return context;},mix:(ctx,options)=>{const mix={options,start:t=>mix.when=t,stop:()=>mix.stopped=true};mixes.push(mix);return mix;}});
+ const runtime=runtimeFactory({media,adapters:A,plan:P,now:()=>wall,context:()=>{const context={state:'suspended',currentTime:0,destination:{},async resume(){this.state='running';},async suspend(){this.state='suspended';},async close(){if(closeFailure)throw Error('close rejected');this.state='closed';}};contexts.push(context);return context;},mix:(ctx,options)=>{const mix={options,start:t=>mix.when=t,stop:()=>mix.stopped=true};mixes.push(mix);return mix;}});
  const p=C.upgradeProject(C.createProject(true));p.timing='manual';p.scenes=p.scenes.slice(0,3);p.scenes.forEach((s,i)=>{s.durationMs=1000;s.imageId='do-not-read-image-'+i;});p.audio.voice.assetId='voice';p.audio.music.assetId='music';
  originals.set('voice',{id:'voice',kind:'voice',blob:new Blob(['wave'],{type:'audio/wav'})});originals.set('music',{id:'music',kind:'music',blob:new Blob(['wave2'],{type:'audio/wav'})});
- return {media,runtime,p,contexts,mixes,originals,setGate:g=>decodeGate=g,setCloseFailure:v=>closeFailure=v};
+ return {media,runtime,p,contexts,mixes,originals,setGate:g=>decodeGate=g,setCloseFailure:v=>closeFailure=v,setWall:v=>wall=v};
 }
 test('audio edits use DTO2 validators, leave legacy reads alone, and preserve every scene/media field',()=>{
  const api=audioFactory({core:C}),old=C.createProject(true),before=structuredClone(old),next=api.edit(old,'music',{assetId:'original',name:'music.wav',volume:.35,fadeInMs:1234,fadeOutMs:0});
@@ -65,4 +65,12 @@ test('oversized snapshot is an explicit preparation error, never an uncaught UI 
  const problem=Object.assign(Error('JSON budget'),{code:'DATA_BUDGET'}),states=[],p=fixture().p;
  const controller=audioFactory({runtime:{snapshotData(){throw problem;}}}).createPlayback({onState:(s,e)=>states.push({s,e})});
  await controller.update(p,A.fromEditor(p),1);assert.equal(states.at(-1).s,'error');assert.equal(states.at(-1).e,problem);assert.equal(controller.status().ready,false);await controller.close();
+});
+
+test('stalled, backwards or non-finite media clocks fail instead of moving Canvas independently',async()=>{
+ for(const mode of ['stalled','backwards','invalid']){
+  const f=fixture(),s=f.runtime.createAudio({slot:'editor',project:f.p,plan:A.fromEditor(f.p),contentRevision:1});await s.prepare();const h=await s.playAudio();f.contexts[0].currentTime=.5;h.positionMs();
+  if(mode==='stalled')f.setWall(10001);else f.contexts[0].currentTime=mode==='backwards'?.1:NaN;
+  assert.throws(()=>h.positionMs(),{code:'AUDIO_CLOCK'});await h.stop();await s.dispose();assert.equal(f.media.statistics().sessions,0);
+ }
 });
