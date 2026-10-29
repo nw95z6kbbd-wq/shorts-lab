@@ -1,0 +1,14 @@
+[
+  {
+    "old": "    async function record({canvas,onProgress,onFormat,signal:external}={}){\n",
+    "new": "    async function record({canvas,onProgress,onFormat,signal:external,recordingPolicy=null}={}){\n"
+  },
+  {
+    "old": "",
+    "new": "      if(recordingPolicy!==null&&slot!=='editor')throw error('POLICY','Политика экспорта Editor неприменима к Video.');\n"
+  },
+  {
+    "old": "      try{return await io.record({canvas,plan:frozenPlan,resources:use.lease.resources,...borrowed(use.lease),format:frozenPlan.exportSettings.format,signal:use.abort.signal,onProgress,onFormat});}\n",
+    "new": "      try{return await io.record({canvas,plan:frozenPlan,resources:use.lease.resources,...borrowed(use.lease),format:frozenPlan.exportSettings.format,signal:use.abort.signal,onProgress,onFormat,...(recordingPolicy===null?{}:{recordingPolicy})});}\n"
+  }
+]

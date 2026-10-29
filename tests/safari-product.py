@@ -23,6 +23,7 @@ from render_guard import assert_render_stack
 from runtime_session_native import check_native_runtime
 from editor_canvas_native import check_native_editor_canvas
 from editor_audio_native import check_native_editor_audio
+from editor_export_native import check_native_editor_export
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -98,6 +99,7 @@ def run():
             print('Native Safari version:',capabilities.get('browserVersion'),flush=True)
             assert_render_stack(ROOT,(ROOT/os.environ['SAFARI_BASELINE_ROOT']).resolve() if os.environ.get('SAFARI_BASELINE_ROOT') else None)
             command('POST','/timeouts',{'script':30000,'pageLoad':30000,'implicit':0})
+            check_native_editor_export(ROOT,script,command,click)
             command('POST','/window/rect',{'width':1000,'height':900})
             command('POST','/url',{'url':f'http://127.0.0.1:{server.server_port}/index.html'})
             wait_for('window.ShortsProduct && window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert && document.getElementById("saveStatus").dataset.state',seconds=30)

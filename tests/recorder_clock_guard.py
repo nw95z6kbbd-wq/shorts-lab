@@ -1,5 +1,6 @@
 """Exact reviewed media-clock/finalization bridges; the historical encoder stays pinned."""
 import sys
+import json
 from pathlib import Path
 
 CLOCK = '''          // MediaRecorder timestamps the mixed stream on the Web Audio clock.
@@ -55,6 +56,9 @@ GUARD_OLD="    recorder=(root/'js/video-recorder.js').read_text()\n"
 
 
 def strip_clock(text):
+    for change in json.loads((Path(__file__).resolve().parent/'fixtures/editor-export/recorder-bridges.json').read_text()):
+        assert text.count(change['new'])==1, 'Unexpected/missing Editor export bridge'
+        text=text.replace(change['new'],change['old'],1)
     assert text.count(CLOCK)==1, 'Unexpected/missing approved audio clock bridge'
     assert text.count(NEW)==1, 'Unexpected/missing approved elapsed clock call'
     text=text.replace(CLOCK,'',1).replace(NEW,OLD,1)

@@ -1,0 +1,11 @@
+name: Check Editor export foundation branch
+on:
+  push:
+    branches: [feat/editor-export-foundation]
+permissions:
+  contents: read
+jobs:
+  checks:
+    uses: ./.github/workflows/pages.yml
+    with:
+      upload_pages: false

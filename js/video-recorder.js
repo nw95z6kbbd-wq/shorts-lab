@@ -57,10 +57,15 @@
     } catch (error) { mix?.stop(); await context.close().catch(() => {}); throw error; }
   }
 
-  async function record({ canvas, plan, resources, audioBuffer = null, volume = .7, voiceBuffer = audioBuffer, musicBuffer = null, voiceVolume = volume, musicVolume = .25, fadeIn = 1, fadeOut = 1, format = 'auto', signal, onProgress = () => {}, onFormat = () => {} }) {
+  async function record({ canvas, plan, resources, audioBuffer = null, volume = .7, voiceBuffer = audioBuffer, musicBuffer = null, voiceVolume = volume, musicVolume = .25, fadeIn = 1, fadeOut = 1, format = 'auto', recordingPolicy = null, signal, onProgress = () => {}, onFormat = () => {} }) {
     window.ShortsRenderPlan.assertRenderable(plan);
     const hasAudio = Boolean(voiceBuffer || musicBuffer);
-    const support = capabilities(hasAudio, format);
+    let support = capabilities(hasAudio, format);
+    if (recordingPolicy !== null) {
+      if (plan?.source?.mode !== 'editor' || !Object.isFrozen(recordingPolicy) || !Array.isArray(recordingPolicy.mimeTypes) || !recordingPolicy.mimeTypes.length || !Number.isSafeInteger(recordingPolicy.maxBytes) || recordingPolicy.maxBytes < 1 || recordingPolicy.mimeTypes.some(type => typeof type !== 'string' || !/^video\/(mp4|webm);codecs=/.test(type))) throw new Error('Некорректная политика записи Editor.');
+      const formats = recordingPolicy.mimeTypes.filter(type => { try { return MediaRecorder.isTypeSupported(type); } catch (_) { return false; } });
+      support = { ...support, formats, supported: support.capture && support.mediaRecorder && formats.length > 0 };
+    }
     if (!support.supported) throw new Error('Браузер не поддерживает запись Canvas в MP4 или WebM. Откройте сайт в актуальном Chrome, Edge, Firefox или Safari. Предпросмотр и сценарий остаются доступны.');
     if (hasAudio && !support.audio) throw new Error('Запись аудио не поддерживается. Уберите аудиодорожки и попробуйте снова.');
     signal?.throwIfAborted();
@@ -99,7 +104,9 @@
             const extension = V.extensionFor(mimeType);
             let blob = new Blob(chunks, { type: mimeType });
             if (!blob.size) throw new Error('Браузер создал пустой видеофайл. Попробуйте другой формат.');
+            if (recordingPolicy && blob.size > recordingPolicy.maxBytes) throw Object.assign(new Error('Размер видео превышает рабочий предел экспорта.'), { code: 'OUTPUT_BUDGET' });
             if (extension === 'webm') blob = new Blob([V.patchWebmDuration(new Uint8Array(await blob.arrayBuffer()), plan.durationMs)], { type: mimeType });
+            if (recordingPolicy && blob.size > recordingPolicy.maxBytes) throw Object.assign(new Error('Размер завершённого видео превышает рабочий предел экспорта.'), { code: 'OUTPUT_BUDGET' });
             if (settled) return;
             settled = true;
             resolve({ blob, mimeType, extension, durationMs: plan.durationMs, width: V.WIDTH, height: V.HEIGHT });
@@ -111,7 +118,10 @@
           try {
             candidate = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 2600000, audioBitsPerSecond: 128000 });
             candidate.ondataavailable = event => {
-              if (!settled && event.data.size) chunks.push(event.data);
+              if (!settled && event.data.size) {
+                if (recordingPolicy && chunks.reduce((size, chunk) => size + chunk.size, 0) + event.data.size > recordingPolicy.maxBytes) { fail(Object.assign(new Error('Размер видео превышает рабочий предел экспорта. Проект и оригиналы не изменены.'), { code: 'OUTPUT_BUDGET' })); return; }
+                chunks.push(event.data);
+              }
               if (!settled && finalFlushPending) {
                 finalFlushPending = false;
                 try { if (recorder.state !== 'inactive') recorder.stop(); } catch (error) { fail(error); }

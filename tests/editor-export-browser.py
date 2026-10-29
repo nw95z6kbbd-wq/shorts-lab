@@ -1,0 +1,47 @@
+"""Real Editor export consumer, byte inspector, independent FFmpeg and originals."""
+import base64,functools,json,os,shutil,tempfile,threading,subprocess
+from pathlib import Path
+from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
+from playwright.sync_api import sync_playwright
+from backup_assets import media_payload
+from editor_recording_evidence import inspect_recording
+ROOT=Path(__file__).resolve().parents[1]
+class Handler(SimpleHTTPRequestHandler):
+ def log_message(self,*args):pass
+
+from editor_export_checks import verify_file
+
+def run():
+ engine=os.environ.get('EXPORT_BROWSER','chromium');entry=os.environ.get('EXPORT_ENTRY','index.html')
+ server=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(Handler,directory=str(ROOT)));threading.Thread(target=server.serve_forever,daemon=True).start();base=f'http://127.0.0.1:{server.server_port}/'
+ try:
+  with sync_playwright() as p,tempfile.TemporaryDirectory(prefix='studio-export-') as folder:
+   options={} if engine=='webkit' else {'executable_path':os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'),'args':['--no-sandbox']}
+   browser=getattr(p,engine).launch(**options);page=browser.new_page(viewport={'width':390,'height':844} if os.environ.get('EXPORT_MOBILE')=='1' else {'width':1440,'height':1000});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+   if entry.startswith('downloads/'):
+    def offline(route):
+     if route.request.url.endswith('/offline.html'):route.fulfill(body=(ROOT/entry).read_bytes(),content_type='text/html')
+     elif route.request.url.startswith(('blob:','data:')):route.continue_()
+     else:route.abort()
+    page.route('**/*',offline);page.goto(base+'offline.html')
+   else:page.goto(base+entry)
+   page.wait_for_function('window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert')
+   for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js','editor-export-fixture.js']:page.add_script_tag(content=(ROOT/'tests'/name).read_text())
+   support=page.evaluate('ShortsVideoRecorder.capabilities(true)')
+   if not support['supported']:
+    result=page.evaluate('async()=>{const p=ShortsCore.createProject(true),before=JSON.stringify(p),canvas=document.createElement("canvas");canvas.width=720;canvas.height=1280;const c=ShortsEditorExport.create();try{await c.prepare({project:p,canvas});throw Error("Unsupported recorder accepted");}catch(e){if(e.code!=="FORMAT")throw e;}finally{await c.dispose();}return before===JSON.stringify(p);}')
+    assert result;print(f'PASS [{engine}]: actual recording unavailable; FORMAT refusal leaves DTO/media intact (no simulated recording)');browser.close();return
+   outcomes=[]
+   for mode,audio in [('auto',True),('webm',True),('auto',False)]:
+    prepared=page.evaluate('args=>prepareEditorExportFixture(...args)',[media_payload(),{'format':mode,'audio':audio}]);page.locator('#editorExportStart').click();result=page.evaluate('finishEditorExportFixture()')
+    data=page.evaluate('async()=>{const r=new FileReader();const done=new Promise((resolve,reject)=>{r.onload=()=>resolve(r.result.slice(r.result.lastIndexOf(",")+1));r.onerror=reject;});r.readAsDataURL(editorExportBlob);return done;}');path=Path(folder)/('export.'+result['extension']);path.write_bytes(base64.b64decode(data));evidence=verify_file(path,result,audio);outcomes.append(evidence)
+    if mode=='auto' and audio and not any(t.startswith('video/mp4') for t in prepared['formats']):assert result['container']=='webm' and result['fallback']
+    if mode=='webm':assert result['container']=='webm'
+    if audio:assert page.evaluate('exerciseEditorExportErrors()')==['missing image','overflow','resource count']
+    # Cancel a real native encoder, then prepare again; no successful partial file.
+    page.evaluate('async()=>{await exportJob.prepare({project:exportOriginal,canvas:exportCanvas});exportStates=[];}');page.locator('#editorExportStart').click()
+    page.evaluate('async()=>{const stopped=exportPromise.catch(e=>e);await exportJob.cancel();await stopped;exportCheck(!exportJob.status().hasResult,"cancel returned a partial video");exportCheck(ShortsMediaSessions.statistics().sessions===0,"cancel leak");}')
+    page.evaluate('disposeEditorExportFixture()')
+   assert not errors,errors;browser.close();print(f'PASS [{engine} {entry}]: real Editor PNG/JPG/WebP, voice+music, byte codecs, full FFmpeg decode, scene pixels/frequencies, cancel/restart/errors and unchanged persisted DTO/media; '+json.dumps(outcomes),flush=True)
+ finally:server.shutdown();server.server_close()
+if __name__=='__main__':run()

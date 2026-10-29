@@ -139,12 +139,13 @@
           },toJSON:noJSON});
       }catch(e){await stop();throw e.code?e:error('AUDIO_PLAYBACK',e.message||'Не удалось запустить аудио.',e);}
     }
-    async function record({canvas,onProgress,onFormat,signal:external}={}){
+    async function record({canvas,onProgress,onFormat,signal:external,recordingPolicy=null}={}){
       if(windowFrame||audioOnly)throw error('PREVIEW_ONLY','Для записи нужна полная подготовка медиа.');
+      if(recordingPolicy!==null&&slot!=='editor')throw error('POLICY','Политика экспорта Editor неприменима к Video.');
       busy();io.plan.assertRenderable(frozenPlan);
       const use={kind:'record',lease:acquire(),abort:new AbortController()};uses.add(use);
       const stop=()=>use.abort.abort();use.stop=stop;external?.addEventListener('abort',stop,{once:true});if(external?.aborted)stop();
-      try{return await io.record({canvas,plan:frozenPlan,resources:use.lease.resources,...borrowed(use.lease),format:frozenPlan.exportSettings.format,signal:use.abort.signal,onProgress,onFormat});}
+      try{return await io.record({canvas,plan:frozenPlan,resources:use.lease.resources,...borrowed(use.lease),format:frozenPlan.exportSettings.format,signal:use.abort.signal,onProgress,onFormat,...(recordingPolicy===null?{}:{recordingPolicy})});}
       finally{external?.removeEventListener('abort',stop);finishUse(use);}
     }
     function close(cancelled){

@@ -1,0 +1,22 @@
+[
+  {
+    "old": "format = 'auto', signal,",
+    "new": "format = 'auto', recordingPolicy = null, signal,"
+  },
+  {
+    "old": "    const support = capabilities(hasAudio, format);",
+    "new": "    let support = capabilities(hasAudio, format);\n    if (recordingPolicy !== null) {\n      if (plan?.source?.mode !== 'editor' || !Object.isFrozen(recordingPolicy) || !Array.isArray(recordingPolicy.mimeTypes) || !recordingPolicy.mimeTypes.length || !Number.isSafeInteger(recordingPolicy.maxBytes) || recordingPolicy.maxBytes < 1 || recordingPolicy.mimeTypes.some(type => typeof type !== 'string' || !/^video\\/(mp4|webm);codecs=/.test(type))) throw new Error('Некорректная политика записи Editor.');\n      const formats = recordingPolicy.mimeTypes.filter(type => { try { return MediaRecorder.isTypeSupported(type); } catch (_) { return false; } });\n      support = { ...support, formats, supported: support.capture && support.mediaRecorder && formats.length > 0 };\n    }"
+  },
+  {
+    "old": "              if (!settled && event.data.size) chunks.push(event.data);",
+    "new": "              if (!settled && event.data.size) {\n                if (recordingPolicy && chunks.reduce((size, chunk) => size + chunk.size, 0) + event.data.size > recordingPolicy.maxBytes) { fail(Object.assign(new Error('Размер видео превышает рабочий предел экспорта. Проект и оригиналы не изменены.'), { code: 'OUTPUT_BUDGET' })); return; }\n                chunks.push(event.data);\n              }"
+  },
+  {
+    "old": "            if (!blob.size) throw new Error('Браузер создал пустой видеофайл. Попробуйте другой формат.');",
+    "new": "            if (!blob.size) throw new Error('Браузер создал пустой видеофайл. Попробуйте другой формат.');\n            if (recordingPolicy && blob.size > recordingPolicy.maxBytes) throw Object.assign(new Error('Размер видео превышает рабочий предел экспорта.'), { code: 'OUTPUT_BUDGET' });"
+  },
+  {
+    "old": "            if (settled) return;\n            settled = true;",
+    "new": "            if (recordingPolicy && blob.size > recordingPolicy.maxBytes) throw Object.assign(new Error('Размер завершённого видео превышает рабочий предел экспорта.'), { code: 'OUTPUT_BUDGET' });\n            if (settled) return;\n            settled = true;"
+  }
+]
