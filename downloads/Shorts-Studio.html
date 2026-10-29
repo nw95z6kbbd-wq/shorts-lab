@@ -141,7 +141,7 @@ body{overflow:hidden}
 .editor-preview-message{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;color:#c9b5da;font-size:12px;line-height:1.7;text-align:center;overflow:auto;background:#191320}.editor-preview-message[hidden]{display:none}
 .editor-preview-message[data-state=error]{color:#f1c5af}.editor-seek{display:block;width:calc(100% - 40px);margin:12px 20px;accent-color:#a67beb}
 .studio-visual-controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.studio-visual-controls label{display:grid;gap:5px;color:#ab9cb9;font-size:10px;flex:1;min-width:120px}.studio-visual-controls select{width:100%;min-height:36px;background:#19131f;border:1px solid #40334f;border-radius:6px;padding:7px;color:#e5dcf0;font-size:11px}
-.studio-image-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}.studio-image-controls button{font-size:10px;min-height:36px;padding:7px 9px}.studio-image-name,.studio-image-state{font-size:10px;line-height:1.6;color:#ac9ab9;overflow-wrap:anywhere;max-width:100%}.studio-image-state{width:100%}.studio-image-state[data-state=error]{color:#e9b399}
+.studio-image-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}.studio-image-controls button{font-size:10px;min-height:36px;padding:7px 9px}.studio-image-name,.studio-image-state,.studio-thumbnail-state{font-size:10px;line-height:1.6;color:#ac9ab9;overflow-wrap:anywhere;max-width:100%}.studio-image-state,.studio-thumbnail-state{width:100%}.studio-image-state[data-state=error]{color:#e9b399}
 @media(max-width:620px){.studio-visual-controls label{min-width:100%;}.studio-image-controls button{min-height:44px}}
 
 @media(min-width:761px){.editor-canvas-frame{width:min(100%,calc(var(--preview-media-height,600px)*9/16));flex-shrink:0}}
@@ -165,6 +165,9 @@ body{overflow:hidden}
 @media(max-width:600px){.editor-audio-panels{order:4;width:100%}.editor-bottom{order:5}}
 /* Informational text has no actions: it must never intercept Play/Pause. */
 #toast{pointer-events:none}
+
+/* The same thumbnail geometry as Video; hidden images must not reserve space. */
+.studio-image-controls .scene-image-thumb{flex:0 0 auto}.studio-thumbnail-state:empty{display:none}
 
 </style>
 </head>
@@ -3148,7 +3151,7 @@ document.addEventListener("DOMContentLoaded", () => {
 (function(root,factory){
  'use strict';
  if(typeof module==='object'&&module.exports)module.exports=factory;
- else root.ShortsEditorImages=factory({media:root.ShortsMediaSessions,storage:root.ShortsStorage,id:()=>root.ShortsCore.id(),crc32:bytes=>root.ShortsZip.crc32(bytes)});
+ else root.ShortsEditorImages=factory({media:root.ShortsMediaSessions,storage:root.ShortsStorage,id:()=>root.ShortsCore.id(),crc32:bytes=>root.ShortsZip.crc32(bytes),observer:callback=>new root.IntersectionObserver(callback),canvas:()=>root.document.createElement('canvas'),urls:root.URL});
 })(typeof globalThis!=='undefined'?globalThis:this,function(io){
  'use strict';
  const failure=(code,message)=>Object.assign(new Error(message),{code});
@@ -3203,7 +3206,62 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   return Object.freeze({load,cancel,retain(ids){for(const key of accepted.keys())if(!ids.has(key)){io.storage.discard(key);accepted.delete(key);}},dispose:async()=>{await cancel();await tail;},status:()=>({generation,loading:!!current,ownedPending:accepted.size})});
  }
- return Object.freeze({create,MAX_FILE,MAX_PENDING});
+ // A view-only projection of originals. Never stage/discard files or retain a
+ // full decoded original for each card: use the existing bounded media owner,
+ // downsample once, then release its lease before admitting the next source.
+ function createThumbnails(){
+  const entries=new Map(),MAX_VISIBLE=8;let active=true,closed=false,running=false,serial=0,loading=null,queued=false;
+  const current=request=>active&&!closed&&request.entry.visible&&entries.get(request.entry.target)===request.entry&&request.entry.generation===request.generation;
+  function clear(entry){
+   entry.generation=++serial;entry.state='idle';entry.image.hidden=true;entry.image.removeAttribute('src');entry.message.textContent='';
+   entry.image.onload=entry.image.onerror=null;
+   if(entry.url){io.urls.revokeObjectURL(entry.url);entry.url=null;}
+   if(loading?.entry===entry)loading.session?.cancel().catch(()=>{});
+  }
+  function kick(){if(!queued){queued=true;queueMicrotask(()=>{queued=false;void pump();});}}
+  async function pump(){
+   if(running||!active||closed)return;running=true;
+   try{while(active&&!closed){
+    if([...entries.values()].filter(e=>e.state==='ready').length>=MAX_VISIBLE)break;
+    const entry=[...entries.values()].find(e=>e.visible&&e.assetId&&e.state==='idle');if(!entry)break;
+    const request={entry,generation:entry.generation,session:null};loading=request;entry.state='loading';
+    let lease,canvas;
+    try{
+     const session=io.media.create({owner:{slot:'editor',projectId:entry.projectId,contentRevision:entry.generation},limits:{maxImages:1}});request.session=session;
+     await session.prepare([{id:entry.assetId,kind:'image'}]);if(!current(request))continue;
+     lease=session.acquire();const source=lease.resources.images.get(entry.assetId);
+     canvas=io.canvas();canvas.width=116;canvas.height=144;
+     const context=canvas.getContext('2d');if(!context)throw failure('CANVAS','Браузер не смог подготовить миниатюру.');
+     const width=source.width||source.naturalWidth,height=source.height||source.naturalHeight,scale=Math.max(canvas.width/width,canvas.height/height);
+     context.drawImage(source,(canvas.width-width*scale)/2,(canvas.height-height*scale)/2,width*scale,height*scale);
+     const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(failure('CANVAS','Не удалось создать миниатюру.')),'image/png'));
+     if(!current(request))continue;
+     const url=io.urls.createObjectURL(blob);entry.url=url;
+     // Completion also belongs to the same card/project/source generation.
+     entry.image.onload=()=>{if(current(request)){entry.image.hidden=false;entry.message.textContent='';}};
+     entry.image.onerror=()=>{if(current(request)){entry.image.hidden=true;entry.state='error';io.urls.revokeObjectURL(entry.url);entry.url=null;entry.image.removeAttribute('src');entry.message.textContent='Миниатюра недоступна. Оригинал не изменён.';kick();}};
+     entry.image.src=url;entry.state='ready';
+    }catch(error){if(current(request)){entry.state='error';entry.message.textContent='Миниатюра недоступна: '+(error.message||'ошибка изображения')+' Оригинал не изменён.';}}
+    finally{if(canvas){canvas.width=0;canvas.height=0;}lease?.release();await request.session?.dispose();if(loading===request)loading=null;}
+   }}finally{running=false;}
+  }
+  const observer=io.observer(changes=>{for(const change of changes){const entry=entries.get(change.target);if(!entry)continue;entry.visible=change.isIntersecting;if(!entry.visible)clear(entry);}kick();});
+  return Object.freeze({
+   track(target,image,message,{projectId,assetId,name,index}){
+    if(closed)return;let entry=entries.get(target);
+    if(!assetId){if(entry){clear(entry);entries.delete(target);observer.unobserve(target);kick();}return;}
+    if(!entry){entry={target,image,message,visible:false,url:null,generation:++serial,state:'idle'};entries.set(target,entry);observer.observe(target);}
+    if(entry.projectId!==projectId||entry.assetId!==assetId){clear(entry);entry.projectId=projectId;entry.assetId=assetId;}
+    image.alt='Изображение сцены '+(index+1)+(name?' — '+name:'');kick();
+   },
+   remove(target){const entry=entries.get(target);if(entry){clear(entry);entries.delete(target);observer.unobserve(target);}kick();},
+   suspend(){active=false;for(const entry of entries.values())clear(entry);},
+   resume(){if(!closed){active=true;kick();}},
+   dispose(){closed=true;active=false;observer.disconnect();for(const entry of entries.values())clear(entry);entries.clear();},
+   status:()=>({tracked:entries.size,ready:[...entries.values()].filter(e=>e.state==='ready').length,preparing:!!loading,maxVisible:MAX_VISIBLE})
+  });
+ }
+ return Object.freeze({create,createThumbnails,MAX_FILE,MAX_PENDING});
 });
 
 }, { once: true });
@@ -3350,6 +3408,7 @@ window.ShortsEditorReady = (async function () {
   const sceneNodes = new Map(), durationErrors = new Map();
   let timing = { plan: null, byId: new Map(), error: null }, lastGoodProject = null, commandError = null;
   let subtitlesDirty = true, lastSelectedSceneId = null, previewRevision = 0, playEpoch = 0, editorVisible = true;
+  const imageThumbnails = window.ShortsEditorImages.createThumbnails();
   const imageStates = new Map(), audioStates = new Map(), audioErrors = new Map();
   let audioState = 'silent', audioFailure = null;
   const audioPlayback = window.ShortsEditorAudio.createPlayback({ onState: (state, error) => { audioState = state; audioFailure = error || null; renderAudio(); } });
@@ -3656,14 +3715,16 @@ window.ShortsEditorReady = (async function () {
     const removeImage = element('button', 'text-button', 'Удалить изображение');
     removeImage.addEventListener('click', () => { imageUploads.cancel(); imageStates.delete(scene.id); editScene({ type: 'image', id: scene.id, value: null }, true); });
     const imageName = element('span', 'studio-image-name'), imageState = element('span', 'studio-image-state'); imageState.setAttribute('role', 'status');
-    images.append(upload, imageFile, removeImage, imageName, imageState);
+    const thumbnail = element('img', 'scene-image-thumb'), thumbnailState = element('span', 'studio-thumbnail-state');
+    thumbnail.hidden = true; thumbnail.width = 58; thumbnail.height = 72; thumbnail.decoding = 'async'; thumbnailState.setAttribute('role', 'status');
+    images.append(thumbnail, upload, imageFile, removeImage, imageName, imageState, thumbnailState);
     content.append(top, textarea, controls, visuals, images); card.append(select, content);
-    return { card, select, textarea, timingText, label, remove, duration, up, down, settings, upload, removeImage, imageName, imageState };
+    return { card, select, textarea, timingText, label, remove, duration, up, down, settings, upload, removeImage, imageName, imageState, images, thumbnail, thumbnailState };
   }
 
   function renderScenes() {
     const ids = new Set(project.scenes.map(scene => scene.id));
-    for (const [id, nodes] of sceneNodes) if (!ids.has(id)) { nodes.card.remove(); sceneNodes.delete(id); }
+    for (const [id, nodes] of sceneNodes) if (!ids.has(id)) { imageThumbnails.remove(nodes.images); nodes.card.remove(); sceneNodes.delete(id); }
     if (!project.scenes.length) {
       $('sceneList').replaceChildren(emptyState('Здесь начнётся ваша история', 'Разбейте сценарий на сцены или добавьте первую сцену вручную.', !C.countWords(project.script)));
     } else {
@@ -3674,6 +3735,7 @@ window.ShortsEditorReady = (async function () {
         if (!nodes) { nodes = createSceneCard(scene); sceneNodes.set(scene.id, nodes); }
         if (nodes.card === cursor) cursor = cursor.nextElementSibling;
         else $('sceneList').insertBefore(nodes.card, cursor);
+        nodes.index = index;
         const number = String(index + 1).padStart(2, '0');
         if (nodes.select.textContent !== number) nodes.select.textContent = number;
         if (nodes.label.textContent !== 'СЦЕНА ' + number) nodes.label.textContent = 'СЦЕНА ' + number;
@@ -3707,6 +3769,7 @@ window.ShortsEditorReady = (async function () {
       }
       const uploadLabel = scene.imageId ? 'Заменить изображение' : 'Добавить изображение'; if (node.upload.textContent !== uploadLabel) node.upload.textContent = uploadLabel; if (node.upload.disabled !== !!timing.error) node.upload.disabled = !!timing.error;
       node.removeImage.hidden = !scene.imageId; node.removeImage.disabled = !!timing.error;
+      imageThumbnails.track(node.images, node.thumbnail, node.thumbnailState, { projectId: project.id, assetId: scene.imageId, name: scene.imageName, index: node.index });
       const name = scene.imageName || (scene.imageId ? 'Исходное изображение' : ''); if (node.imageName.textContent !== name) node.imageName.textContent = name;
       const imageStatus = imageStates.get(scene.id); node.imageState.dataset.state = imageStatus?.state || '';
       if (node.imageState.textContent !== (imageStatus?.message || '')) node.imageState.textContent = imageStatus?.message || '';
@@ -4034,11 +4097,12 @@ window.ShortsEditorReady = (async function () {
   const modeObserver = new MutationObserver(() => {
     const visible = document.querySelector('.workspace').dataset.mode !== 'video'; if (visible === editorVisible) return;
     editorVisible = visible;
-    if (!visible) { pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); } else { audioPlayback.update(project, timing.plan, previewRevision); renderPreview(); }
+    if (!visible) { imageThumbnails.suspend(); pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); } else { imageThumbnails.resume(); audioPlayback.update(project, timing.plan, previewRevision); renderPreview(); }
   });
   modeObserver.observe(document.querySelector('.workspace'), { attributes: true, attributeFilter: ['data-mode'] });
-  window.addEventListener('pagehide', () => { pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); } else if (editorVisible) { audioPlayback.update(project, timing.plan, previewRevision); renderPreview(); } });
+  window.addEventListener('pageshow', () => { if (editorVisible && !document.hidden) imageThumbnails.resume(); });
+  window.addEventListener('pagehide', () => { imageThumbnails.suspend(); pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { imageThumbnails.suspend(); pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); } else if (editorVisible) { imageThumbnails.resume(); audioPlayback.update(project, timing.plan, previewRevision); renderPreview(); } });
   document.querySelectorAll('[data-caption]').forEach(button => button.addEventListener('click', () => {
     pausePlayback(); project = { ...project, style: { ...project.style, caption: button.dataset.caption } }; recalculate();
     renderAppearance(); renderPreview(); changed();

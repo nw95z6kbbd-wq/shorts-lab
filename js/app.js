@@ -15,6 +15,7 @@ window.ShortsEditorReady = (async function () {
   const sceneNodes = new Map(), durationErrors = new Map();
   let timing = { plan: null, byId: new Map(), error: null }, lastGoodProject = null, commandError = null;
   let subtitlesDirty = true, lastSelectedSceneId = null, previewRevision = 0, playEpoch = 0, editorVisible = true;
+  const imageThumbnails = window.ShortsEditorImages.createThumbnails();
   const imageStates = new Map(), audioStates = new Map(), audioErrors = new Map();
   let audioState = 'silent', audioFailure = null;
   const audioPlayback = window.ShortsEditorAudio.createPlayback({ onState: (state, error) => { audioState = state; audioFailure = error || null; renderAudio(); } });
@@ -321,14 +322,16 @@ window.ShortsEditorReady = (async function () {
     const removeImage = element('button', 'text-button', 'Удалить изображение');
     removeImage.addEventListener('click', () => { imageUploads.cancel(); imageStates.delete(scene.id); editScene({ type: 'image', id: scene.id, value: null }, true); });
     const imageName = element('span', 'studio-image-name'), imageState = element('span', 'studio-image-state'); imageState.setAttribute('role', 'status');
-    images.append(upload, imageFile, removeImage, imageName, imageState);
+    const thumbnail = element('img', 'scene-image-thumb'), thumbnailState = element('span', 'studio-thumbnail-state');
+    thumbnail.hidden = true; thumbnail.width = 58; thumbnail.height = 72; thumbnail.decoding = 'async'; thumbnailState.setAttribute('role', 'status');
+    images.append(thumbnail, upload, imageFile, removeImage, imageName, imageState, thumbnailState);
     content.append(top, textarea, controls, visuals, images); card.append(select, content);
-    return { card, select, textarea, timingText, label, remove, duration, up, down, settings, upload, removeImage, imageName, imageState };
+    return { card, select, textarea, timingText, label, remove, duration, up, down, settings, upload, removeImage, imageName, imageState, images, thumbnail, thumbnailState };
   }
 
   function renderScenes() {
     const ids = new Set(project.scenes.map(scene => scene.id));
-    for (const [id, nodes] of sceneNodes) if (!ids.has(id)) { nodes.card.remove(); sceneNodes.delete(id); }
+    for (const [id, nodes] of sceneNodes) if (!ids.has(id)) { imageThumbnails.remove(nodes.images); nodes.card.remove(); sceneNodes.delete(id); }
     if (!project.scenes.length) {
       $('sceneList').replaceChildren(emptyState('Здесь начнётся ваша история', 'Разбейте сценарий на сцены или добавьте первую сцену вручную.', !C.countWords(project.script)));
     } else {
@@ -339,6 +342,7 @@ window.ShortsEditorReady = (async function () {
         if (!nodes) { nodes = createSceneCard(scene); sceneNodes.set(scene.id, nodes); }
         if (nodes.card === cursor) cursor = cursor.nextElementSibling;
         else $('sceneList').insertBefore(nodes.card, cursor);
+        nodes.index = index;
         const number = String(index + 1).padStart(2, '0');
         if (nodes.select.textContent !== number) nodes.select.textContent = number;
         if (nodes.label.textContent !== 'СЦЕНА ' + number) nodes.label.textContent = 'СЦЕНА ' + number;
@@ -372,6 +376,7 @@ window.ShortsEditorReady = (async function () {
       }
       const uploadLabel = scene.imageId ? 'Заменить изображение' : 'Добавить изображение'; if (node.upload.textContent !== uploadLabel) node.upload.textContent = uploadLabel; if (node.upload.disabled !== !!timing.error) node.upload.disabled = !!timing.error;
       node.removeImage.hidden = !scene.imageId; node.removeImage.disabled = !!timing.error;
+      imageThumbnails.track(node.images, node.thumbnail, node.thumbnailState, { projectId: project.id, assetId: scene.imageId, name: scene.imageName, index: node.index });
       const name = scene.imageName || (scene.imageId ? 'Исходное изображение' : ''); if (node.imageName.textContent !== name) node.imageName.textContent = name;
       const imageStatus = imageStates.get(scene.id); node.imageState.dataset.state = imageStatus?.state || '';
       if (node.imageState.textContent !== (imageStatus?.message || '')) node.imageState.textContent = imageStatus?.message || '';
@@ -699,11 +704,12 @@ window.ShortsEditorReady = (async function () {
   const modeObserver = new MutationObserver(() => {
     const visible = document.querySelector('.workspace').dataset.mode !== 'video'; if (visible === editorVisible) return;
     editorVisible = visible;
-    if (!visible) { pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); } else { audioPlayback.update(project, timing.plan, previewRevision); renderPreview(); }
+    if (!visible) { imageThumbnails.suspend(); pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); } else { imageThumbnails.resume(); audioPlayback.update(project, timing.plan, previewRevision); renderPreview(); }
   });
   modeObserver.observe(document.querySelector('.workspace'), { attributes: true, attributeFilter: ['data-mode'] });
-  window.addEventListener('pagehide', () => { pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); } else if (editorVisible) { audioPlayback.update(project, timing.plan, previewRevision); renderPreview(); } });
+  window.addEventListener('pageshow', () => { if (editorVisible && !document.hidden) imageThumbnails.resume(); });
+  window.addEventListener('pagehide', () => { imageThumbnails.suspend(); pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { imageThumbnails.suspend(); pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); } else if (editorVisible) { imageThumbnails.resume(); audioPlayback.update(project, timing.plan, previewRevision); renderPreview(); } });
   document.querySelectorAll('[data-caption]').forEach(button => button.addEventListener('click', () => {
     pausePlayback(); project = { ...project, style: { ...project.style, caption: button.dataset.caption } }; recalculate();
     renderAppearance(); renderPreview(); changed();

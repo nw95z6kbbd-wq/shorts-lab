@@ -3,6 +3,7 @@ import functools,json,threading
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
 from runtime_session_native import command_result
+from safari_file_entry import prepare_native_file_entry
 
 def check_native_editor_live(root,script,command):
  class Handler(SimpleHTTPRequestHandler):
@@ -20,7 +21,8 @@ def check_native_editor_live(root,script,command):
   profiles=execute('return await editorLiveVerifyProfiles(editorCanvasCaptures,arguments[0]);',[spec]);assert profiles['combinations']==27
   project=script('const p=ShortsCore.upgradeProject(ShortsCore.createProject());p.name="Safari live pictures";p.timing="manual";p.scenes=[0,1,2].map(i=>({id:"live-"+i,text:"",durationMs:1000,visual:"animated",imageId:null,imageName:"",camera:"zoom-in",transition:"crossfade"}));p.selectedSceneId="live-0";return p;')
   execute('await editorLiveImport(arguments[0]);document.getElementById("tab-scenes").click();return true;',[project])
-  for i,file in enumerate(payload[:3]):execute('return await editorLiveUpload(arguments[0],arguments[1]);',[i,file])
+  for i,file in enumerate(payload[:3]):
+   execute('return await editorLiveUpload(arguments[0],arguments[1]);',[i,file]);execute('return await editorLiveThumbnail(arguments[0],arguments[1]);',[i,file])
   assert execute('return await editorLiveFrameReference(arguments[0]);',[payload])
   for camera in ['static','zoom-in','zoom-out','pan-left','pan-right']:
    execute('const s=document.querySelector(".studio-scene-camera");s.value=arguments[0];s.dispatchEvent(new Event("change",{bubbles:true}));await editorLiveReady();return true;',[camera])
@@ -38,5 +40,25 @@ def check_native_editor_live(root,script,command):
   execute('await editorLiveReady();return true;');assert execute('return await studioUiSnapshot();')==before
   execute('document.getElementById("openVideoMode").click();await editorLiveUntil(()=>ShortsMediaSessions.statistics().sessions===0,"mode cleanup");document.getElementById("backToEditor").click();await editorLiveReady();return true;')
   assert execute('return await studioUiSnapshot();')==before
+  assert execute('return await editorLiveThumbnails(arguments[0]);',[payload])==3
+  # Exercise the real file-origin standalone page as well as HTTP. Existing
+  # Safari folder access grants are temporary, and no security setting changes.
+  entry=(root/'downloads/Shorts-Studio.html').as_uri();grant=prepare_native_file_entry(entry,command)
+  try:
+   command('POST','/url',{'url':entry});execute('await ShortsEditorReady;return true;')
+   for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js']:script((root/'tests'/name).read_text())
+   project['id']=script('return ShortsCore.id();');project['name']='File thumbnails';execute('await editorLiveImport(arguments[0]);document.getElementById("tab-scenes").click();return true;',[project])
+   for i,file in enumerate(payload[:3]):
+    execute('return await editorLiveUpload(arguments[0],arguments[1]);',[i,file]);execute('return await editorLiveThumbnail(arguments[0],arguments[1]);',[i,file])
+   execute('return await editorLiveUpload(0,arguments[0]);',[payload[2]]);execute('return await editorLiveThumbnail(0,arguments[0]);',[payload[2]])
+   execute('document.querySelector(".studio-image-controls .text-button").click();if(document.querySelector(".studio-image-controls img").getAttribute("src")!==null)throw Error("Removed thumbnail retained URL");return true;')
+   execute('return await editorLiveUpload(0,arguments[0]);',[payload[0]]);execute('return await editorLiveThumbnail(0,arguments[0]);',[payload[0]])
+   execute('await editorTimingWaitForSave();return true;');saved=execute('return await studioUiSnapshot();')
+   command('POST','/url',{'url':entry});execute('await ShortsEditorReady;return true;')
+   for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js']:script((root/'tests'/name).read_text())
+   execute('document.getElementById("tab-scenes").click();return true;');assert execute('return await editorLiveThumbnails(arguments[0]);',[payload])==3
+   assert execute('return await studioUiSnapshot();')==saved
+   execute('const p=arguments[0];p.id=ShortsCore.id();p.name="Reopened thumbnail JSON";await editorLiveImport(p);return true;',[saved['editor']]);assert execute('return await editorLiveThumbnails(arguments[0]);',[payload])==3
+  finally:grant.unlink(missing_ok=True)
   print('::notice title=Native Safari live Editor UI::'+json.dumps({'profiles':profiles,'images':['PNG','JPEG','WebP'],'frames':'UI exactly matches recorder path','camera':5,'transitions':4,'reload':'DTO and original SHA-256 identical','modeCleanup':'zero runtime owners outside Editor'}),flush=True)
  finally:server.shutdown();server.server_close()

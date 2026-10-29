@@ -115,7 +115,13 @@ def _check_native_backup(root,source_base,script,command,click,wait_for,editor_v
         wait_for('!document.getElementById("backupConfirm").hidden',seconds=30);script('window.nativeBackupOldRealm=true;');click('#backupConfirm')
         wait_for('!window.nativeBackupOldRealm && window.ShortsVideoRestored',seconds=30)
         script((root/'tests/backup-fixture.js').read_text());assert async_script('return await backupFixtureSnapshot();')==expected
-        click('#openVideoMode');assert script('return document.querySelectorAll(".scene-image-thumb").length;')==3
+        if editor_version==2:
+            script((root/'tests/editor-live-fixture.js').read_text())
+            # Includes a temporarily inactive image and a Studio-private original.
+            thumbnail_files=payload+[dict(payload[2],name='studio-green.webp')]
+            assert async_script('return await editorLiveThumbnails(arguments[0]);',[thumbnail_files])==3
+            assert async_script('return await backupFixtureSnapshot();')==expected
+        click('#openVideoMode');assert script('return document.querySelectorAll("#videoScenes .scene-image-thumb").length;')==3
         assert 'voice.wav' in script('return videoAudioInfo.textContent;') and 'music.wav' in script('return videoMusicInfo.textContent;')
         script((root/'tests/render-plan-fixture.js').read_text());script('installRenderPlanProbe();')
         click('#playGeneratedPreview');wait_for('document.getElementById("videoPreviewTime").textContent.startsWith("0:01")');click('#playGeneratedPreview')
