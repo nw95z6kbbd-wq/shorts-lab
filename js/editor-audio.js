@@ -72,7 +72,10 @@
   function update(project,plan,revision){
    const next=JSON.stringify([project.id,revision]);if(key===next)return tail;
    close();key=next;const token=generation;
-   if(!plan||!['voice','music'].some(r=>plan.audio[r].assetId)){onState('silent');return tail;}
+   if(!plan||!['voice','music'].some(r=>plan.audio[r].assetId)){
+    if(active){preparing=true;onState('loading');tail=tail.then(()=>{if(token===generation){preparing=false;onState('silent');}});tail.catch(()=>{});}
+    else onState('silent');return tail;
+   }
    let data;try{data=io.runtime.snapshotData(project,plan);}catch(e){tail=tail.then(()=>{if(token===generation){failure=e;onState('error',e);}});tail.catch(()=>{});return tail;}
    preparing=true;onState('loading');
    tail=tail.then(async()=>{
