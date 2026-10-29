@@ -4,7 +4,8 @@
   else root.ShortsMediaSessions = factory({
     original: id => root.ShortsStorage.asset(id),
     image: blob => root.ShortsVideoMedia.decodeImage(blob),
-    audio: blob => root.ShortsVideoRecorder.decodeAudio(blob)
+    audio: blob => root.ShortsVideoRecorder.decodeAudio(blob),
+    audioWindow: root.ShortsAudioWindow
   });
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (io, globalOptions) {
   'use strict';
@@ -15,7 +16,8 @@
   const abortError = () => error('CANCELLED', 'Подготовка медиа отменена.');
   const noJSON = () => { throw error('RUNTIME', 'Runtime-сессии и заимствованные ресурсы нельзя сохранять в проект или ZIP.'); };
   let live = 0, resident = 0, peakResident = 0, decoding = false, serial = 0;
-  const queue = [];
+  const queue = [], audioPool = new Map();
+  let scratchBytes=0,peakScratchBytes=0,audioDecodes=0;
   for (const value of Object.values(globalLimits)) if (!Number.isSafeInteger(value) || value <= 0) throw error('LIMITS', 'Некорректный общий бюджет медиа.');
 
   function pump() {
@@ -83,7 +85,8 @@
     throw error('IMAGE_HEADER', 'Не удалось проверить размеры статического PNG/JPG/WebP в первых 256 КиБ.');
   }
 
-  function create({ owner, limits: options = {} } = {}) {
+  function create({ owner, limits: options = {}, audioDurationMs = null } = {}) {
+    if(audioDurationMs!==null&&(!Number.isSafeInteger(audioDurationMs)||audioDurationMs<0))throw error('OFFSET','Некорректное окно подготовки аудио.');
     if (!owner || !['editor','video'].includes(owner.slot) || typeof owner.projectId !== 'string' || !owner.projectId) throw error('IDENTITY', 'Укажите слот и идентификатор владельца медиа.');
     for(const key of ['contentRevision','savedRevision'])if(owner[key]!=null&&(!Number.isSafeInteger(owner[key])||owner[key]<0))throw error('IDENTITY','Некорректная редакция или ревизия владельца.');
     if(owner.sessionId!=null&&typeof owner.sessionId!=='string')throw error('IDENTITY','Некорректный идентификатор управляющей сессии.');
@@ -108,6 +111,7 @@
       try { if (record.kind === 'image') record.decoded?.dispose(); } finally {
         originalBytes -= record.originalBytes; decodedBytes -= record.decodedBytes; resident -= record.originalBytes + record.decodedBytes;
         imagePixels -= record.imagePixels || 0;
+        if(record.poolKey){const pooled=audioPool.get(record.poolKey);if(pooled&&!--pooled.users)audioPool.delete(record.poolKey);}
         record.decoded = null; record.blob = null;
       }
     }
@@ -121,6 +125,34 @@
       cleanup(); return closed;
     }
     function current(epoch) { if (controller.signal.aborted || epoch !== generation) throw abortError(); }
+    async function loadWindowAudio(record,epoch){
+      let scratch=0;
+      const workspace=bytes=>{
+        if(scratch+bytes>limits.maxDecodedBytes||resident+bytes>globalLimits.maxResidentBytes)throw error('AUDIO_DECODE_BUDGET',`Полное декодирование MP3 требует ${((scratch+bytes)/MIB).toFixed(1)} МиБ временных данных (предел ${limits.maxDecodedBytes/MIB} МиБ); общий расчётный объём ${((resident+bytes)/MIB).toFixed(1)} МиБ при лимите ${globalLimits.maxResidentBytes/MIB} МиБ. Выберите более короткий исходник.`,{assetId:record.id});
+        scratch+=bytes;scratchBytes+=bytes;resident+=bytes;peakResident=Math.max(peakResident,resident);peakScratchBytes=Math.max(peakScratchBytes,scratchBytes);
+      };
+      pending++;record.loading=true;
+      const operation=scheduled(async()=>{
+        try{
+          current(epoch);workspace(record.blob.size);
+          const info=await io.audioWindow.probe(record.blob);current(epoch);
+          if(!info)return false;
+          const key=JSON.stringify([identity.slot,identity.projectId,record.id,audioDurationMs,info.hash]);
+          const windowBytes=Math.min(info.samples,Math.max(1,Math.ceil(audioDurationMs*info.sampleRate/1000)))*info.channels*4;
+          if(windowBytes>limits.maxAudioBytes)throw error('DECODED_BUDGET',`Аудио для длительности проекта требует ${(windowBytes/MIB).toFixed(1)} МиБ PCM; предел на дорожку ${limits.maxAudioBytes/MIB} МиБ. Сократите проект или исходник.`,{assetId:record.id});
+          reserve(record,0,windowBytes);
+          let pooled=audioPool.get(key);
+          if(!pooled){
+            workspace(info.fullPcmBytes);audioDecodes++;
+            const prepared=await io.audioWindow.decode(info,audioDurationMs);current(epoch);
+            pooled={...prepared,users:0};audioPool.set(key,pooled);
+          }
+          current(epoch);reserve(record,0,pooled.info.retainedPcmBytes-windowBytes);
+          pooled.users++;record.poolKey=key;record.decoded=pooled.buffer;record.audioInfo=pooled.info;return true;
+        }finally{scratchBytes-=scratch;resident-=scratch;}
+      },controller.signal).finally(()=>{record.loading=false;pending--;cleanup();});
+      return await interruptible(operation,controller.signal);
+    }
     async function load(item, epoch) {
       let stored;
       pending++;
@@ -134,6 +166,8 @@
       if (!['image','voice','music'].includes(stored.kind) || image !== category || (stored.type && stored.type !== stored.blob.type) || (image && stored.blob.type && !['image/png','image/jpeg','image/webp','application/octet-stream'].includes(stored.blob.type)) || (!image && /^image\//.test(stored.blob.type))) throw error('MEDIA_TYPE', 'Тип исходника не соответствует ссылке проекта.',{assetId:item.id});
       const record = { id:item.id,kind:item.kind,blob:stored.blob,decoded:null,originalBytes:0,decodedBytes:0,loading:false,released:false };
       reserve(record,stored.blob.size,0); records.set(item.id,record);
+      if(!image&&audioDurationMs!==null&&io.audioWindow&&await loadWindowAudio(record,epoch))return;
+      current(epoch);
       let budget;
       if (image) {
         pending++; record.loading = true;
@@ -151,7 +185,7 @@
           decoded = await (image ? io.image(record.blob) : io.audio(record.blob));
           current(epoch);
           const bytes = image ? (decoded.width * decoded.height * 4) : decoded.length * decoded.numberOfChannels * 4;
-          if (!Number.isSafeInteger(bytes) || bytes <= 0 || (!image && bytes > limits.maxAudioBytes) || (image && bytes !== budget)) throw error('DECODED_BUDGET', 'Декодированные медиа превышают проверенный бюджет или имеют неверные размеры.',{assetId:item.id});
+          if (!Number.isSafeInteger(bytes) || bytes <= 0 || (!image && bytes > limits.maxAudioBytes) || (image && bytes !== budget)) throw error('DECODED_BUDGET', image?'Размер декодированного изображения не совпадает с заголовком.':`Полный PCM аудио требует ${(bytes/MIB).toFixed(1)} МиБ; предел ${limits.maxAudioBytes/MIB} МиБ на дорожку. Для этого контейнера подготовка короткого участка пока не поддерживается.`,{assetId:item.id,decodedBytes:bytes,maxAudioBytes:limits.maxAudioBytes});
           reserve(record,0,bytes - budget); record.decoded = decoded; decoded = null;
         } catch (e) {
           if (controller.signal.aborted) throw abortError();
@@ -193,8 +227,8 @@
     }
     return Object.freeze({ identity, prepare, acquire,
       cancel: () => close('cancelled',abortError()), dispose: () => close('disposed'),
-      status: () => Object.freeze({state,outcome,generation,consumers,pending,originalBytes,decodedBytes,imagePixels,cleanupPending:terminal()&&!finished,error:cause ? {code:cause.code,message:cause.message,assetId:cause.assetId,causeCode:cause.cause?.code||cause.cause?.name||null} : null}),
+      status: () => Object.freeze({state,outcome,generation,consumers,pending,originalBytes,decodedBytes,imagePixels,audioInfo:[...records.values()].filter(r=>r.audioInfo).map(r=>({assetId:r.id,...r.audioInfo})),cleanupPending:terminal()&&!finished,error:cause ? {code:cause.code,message:cause.message,assetId:cause.assetId,causeCode:cause.cause?.code||cause.cause?.name||null} : null}),
       toJSON:noJSON });
   }
-  return Object.freeze({ create, DEFAULTS, globalLimits, statistics: () => Object.freeze({sessions:live,residentBytes:resident,peakResidentBytes:peakResident,decoding,queued:queue.length}) });
+  return Object.freeze({ create, DEFAULTS, globalLimits, statistics: () => Object.freeze({sessions:live,residentBytes:resident,peakResidentBytes:peakResident,scratchBytes,peakScratchBytes,audioDecodes,pooledAudio:audioPool.size,decoding,queued:queue.length}) });
 });

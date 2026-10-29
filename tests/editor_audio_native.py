@@ -3,6 +3,7 @@ import functools,json,threading,time
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
 from editor_audio_checks import check_editor_audio,audio_helpers
+from editor_audio_long_checks import check_editor_long_audio
 from runtime_session_native import command_result
 from safari_file_entry import prepare_native_file_entry
 def check_native_editor_audio(root,script,command,click):
@@ -24,7 +25,7 @@ def check_native_editor_audio(root,script,command,click):
   for entry in [f'http://127.0.0.1:{server.server_port}/index.html',(root/'downloads/Shorts-Studio.html').as_uri()]:
    if entry.startswith('file:'):grants.append(prepare_native_file_entry(entry,command))
    command('POST','/url',{'url':entry});ready(entry)
-   evidence=check_editor_audio(execute,click,media_payload());saved=evidence.pop('saved')
+   evidence=check_editor_audio(execute,click,media_payload());evidence.pop('saved');long=check_editor_long_audio(root,execute,click);saved=long.pop('saved');evidence['longMusic']=long
    command('POST','/url',{'url':entry});ready(entry);execute('await editorAudioReady();await editorLiveReady();return true;');assert execute('return await studioUiSnapshot();')==saved
    export_selector=script('return document.querySelector(".sidebar [data-backup-export]").getClientRects().length?".sidebar [data-backup-export]":".mobile-filebar [data-backup-export]";')
    click(export_selector)

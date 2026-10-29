@@ -20,7 +20,8 @@ window.ShortsEditorReady = (async function () {
   const audioPlayback = window.ShortsEditorAudio.createPlayback({ onState: (state, error) => { audioState = state; audioFailure = error || null; renderAudio(); } });
   const audioUploads = window.ShortsEditorAudio.createUploads({
     owner: () => project.id, valid: owner => owner === project.id && editorVisible && !timing.error,
-    accept: (role, patch) => updateAudio(role, patch),
+    requirements: role => ({durationMs: timing.plan?.durationMs??0, otherIds: ['voice','music'].filter(r=>r!==role).map(r=>project.audio?.[r]?.assetId).filter(Boolean)}),
+    accept: (role, patch) => updateAudio(role, patch) ? {accepted:true,ready:audioPlayback.settled()} : false,
     onState: (role, state, error) => { audioStates.set(role, { state, message: error?.message || (state === 'loading' ? 'Проверяем и декодируем оригинал…' : state === 'ready' ? 'Оригинал принят. Состояние сохранения — в уведомлении.' : 'Загрузка отменена.') }); renderAudio(); }
   });
   const livePreview = window.ShortsEditorPreview.create({ canvas: $('editorCanvas'), onState: previewState });

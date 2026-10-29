@@ -29,7 +29,7 @@
  }
  // Same storage staging and bounded native decoder as runtime preparation.
  // Only a successfully decoded original may become a saved DTO reference.
- function createUploads({owner,valid,accept,onState=()=>{}}){
+ function createUploads({owner,valid,accept,requirements=()=>null,onState=()=>{}}){
   let generation=0,tail=Promise.resolve();const current=new Map(),accepted=new Map();
   function cancel(role){const requests=role?[current.get(role)].filter(Boolean):[...current.values()];for(const request of requests){current.delete(request.role);request.session?.cancel().catch(()=>{});onState(request.role,'cancelled');}return Promise.all(requests.map(r=>r.session?.dispose()));}
   function load(role,file){
@@ -46,11 +46,14 @@
      if(pending+file.size>MAX_PENDING)throw fail('PENDING_BUDGET','Несохранённые аудиооригиналы превышают 64 МиБ. Дождитесь сохранения; прежние файлы не удалены.');
      if(!valid(projectId))return false;
      id=io.core.id();io.storage.stage(id,file,file.name,role);
-     session=io.media.create({owner:{slot:'editor',projectId,contentRevision:token}});request.session=session;
-     await session.prepare([{id,kind:'audio'}]);
+     const config=requirements(role,id);
+     session=io.media.create({owner:{slot:'editor',projectId,contentRevision:token},audioDurationMs:config?.durationMs??null});request.session=session;
+     await session.prepare([{id,kind:'audio'},...(config?.otherIds||[]).map(id=>({id,kind:'audio'}))]);
+     if(JSON.stringify(config)!==JSON.stringify(requirements(role,id)))throw fail('CANCELLED','Звуковой состав или длительность проекта изменились во время подготовки. Выберите файл повторно.');
      if(current.get(role)!==request||!valid(projectId))return false;
-     attached=accept(role,{assetId:id,name:file.name})===true;
-     if(attached){accepted.set(id,file.size);onState(role,'ready');}return attached;
+     const acceptedResult=accept(role,{assetId:id,name:file.name});
+     attached=acceptedResult===true||acceptedResult?.accepted===true;
+     if(attached){accepted.set(id,file.size);await acceptedResult?.ready;if(current.get(role)===request&&valid(projectId))onState(role,'ready');}return attached;
     }catch(error){if(current.get(role)===request)onState(role,'error',error);return false;}
     finally{await session?.dispose();if(id&&!attached)io.storage.discard(id);if(current.get(role)===request)current.delete(role);}
    };
@@ -104,7 +107,7 @@
     throw e;
    }
   }
-  return Object.freeze({update,start,close,
+  return Object.freeze({update,start,close,settled:()=>tail,
    pause(){operation++;return active?.handle?.pause()||Promise.resolve();},
    positionMs(){return active?.handle?.positionMs()??null;},
    status(){return {ready:!!active&&!preparing&&!failure,preparing,error:failure?{code:failure.code,message:failure.message}:null,active:active?.session.status()||null};},

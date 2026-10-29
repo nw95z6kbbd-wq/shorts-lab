@@ -2615,13 +2615,74 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+(function(root,factory){
+ 'use strict';
+ if(typeof module==='object'&&module.exports)module.exports=factory;
+ else root.ShortsAudioWindow=factory({context:rate=>{const Offline=root.OfflineAudioContext||root.webkitOfflineAudioContext;if(!Offline)throw Error('OfflineAudioContext недоступен.');return new Offline(1,1,rate);},hash:async bytes=>Array.from(new Uint8Array(await root.crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('')});
+})(typeof globalThis!=='undefined'?globalThis:this,function(io){
+ 'use strict';
+ const fail=(code,message,details={})=>Object.assign(new Error(message),{code,...details});
+ // Layer III frame headers bound sample count BEFORE native allocation. This
+ // is not partial decoding: decodeAudioData still decodes the entire MP3.
+ function inspect(bytes){
+  const b=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes);let p=0,samples=0,rate=0,channels=0,frames=0;
+  if(b[0]===73&&b[1]===68&&b[2]===51){
+   if(b.length<10||[6,7,8,9].some(i=>b[i]&128))throw fail('AUDIO_HEADER','Повреждён размер ID3 MP3.');
+   p=10+((b[6]<<21)|(b[7]<<14)|(b[8]<<7)|b[9])+((b[5]&16)?10:0);if(p>b.length)throw fail('AUDIO_HEADER','Неполный ID3 MP3.');
+  }
+  while(p<b.length){
+   if(b.length-p===128&&b[p]===84&&b[p+1]===65&&b[p+2]===71)break;
+   if(b[p]===0&&b.subarray(p).every(x=>x===0))break;
+   if(p+4>b.length||b[p]!==255||(b[p+1]&224)!==224)throw fail('AUDIO_HEADER','Повреждены кадры MP3 или неподдерживаемые хвостовые метаданные.');
+   const version=(b[p+1]>>3)&3,layer=(b[p+1]>>1)&3,index=b[p+2]>>4,ri=(b[p+2]>>2)&3;
+   if(version===1||layer!==1||index===0||index===15||ri===3)throw fail('AUDIO_CODEC','Для ограниченной подготовки поддерживается MP3 Layer III с указанным битрейтом.');
+   const sr=[44100,48000,32000][ri]/(version===3?1:version===2?2:4),ch=(b[p+3]>>6)===3?1:2;
+   if(rate&&rate!==sr)throw fail('AUDIO_CODEC','Смена частоты дискретизации внутри MP3 пока не поддерживается.');
+   rate=sr;channels=Math.max(channels,ch);
+   const kbps=(version===3?[0,32,40,48,56,64,80,96,112,128,160,192,224,256,320]:[0,8,16,24,32,40,48,56,64,80,96,112,128,144,160])[index];
+   const length=Math.floor((version===3?144:72)*kbps*1000/sr)+((b[p+2]>>1)&1);
+   if(p+length>b.length)throw fail('AUDIO_HEADER','Неполный кадр MP3.');
+   samples+=version===3?1152:576;frames++;p+=length;
+  }
+  if(!frames||!Number.isSafeInteger(samples))throw fail('AUDIO_HEADER','В MP3 нет проверяемых аудиокадров.');
+  if(samples/rate>600+2304/rate)throw fail('AUDIO_DURATION','Длительность аудиодорожки превышает 600 секунд.');
+  return {samples,sampleRate:rate,channels,frames,fullPcmBytes:samples*channels*4};
+ }
+ async function probe(blob){
+  const head=new Uint8Array(await blob.slice(0,3).arrayBuffer());
+  if(!(head[0]===73&&head[1]===68&&head[2]===51)&&!(head[0]===255&&(head[1]&224)===224&&(head[1]&6)===2))return null;
+  if(blob.size>25*1048576)throw fail('FILE_SIZE','Аудио превышает 25 МиБ.');
+  const bytes=await blob.arrayBuffer(),info=inspect(bytes);return {...info,bytes,hash:await io.hash(bytes)};
+ }
+ async function decode(info,durationMs){
+  if(!Number.isSafeInteger(durationMs)||durationMs<0)throw fail('OFFSET','Некорректная длительность окна аудио.');
+  const context=io.context(info.sampleRate);let full;
+  try{full=await context.decodeAudioData(info.bytes);}
+  catch(e){throw fail('AUDIO_DECODE','Не удалось декодировать MP3: повреждённый файл или неподдерживаемый кодек.');}
+  try{
+   if(!Number.isFinite(full.duration)||full.duration<=0||full.duration>600)throw fail('AUDIO_DURATION','Длительность аудиодорожки должна быть от доли секунды до 600 секунд.');
+   if(!Number.isSafeInteger(full.length)||full.length<=0||full.sampleRate!==info.sampleRate||full.numberOfChannels>info.channels||full.numberOfChannels<1||full.length>info.samples)throw fail('AUDIO_PCM','Декодированный MP3 не соответствует проверенному числу сэмплов и каналов.');
+   const length=Math.min(full.length,Math.max(1,Math.ceil(durationMs*full.sampleRate/1000)));
+   let buffer=full;
+   if(length<full.length){buffer=context.createBuffer(full.numberOfChannels,length,full.sampleRate);for(let c=0;c<full.numberOfChannels;c++)buffer.copyToChannel(full.getChannelData(c).subarray(0,length),c);}
+   return {buffer,info:{sampleRate:full.sampleRate,channels:full.numberOfChannels,durationSeconds:full.duration,fullFrames:full.length,fullPcmBytes:full.length*full.numberOfChannels*4,retainedFrames:length,retainedPcmBytes:length*full.numberOfChannels*4}};
+  }finally{full=null;}
+ }
+ return Object.freeze({inspect,probe,decode});
+});
+
+}, { once: true });
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
 (function (root, factory) {
   'use strict';
   if (typeof module === 'object' && module.exports) module.exports = factory;
   else root.ShortsMediaSessions = factory({
     original: id => root.ShortsStorage.asset(id),
     image: blob => root.ShortsVideoMedia.decodeImage(blob),
-    audio: blob => root.ShortsVideoRecorder.decodeAudio(blob)
+    audio: blob => root.ShortsVideoRecorder.decodeAudio(blob),
+    audioWindow: root.ShortsAudioWindow
   });
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (io, globalOptions) {
   'use strict';
@@ -2632,7 +2693,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const abortError = () => error('CANCELLED', 'Подготовка медиа отменена.');
   const noJSON = () => { throw error('RUNTIME', 'Runtime-сессии и заимствованные ресурсы нельзя сохранять в проект или ZIP.'); };
   let live = 0, resident = 0, peakResident = 0, decoding = false, serial = 0;
-  const queue = [];
+  const queue = [], audioPool = new Map();
+  let scratchBytes=0,peakScratchBytes=0,audioDecodes=0;
   for (const value of Object.values(globalLimits)) if (!Number.isSafeInteger(value) || value <= 0) throw error('LIMITS', 'Некорректный общий бюджет медиа.');
 
   function pump() {
@@ -2700,7 +2762,8 @@ document.addEventListener("DOMContentLoaded", () => {
     throw error('IMAGE_HEADER', 'Не удалось проверить размеры статического PNG/JPG/WebP в первых 256 КиБ.');
   }
 
-  function create({ owner, limits: options = {} } = {}) {
+  function create({ owner, limits: options = {}, audioDurationMs = null } = {}) {
+    if(audioDurationMs!==null&&(!Number.isSafeInteger(audioDurationMs)||audioDurationMs<0))throw error('OFFSET','Некорректное окно подготовки аудио.');
     if (!owner || !['editor','video'].includes(owner.slot) || typeof owner.projectId !== 'string' || !owner.projectId) throw error('IDENTITY', 'Укажите слот и идентификатор владельца медиа.');
     for(const key of ['contentRevision','savedRevision'])if(owner[key]!=null&&(!Number.isSafeInteger(owner[key])||owner[key]<0))throw error('IDENTITY','Некорректная редакция или ревизия владельца.');
     if(owner.sessionId!=null&&typeof owner.sessionId!=='string')throw error('IDENTITY','Некорректный идентификатор управляющей сессии.');
@@ -2725,6 +2788,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try { if (record.kind === 'image') record.decoded?.dispose(); } finally {
         originalBytes -= record.originalBytes; decodedBytes -= record.decodedBytes; resident -= record.originalBytes + record.decodedBytes;
         imagePixels -= record.imagePixels || 0;
+        if(record.poolKey){const pooled=audioPool.get(record.poolKey);if(pooled&&!--pooled.users)audioPool.delete(record.poolKey);}
         record.decoded = null; record.blob = null;
       }
     }
@@ -2738,6 +2802,34 @@ document.addEventListener("DOMContentLoaded", () => {
       cleanup(); return closed;
     }
     function current(epoch) { if (controller.signal.aborted || epoch !== generation) throw abortError(); }
+    async function loadWindowAudio(record,epoch){
+      let scratch=0;
+      const workspace=bytes=>{
+        if(scratch+bytes>limits.maxDecodedBytes||resident+bytes>globalLimits.maxResidentBytes)throw error('AUDIO_DECODE_BUDGET',`Полное декодирование MP3 требует ${((scratch+bytes)/MIB).toFixed(1)} МиБ временных данных (предел ${limits.maxDecodedBytes/MIB} МиБ); общий расчётный объём ${((resident+bytes)/MIB).toFixed(1)} МиБ при лимите ${globalLimits.maxResidentBytes/MIB} МиБ. Выберите более короткий исходник.`,{assetId:record.id});
+        scratch+=bytes;scratchBytes+=bytes;resident+=bytes;peakResident=Math.max(peakResident,resident);peakScratchBytes=Math.max(peakScratchBytes,scratchBytes);
+      };
+      pending++;record.loading=true;
+      const operation=scheduled(async()=>{
+        try{
+          current(epoch);workspace(record.blob.size);
+          const info=await io.audioWindow.probe(record.blob);current(epoch);
+          if(!info)return false;
+          const key=JSON.stringify([identity.slot,identity.projectId,record.id,audioDurationMs,info.hash]);
+          const windowBytes=Math.min(info.samples,Math.max(1,Math.ceil(audioDurationMs*info.sampleRate/1000)))*info.channels*4;
+          if(windowBytes>limits.maxAudioBytes)throw error('DECODED_BUDGET',`Аудио для длительности проекта требует ${(windowBytes/MIB).toFixed(1)} МиБ PCM; предел на дорожку ${limits.maxAudioBytes/MIB} МиБ. Сократите проект или исходник.`,{assetId:record.id});
+          reserve(record,0,windowBytes);
+          let pooled=audioPool.get(key);
+          if(!pooled){
+            workspace(info.fullPcmBytes);audioDecodes++;
+            const prepared=await io.audioWindow.decode(info,audioDurationMs);current(epoch);
+            pooled={...prepared,users:0};audioPool.set(key,pooled);
+          }
+          current(epoch);reserve(record,0,pooled.info.retainedPcmBytes-windowBytes);
+          pooled.users++;record.poolKey=key;record.decoded=pooled.buffer;record.audioInfo=pooled.info;return true;
+        }finally{scratchBytes-=scratch;resident-=scratch;}
+      },controller.signal).finally(()=>{record.loading=false;pending--;cleanup();});
+      return await interruptible(operation,controller.signal);
+    }
     async function load(item, epoch) {
       let stored;
       pending++;
@@ -2751,6 +2843,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!['image','voice','music'].includes(stored.kind) || image !== category || (stored.type && stored.type !== stored.blob.type) || (image && stored.blob.type && !['image/png','image/jpeg','image/webp','application/octet-stream'].includes(stored.blob.type)) || (!image && /^image\//.test(stored.blob.type))) throw error('MEDIA_TYPE', 'Тип исходника не соответствует ссылке проекта.',{assetId:item.id});
       const record = { id:item.id,kind:item.kind,blob:stored.blob,decoded:null,originalBytes:0,decodedBytes:0,loading:false,released:false };
       reserve(record,stored.blob.size,0); records.set(item.id,record);
+      if(!image&&audioDurationMs!==null&&io.audioWindow&&await loadWindowAudio(record,epoch))return;
+      current(epoch);
       let budget;
       if (image) {
         pending++; record.loading = true;
@@ -2768,7 +2862,7 @@ document.addEventListener("DOMContentLoaded", () => {
           decoded = await (image ? io.image(record.blob) : io.audio(record.blob));
           current(epoch);
           const bytes = image ? (decoded.width * decoded.height * 4) : decoded.length * decoded.numberOfChannels * 4;
-          if (!Number.isSafeInteger(bytes) || bytes <= 0 || (!image && bytes > limits.maxAudioBytes) || (image && bytes !== budget)) throw error('DECODED_BUDGET', 'Декодированные медиа превышают проверенный бюджет или имеют неверные размеры.',{assetId:item.id});
+          if (!Number.isSafeInteger(bytes) || bytes <= 0 || (!image && bytes > limits.maxAudioBytes) || (image && bytes !== budget)) throw error('DECODED_BUDGET', image?'Размер декодированного изображения не совпадает с заголовком.':`Полный PCM аудио требует ${(bytes/MIB).toFixed(1)} МиБ; предел ${limits.maxAudioBytes/MIB} МиБ на дорожку. Для этого контейнера подготовка короткого участка пока не поддерживается.`,{assetId:item.id,decodedBytes:bytes,maxAudioBytes:limits.maxAudioBytes});
           reserve(record,0,bytes - budget); record.decoded = decoded; decoded = null;
         } catch (e) {
           if (controller.signal.aborted) throw abortError();
@@ -2810,10 +2904,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return Object.freeze({ identity, prepare, acquire,
       cancel: () => close('cancelled',abortError()), dispose: () => close('disposed'),
-      status: () => Object.freeze({state,outcome,generation,consumers,pending,originalBytes,decodedBytes,imagePixels,cleanupPending:terminal()&&!finished,error:cause ? {code:cause.code,message:cause.message,assetId:cause.assetId,causeCode:cause.cause?.code||cause.cause?.name||null} : null}),
+      status: () => Object.freeze({state,outcome,generation,consumers,pending,originalBytes,decodedBytes,imagePixels,audioInfo:[...records.values()].filter(r=>r.audioInfo).map(r=>({assetId:r.id,...r.audioInfo})),cleanupPending:terminal()&&!finished,error:cause ? {code:cause.code,message:cause.message,assetId:cause.assetId,causeCode:cause.cause?.code||cause.cause?.name||null} : null}),
       toJSON:noJSON });
   }
-  return Object.freeze({ create, DEFAULTS, globalLimits, statistics: () => Object.freeze({sessions:live,residentBytes:resident,peakResidentBytes:peakResident,decoding,queued:queue.length}) });
+  return Object.freeze({ create, DEFAULTS, globalLimits, statistics: () => Object.freeze({sessions:live,residentBytes:resident,peakResidentBytes:peakResident,scratchBytes,peakScratchBytes,audioDecodes,pooledAudio:audioPool.size,decoding,queued:queue.length}) });
 });
 
 }, { once: true });
@@ -2877,7 +2971,7 @@ document.addEventListener("DOMContentLoaded", () => {
     for(const scene of audioOnly?[]:(windowScenes||frozenPlan.timeline))if(scene.visual==='image')needed.set(scene.imageId,{id:scene.imageId,kind:'image'});
     for(const role of windowFrame?[]:['voice','music']){const id=frozenPlan.audio[role].assetId;if(id){if(needed.get(id)?.kind==='image')throw error('REFERENCES','Изображение нельзя использовать как аудио.');needed.set(id,{id,kind:'audio'});}}
     let renderable=true;try{io.plan.assertRenderable(frozenPlan);}catch(_){renderable=false;}
-    const media=io.media.create({owner:identity,limits});
+    const media=io.media.create({owner:identity,limits,...(slot==='editor'&&!windowFrame?{audioDurationMs:frozenPlan.durationMs}:{})});
     function alive(){if(disposed)throw error('STATE','Runtime-сессия закрыта.');}
     function acquire(){alive();return media.acquire();}
     function borrowed(lease){return {voiceBuffer:lease.audio(frozenPlan.audio.voice.assetId),musicBuffer:lease.audio(frozenPlan.audio.music.assetId),...io.plan.audioOptions(frozenPlan)};}
@@ -3147,7 +3241,7 @@ document.addEventListener("DOMContentLoaded", () => {
  }
  // Same storage staging and bounded native decoder as runtime preparation.
  // Only a successfully decoded original may become a saved DTO reference.
- function createUploads({owner,valid,accept,onState=()=>{}}){
+ function createUploads({owner,valid,accept,requirements=()=>null,onState=()=>{}}){
   let generation=0,tail=Promise.resolve();const current=new Map(),accepted=new Map();
   function cancel(role){const requests=role?[current.get(role)].filter(Boolean):[...current.values()];for(const request of requests){current.delete(request.role);request.session?.cancel().catch(()=>{});onState(request.role,'cancelled');}return Promise.all(requests.map(r=>r.session?.dispose()));}
   function load(role,file){
@@ -3164,11 +3258,14 @@ document.addEventListener("DOMContentLoaded", () => {
      if(pending+file.size>MAX_PENDING)throw fail('PENDING_BUDGET','Несохранённые аудиооригиналы превышают 64 МиБ. Дождитесь сохранения; прежние файлы не удалены.');
      if(!valid(projectId))return false;
      id=io.core.id();io.storage.stage(id,file,file.name,role);
-     session=io.media.create({owner:{slot:'editor',projectId,contentRevision:token}});request.session=session;
-     await session.prepare([{id,kind:'audio'}]);
+     const config=requirements(role,id);
+     session=io.media.create({owner:{slot:'editor',projectId,contentRevision:token},audioDurationMs:config?.durationMs??null});request.session=session;
+     await session.prepare([{id,kind:'audio'},...(config?.otherIds||[]).map(id=>({id,kind:'audio'}))]);
+     if(JSON.stringify(config)!==JSON.stringify(requirements(role,id)))throw fail('CANCELLED','Звуковой состав или длительность проекта изменились во время подготовки. Выберите файл повторно.');
      if(current.get(role)!==request||!valid(projectId))return false;
-     attached=accept(role,{assetId:id,name:file.name})===true;
-     if(attached){accepted.set(id,file.size);onState(role,'ready');}return attached;
+     const acceptedResult=accept(role,{assetId:id,name:file.name});
+     attached=acceptedResult===true||acceptedResult?.accepted===true;
+     if(attached){accepted.set(id,file.size);await acceptedResult?.ready;if(current.get(role)===request&&valid(projectId))onState(role,'ready');}return attached;
     }catch(error){if(current.get(role)===request)onState(role,'error',error);return false;}
     finally{await session?.dispose();if(id&&!attached)io.storage.discard(id);if(current.get(role)===request)current.delete(role);}
    };
@@ -3222,7 +3319,7 @@ document.addEventListener("DOMContentLoaded", () => {
     throw e;
    }
   }
-  return Object.freeze({update,start,close,
+  return Object.freeze({update,start,close,settled:()=>tail,
    pause(){operation++;return active?.handle?.pause()||Promise.resolve();},
    positionMs(){return active?.handle?.positionMs()??null;},
    status(){return {ready:!!active&&!preparing&&!failure,preparing,error:failure?{code:failure.code,message:failure.message}:null,active:active?.session.status()||null};},
@@ -3258,7 +3355,8 @@ window.ShortsEditorReady = (async function () {
   const audioPlayback = window.ShortsEditorAudio.createPlayback({ onState: (state, error) => { audioState = state; audioFailure = error || null; renderAudio(); } });
   const audioUploads = window.ShortsEditorAudio.createUploads({
     owner: () => project.id, valid: owner => owner === project.id && editorVisible && !timing.error,
-    accept: (role, patch) => updateAudio(role, patch),
+    requirements: role => ({durationMs: timing.plan?.durationMs??0, otherIds: ['voice','music'].filter(r=>r!==role).map(r=>project.audio?.[r]?.assetId).filter(Boolean)}),
+    accept: (role, patch) => updateAudio(role, patch) ? {accepted:true,ready:audioPlayback.settled()} : false,
     onState: (role, state, error) => { audioStates.set(role, { state, message: error?.message || (state === 'loading' ? 'Проверяем и декодируем оригинал…' : state === 'ready' ? 'Оригинал принят. Состояние сохранения — в уведомлении.' : 'Загрузка отменена.') }); renderAudio(); }
   });
   const livePreview = window.ShortsEditorPreview.create({ canvas: $('editorCanvas'), onState: previewState });

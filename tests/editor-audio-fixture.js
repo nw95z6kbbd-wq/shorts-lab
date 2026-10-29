@@ -13,7 +13,7 @@ window.editorAudioPaused=async()=>{
 };
 window.editorAudioTap=function(){
  if(window.editorAudioTaps)return;window.editorAudioTaps=[];window.editorAudioContexts=[];const seen=new WeakSet();
- const connect=ShortsVideoAudio.connectMix;
+ const connect=ShortsVideoAudio.connectMix;window.editorAudioUnobservedMix=connect;
  ShortsVideoAudio.connectMix=function(context,options){
   if(!seen.has(context)){
    seen.add(context);const trace={events:[]};editorAudioContexts.push(trace);

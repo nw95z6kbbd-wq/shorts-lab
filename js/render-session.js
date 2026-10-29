@@ -55,7 +55,7 @@
     for(const scene of audioOnly?[]:(windowScenes||frozenPlan.timeline))if(scene.visual==='image')needed.set(scene.imageId,{id:scene.imageId,kind:'image'});
     for(const role of windowFrame?[]:['voice','music']){const id=frozenPlan.audio[role].assetId;if(id){if(needed.get(id)?.kind==='image')throw error('REFERENCES','Изображение нельзя использовать как аудио.');needed.set(id,{id,kind:'audio'});}}
     let renderable=true;try{io.plan.assertRenderable(frozenPlan);}catch(_){renderable=false;}
-    const media=io.media.create({owner:identity,limits});
+    const media=io.media.create({owner:identity,limits,...(slot==='editor'&&!windowFrame?{audioDurationMs:frozenPlan.durationMs}:{})});
     function alive(){if(disposed)throw error('STATE','Runtime-сессия закрыта.');}
     function acquire(){alive();return media.acquire();}
     function borrowed(lease){return {voiceBuffer:lease.audio(frozenPlan.audio.voice.assetId),musicBuffer:lease.audio(frozenPlan.audio.music.assetId),...io.plan.audioOptions(frozenPlan)};}

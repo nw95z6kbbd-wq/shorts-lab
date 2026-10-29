@@ -146,3 +146,8 @@ test('native audio startup awaits missing globals and restoration, rejects wrong
  const failed=page();Object.assign(failed.window,{ShortsEditorReady:Promise.reject(Error('IndexedDB restore failure')),ShortsEditor:{},ShortsVideoRestored:true});failed.document.body.inert=false;await assert.rejects(failed.editorAudioStartup(expected),/IndexedDB restore failure/);
  const absent=page();let now=0;absent.Date={now:()=>now++};await assert.rejects(absent.editorAudioStartup(expected,{timeoutMs:0,poll:async()=>{}}),/startup timeout.*ShortsEditorReady/);
 });
+test('upload checks the companion track and rejects a changed preparation contract before attachment',async()=>{
+ const f=fixture(),storage={stage:(id,blob,name,kind)=>f.originals.set(id,{id,blob,name,kind}),discard:id=>f.originals.delete(id),pending:id=>f.originals.has(id)};let durationMs=30000,accepted=0;
+ const uploads=audioFactory({core:C,media:f.media,storage}).createUploads({owner:()=>f.p.id,valid:()=>true,requirements:()=>({durationMs,otherIds:['voice']}),accept:()=>{accepted++;return true;}}),g=gate();f.setGate(g);
+ const file=Object.assign(new Blob(['valid'],{type:'audio/wav'}),{name:'new.wav'}),before=[...f.originals.keys()],loading=uploads.load('music',file);await tick();durationMs=15000;g.resolve();f.setGate(null);assert.equal(await loading,false);assert.equal(accepted,0);assert.deepEqual([...f.originals.keys()],before);assert.equal(f.media.statistics().residentBytes,0);await uploads.dispose();
+});
