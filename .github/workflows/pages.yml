@@ -2,9 +2,7 @@ name: Check Shorts Studio
 
 on:
   push:
-    # Temporary investigation trigger while the GitHub PR API is unavailable.
-    # This is the checks workflow; upload_pages still defaults to false.
-    branches: [main, fix/safari-editor-recording-validation]
+    branches: [main]
   pull_request:
     branches: [main, feat/browser-video-generator]
   workflow_dispatch:
