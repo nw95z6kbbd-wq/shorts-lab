@@ -12,25 +12,34 @@ window.editorBoundaryArm=function(delayImage){
   const mix=connect(ctx,options);probe.context=ctx;
   return {start(when){probe.when=when;probe.events.push({event:'start',offset:options.offsetSeconds,when,clock:ctx.currentTime,wall:performance.now()});mix.start(when);},stop(){probe.events.push({event:'stop',clock:ctx.currentTime,wall:performance.now()});mix.stop();}};
  };
- probe.restore=()=>{ShortsVideoAudio.connectMix=connect;ShortsVideoMedia.decodeImage=decode;release();probe.node?.disconnect();probe.gain?.disconnect();probe.node?.port.close();};
+ probe.restore=()=>{ShortsVideoAudio.connectMix=connect;ShortsVideoMedia.decodeImage=decode;release();probe.node?.disconnect();probe.gain?.disconnect();probe.node?.port?.close();if(probe.node&&'onaudioprocess' in probe.node)probe.node.onaudioprocess=null;};
 };
 window.editorBoundaryMeasure=async function(){
  const p=editorBoundaryProbe;let url;
  try{
   await editorLiveUntil(()=>p.context&&p.when!==undefined,'music source start');const ctx=p.context;
   audioCheck(!editorAudioTaps.at(-1).options.voiceBuffer&&editorAudioTaps.at(-1).options.musicBuffer,'music-only actual graph');
-  audioCheck(ctx.audioWorklet&&window.AudioWorkletNode,'native passive audio meter');
+  // Safari file origins forbid Blob module imports for AudioWorklet. The
+  // passive local-file meter reads real ScriptProcessor input in the same
+  // 128-sample units; thresholds and source/clock assertions stay identical.
+  if(location.protocol==='file:'){
+    p.method='script-processor-2048/128';p.node=ctx.createScriptProcessor(2048,2,1);
+    p.node.onaudioprocess=e=>{editorBoundaryAccumulate(p,e.inputBuffer.getChannelData(0),e.playbackTime-p.when,ctx.sampleRate);e.outputBuffer.getChannelData(0).fill(0);};
+  }else{
+  audioCheck(ctx.audioWorklet&&window.AudioWorkletNode,'native passive audio meter');p.method='audio-worklet-128';
   const code=`registerProcessor('studio-boundary-meter',class extends AudioWorkletProcessor{constructor(o){super();this.when=o.processorOptions.when;this.blocks=0;this.zeros=0;this.min=Infinity;}process(inputs){const d=inputs[0]?.[0],t=currentFrame/sampleRate-this.when;if(d&&t>=.5&&t<=6.5){let sum=0;for(let i=0;i<d.length;i++)sum+=d[i]*d[i];const rms=Math.sqrt(sum/d.length);this.blocks++;this.min=Math.min(this.min,rms);if(rms<.00001)this.zeros++;if(this.blocks%32===0)this.port.postMessage({blocks:this.blocks,zeroBlocks:this.zeros,minRms:this.min});}return true;}});`;
   url=URL.createObjectURL(new Blob([code],{type:'application/javascript'}));await ctx.audioWorklet.addModule(url);URL.revokeObjectURL(url);url=null;
-  p.node=new AudioWorkletNode(ctx,'studio-boundary-meter',{processorOptions:{when:p.when}});p.gain=ctx.createGain();p.gain.gain.value=0;p.node.connect(p.gain);p.gain.connect(ctx.destination);editorAudioTaps.at(-1).analyser.connect(p.node);
+  p.node=new AudioWorkletNode(ctx,'studio-boundary-meter',{processorOptions:{when:p.when}});
   p.node.port.onmessage=e=>Object.assign(p,e.data);
+  }
+  p.gain=ctx.createGain();p.gain.gain.value=0;p.node.connect(p.gain);p.gain.connect(ctx.destination);editorAudioTaps.at(-1).analyser.connect(p.node);
   if(p.delayImage){
    await editorLiveUntil(()=>p.entered,'cold image decode entered');
    await editorLiveUntil(()=>ctx.currentTime-p.when>4.4,'audio advances during delayed image preparation');p.release();
    await editorLiveUntil(()=>editorCanvas.dataset.sceneId==='boundary-2'&&Math.abs(Number(editorCanvas.dataset.timeMs)-(ctx.currentTime-p.when)*1000)<125,'Canvas catches up after skipping a stale image window');
   }
   await editorLiveUntil(()=>ctx.currentTime-p.when>6.6,'cross three scene boundaries');
-  const signal=editorAudioSignal(),events=structuredClone(p.events),controls=structuredClone(editorAudioContexts.at(-1).events),meter={blocks:p.blocks,zeroBlocks:p.zeroBlocks,minRms:p.minRms};
+  const signal=editorAudioSignal(),events=structuredClone(p.events),controls=structuredClone(editorAudioContexts.at(-1).events),meter={method:p.method,blocks:p.blocks,zeroBlocks:p.zeroBlocks,minRms:p.minRms};
   audioCheck(events.length===1&&events[0].event==='start'&&events[0].offset===0,'automatic scene boundary restarted/stopped sources '+JSON.stringify(events));
   audioCheck(controls.length===0&&ctx.state==='running','automatic scene boundary controlled AudioContext '+JSON.stringify(controls));
   audioCheck(signal.rms>.0001&&Math.abs(signal.clock-signal.canvas)<125,'real signal and Canvas stay on the same clock '+JSON.stringify(signal));
@@ -39,4 +48,14 @@ window.editorBoundaryMeasure=async function(){
   // this into a stop-at-project-end assertion.
   playPreview.click();await editorAudioPaused();return {images:p.delayImage,events,controls,meter,signal};
  }finally{if(url)URL.revokeObjectURL(url);p.restore();}
+};
+
+// Shared local-file aggregation: exactly the Worklet's quantum size/window and
+// RMS threshold, independent of the larger native ScriptProcessor callback.
+window.editorBoundaryAccumulate=function(p,data,startTime,rate){
+ for(let at=0;at+128<=data.length;at+=128){
+  const time=startTime+at/rate;if(time<.5||time>6.5)continue;
+  let sum=0;for(let i=at;i<at+128;i++)sum+=data[i]*data[i];const rms=Math.sqrt(sum/128);
+  p.blocks++;p.minRms=p.minRms===null?rms:Math.min(p.minRms,rms);if(rms<.00001)p.zeroBlocks++;
+ }
 };

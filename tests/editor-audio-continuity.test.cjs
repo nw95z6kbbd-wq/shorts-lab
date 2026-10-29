@@ -22,3 +22,16 @@ test('pause/cancellation during a pending picture cannot restart sound or schedu
 test('the plan end still stops playback after cold preparation while automatic boundaries never do',async()=>{
  const f=fixture(after);await f.env.play();f.hold();f.setTime(1100);const frame=f.callbacks.shift()(1100);await tick();f.setTime(4000);f.release();await frame;assert.equal(f.starts.length,2);assert.equal(f.pauses(),1);assert.equal(f.env.elapsedMs,4000);assert.equal(f.env.playing,false);assert.equal(f.callbacks.length,0);
 });
+test('the local-file PCM meter preserves 128-sample RMS/zero detection within a larger callback',()=>{
+ const env={window:{}};vm.createContext(env);vm.runInContext(fs.readFileSync('tests/editor-audio-continuity.js','utf8'),env);const p={blocks:0,zeroBlocks:0,minRms:null},data=new Float32Array(2048).fill(.1);data.fill(0,128,256);
+ env.window.editorBoundaryAccumulate(p,data,1,44100);assert.equal(p.blocks,16);assert.equal(p.zeroBlocks,1);assert.equal(p.minRms,0);
+ const silent={blocks:0,zeroBlocks:0,minRms:null};env.window.editorBoundaryAccumulate(silent,new Float32Array(2048),1,44100);assert.equal(silent.zeroBlocks,16);
+ const active={blocks:0,zeroBlocks:0,minRms:null};env.window.editorBoundaryAccumulate(active,new Float32Array(2048).fill(.1),1,44100);assert.ok(active.minRms>.09);assert.equal(active.zeroBlocks,0);env.window.editorBoundaryAccumulate(active,data,10,44100);assert.equal(active.blocks,16);
+});
+test('audio/Canvas assertions after seek wait for a moving frame relative to the seek offset',async()=>{
+ const env={};env.window=env;vm.createContext(env);vm.runInContext(fs.readFileSync('tests/editor-audio-fixture.js','utf8'),env);
+ let release;const gate=new Promise(r=>release=r);env.editorAudioTaps=[{stopped:false,when:0,context:{currentTime:.2},options:{offsetSeconds:3.5}}];env.editorCanvas={dataset:{timeMs:'3500'}};
+ env.editorLiveUntil=async condition=>{assert.equal(condition(),false,'the old paused seek frame must not satisfy playback progress');await gate;assert.equal(condition(),true);};env.editorAudioSignal=()=>({clock:3700,canvas:Number(env.editorCanvas.dataset.timeMs)});
+ const checking=env.editorAudioPlaying(150);env.editorCanvas.dataset.timeMs='3700';release();assert.equal((await checking).canvas,3700);
+ env.editorLiveUntil=async condition=>assert.equal(condition(),true);env.editorAudioSignal=()=>({clock:4000,canvas:3700});await assert.rejects(env.editorAudioPlaying(150),/Canvas\/audio offset/,'the original sync tolerance still rejects real lag');
+});

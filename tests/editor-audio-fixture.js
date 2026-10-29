@@ -44,7 +44,7 @@ window.editorAudioSignal=()=>{
  return {rms,clock,canvas:Number(editorCanvas.dataset.timeMs),scene:editorCanvas.dataset.sceneId,offset:tap.options.offsetSeconds,context:tap.context.state,voiceVolume:tap.options.voiceVolume,musicVolume:tap.options.musicVolume,fadeIn:tap.options.fadeIn,fadeOut:tap.options.fadeOut};
 };
 window.editorAudioPlaying=async function(minTime=200){
- await editorLiveUntil(()=>{const tap=editorAudioTaps.at(-1);return tap&&!tap.stopped&&tap.context.currentTime-tap.when>=minTime/1000&&Number(editorCanvas.dataset.timeMs)>=minTime;},'running audio clock');
+ await editorLiveUntil(()=>{const tap=editorAudioTaps.at(-1);return tap&&!tap.stopped&&tap.context.currentTime-tap.when>=minTime/1000&&Number(editorCanvas.dataset.timeMs)>=tap.options.offsetSeconds*1000+minTime;},'running audio clock');
  const result=editorAudioSignal();audioCheck(Math.abs(result.clock-result.canvas)<125,'Canvas/audio offset '+JSON.stringify(result));return result;
 };
 window.editorAudioOffline=async function(){
