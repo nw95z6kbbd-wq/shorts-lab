@@ -1,5 +1,5 @@
 """Required native Safari H.264/AAC and WebM, HTTP and real standalone file origin."""
-import base64,functools,json,threading
+import base64,functools,json,threading,subprocess
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
 from runtime_session_native import command_result
@@ -53,7 +53,10 @@ def check_native_editor_export(root,script,command,click):
        {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True},
        {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True},
       ]:
-       script('window.exportMatrixConfig=arguments[0];',[config]);click('#exportMatrix');row=execute('return await exportMatrixPromise;');print('::notice title=Failure-only native codec matrix::'+json.dumps(row),flush=True)
+       script('window.exportMatrixConfig=arguments[0];',[config]);click('#exportMatrix');row=execute('return await exportMatrixPromise;')
+       if row.get('bytes'):
+        data=encoded('exportMatrixBlob');path=folder/('matrix-'+str(len(list(folder.glob('matrix-*.mp4'))))+'.mp4');path.write_bytes(base64.b64decode(data['data']));row['independent']=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','stream=codec_name,codec_type,width,height:format=duration','-of','json',str(path)]))
+       print('::notice title=Failure-only native codec matrix::'+json.dumps(row),flush=True)
      except Exception as diagnostic:print('::warning title=Native matrix failure::'+str(diagnostic)[:800],flush=True)
      try:
       data=encoded('exportRawBlob');failed=folder/('failed'+('.mp4' if data['type'].startswith('video/mp4') else '.webm'));failed.write_bytes(base64.b64decode(data['data']));actual=inspect_recording(failed);print('::error title=Native Editor export independent evidence::'+json.dumps({'failure':str(failure),'mime':data['type'],'formats':prepared['formats'],'streams':actual['streams'],'video':actual['video'],'audio':actual['audio'],'format':actual['format']}),flush=True)

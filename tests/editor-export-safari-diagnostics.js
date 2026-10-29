@@ -28,7 +28,7 @@ window.setupEditorExportMatrix=function(){
     for(const name of ['start','dataavailable','stop','error'])recorder.addEventListener(name,e=>{events.push({name,size:e.data?.size,error:e.error?.message,time:context.currentTime});if(name==='dataavailable'&&e.data.size)chunks.push(e.data);if(name==='stop')resolve();if(name==='error')reject(e.error||Error('native error'));});
     timer=setTimeout(()=>reject(Error('native matrix timeout')),6000);config.noSlice?recorder.start():recorder.start(250);if(config.lateAudio){if(mix)mix.start(context.currentTime+.02);else osc.start(context.currentTime+.02);}const start=context.currentTime;
     function draw(){const elapsed=context.currentTime-start;ctx.fillStyle=elapsed%1<.5?'#6633ee':'#331155';ctx.fillRect(0,0,720,1280);if(elapsed>=1.2)recorder.stop();else frame=requestAnimationFrame(draw);}frame=requestAnimationFrame(draw);
-   });row.bytes=chunks.reduce((n,b)=>n+b.size,0);
+   });row.bytes=chunks.reduce((n,b)=>n+b.size,0);window.exportMatrixBlob=new Blob(chunks,{type:recorder.mimeType});
   }catch(e){row.error=e.name+': '+e.message;}
   finally{clearTimeout(timer);cancelAnimationFrame(frame);if(recorder&&recorder.state!=='inactive')recorder.stop();osc?.stop();mix?.stop();stream?.getTracks().forEach(t=>t.stop());await context.close().catch(()=>{});canvas.remove();}
   row.events=events;exportMatrixRows.push(row);return row;
