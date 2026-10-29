@@ -74,3 +74,10 @@ test('stalled, backwards or non-finite media clocks fail instead of moving Canva
   assert.throws(()=>h.positionMs(),{code:'AUDIO_CLOCK'});await h.stop();await s.dispose();assert.equal(f.media.statistics().sessions,0);
  }
 });
+test('rapid new revisions cannot bypass an unclosed playback owner after close rejects',async()=>{
+ const f=fixture(),controller=audioFactory({runtime:f.runtime}).createPlayback();await controller.update(f.p,A.fromEditor(f.p),1);await controller.start(0);f.setCloseFailure(true);
+ const next=structuredClone(f.p);next.audio.music.volume=.3;
+ const first=controller.update(next,A.fromEditor(next),2),second=controller.update(next,A.fromEditor(next),3);await Promise.allSettled([first,second]);
+ assert.equal(controller.status().ready,false);assert.equal(controller.status().error.code,'AUDIO_CLOSE');assert.equal(f.contexts.length,1);assert.equal(f.media.statistics().sessions,1);
+ await assert.rejects(controller.start(0),{code:'AUDIO_CLOSE'});f.setCloseFailure(false);await controller.update(next,A.fromEditor(next),4);await controller.start(500);assert.equal(f.contexts.filter(c=>c.state!=='closed').length,1);assert.equal(f.contexts[0].state,'closed');await controller.close();assert.equal(f.media.statistics().sessions,0);
+});

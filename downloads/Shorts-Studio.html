@@ -3164,17 +3164,19 @@ document.addEventListener("DOMContentLoaded", () => {
  function createPlayback({onState=()=>{}}={}){
   let active=null,key=null,generation=0,tail=Promise.resolve(),failure=null,preparing=false;
   function close(){
-   generation++;key=null;const old=active;active=null;preparing=false;
+   generation++;key=null;preparing=false;
    // Cancel synchronously, but do not admit a new owner until cleanup succeeds.
-   old?.session.cancel().catch(()=>{});
-   tail=tail.catch(()=>{}).then(()=>old?.session.dispose()).then(()=>{failure=null;}).catch(e=>{failure=e;active=old;onState('error',e);throw e;});
+   active?.session.cancel().catch(()=>{});
+   tail=tail.catch(()=>{}).then(async()=>{
+    const old=active;await old?.session.dispose();if(active===old)active=null;failure=null;
+   }).catch(e=>{failure=e;onState('error',e);throw e;});
    tail.catch(()=>{});return tail;
   }
   function update(project,plan,revision){
    const next=JSON.stringify([project.id,revision]);if(key===next)return tail;
    close();key=next;const token=generation;
    if(!plan||!['voice','music'].some(r=>plan.audio[r].assetId)){onState('silent');return tail;}
-   let data;try{data=io.runtime.snapshotData(project,plan);}catch(e){failure=e;onState('error',e);return tail;}
+   let data;try{data=io.runtime.snapshotData(project,plan);}catch(e){tail=tail.then(()=>{if(token===generation){failure=e;onState('error',e);}});tail.catch(()=>{});return tail;}
    preparing=true;onState('loading');
    tail=tail.then(async()=>{
     if(token!==generation)return;
