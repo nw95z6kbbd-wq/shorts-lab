@@ -9,10 +9,12 @@ def check_editor_audio(execute,click,payload):
     execute('editorAudioSettings();await editorAudioReady();audioCheck(editorAudioState.dataset.state==="ready",editorAudioState.textContent);return true;')
     offline=execute('return await editorAudioOffline();')
     execute('editorAudioTap();await editorAudioNoticeOverPlay();return true;');click('#playPreview');execute('restoreAudioNotice();return true;')
-    signal=execute('return await editorAudioPlaying();');assert signal['rms']>.0001,signal
+    # Capture and click Pause in one browser operation: a remote-driver stall
+    # must not turn this pause assertion into a restart-after-project-end test.
+    signal=execute('const signal=await editorAudioPlaying();playPreview.click();await editorAudioPaused();return signal;');assert signal['rms']>.0001,signal
     assert signal['voiceVolume']==.4 and signal['musicVolume']==.25 and signal['fadeIn']==.25 and signal['fadeOut']==.5,signal
-    click('#playPreview')
     paused=execute('''await editorLiveUntil(()=>editorAudioTaps.at(-1).context.state==='suspended','pause context');const time=Number(editorCanvas.dataset.timeMs);await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));audioCheck(Number(editorCanvas.dataset.timeMs)===time,'paused Canvas moved');return Number(editorSeek.value);''')
+    assert 0<paused<6000,('Pause must precede project completion',paused)
     click('#playPreview');resumed=execute('return await editorAudioPlaying(20);');assert resumed['offset']>0 and abs(resumed['offset']*1000-paused)<2,(resumed,paused)
     execute('editorSeek.value="1800";editorSeek.dispatchEvent(new Event("input",{bubbles:true}));await editorLiveUntil(()=>editorCanvas.dataset.sceneId==="audio-scene-1"&&Number(editorCanvas.dataset.timeMs)>2050,"automatic scene crossing");return true;')
     crossing=execute('return await editorAudioPlaying(20);');assert crossing['clock']>2000 and crossing['offset']>=1.8,crossing

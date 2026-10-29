@@ -180,7 +180,8 @@ def run():
             script('const e=document.getElementById("projectName");e.value="Safari toast";e.dispatchEvent(new Event("input",{bubbles:true}));')
             wait_for('document.getElementById("saveStatus").dataset.state==="pending"')
             time.sleep(.7)
-            assert script('return uxLayoutSnapshot();')==layout
+            actual_layout=script('return uxLayoutSnapshot();')
+            assert actual_layout==layout, {'before':layout,'after':actual_layout}
             assert script('return document.getElementById("saveStatusText").textContent;')=='Сохранение…'
             script('const v=document.getElementById("studioViewport");v.scrollTop=v.scrollHeight;')
             command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));','args':[]})
@@ -190,9 +191,11 @@ def run():
             layout=script('return uxLayoutSnapshot();')
             script('window.uxHold=false;')
             wait_for('document.getElementById("saveStatus").dataset.state==="saved"')
-            assert script('return uxLayoutSnapshot();')==layout
+            actual_layout=script('return uxLayoutSnapshot();')
+            assert actual_layout==layout, {'before':layout,'after':actual_layout}
             wait_for('document.getElementById("saveStatus").hidden',seconds=6)
-            assert script('return uxLayoutSnapshot();')==layout
+            actual_layout=script('return uxLayoutSnapshot();')
+            assert actual_layout==layout, {'before':layout,'after':actual_layout}
             assert script('return !document.getElementById("noticeDock") && !getComputedStyle(document.documentElement).getPropertyValue("--notice-space");')
             script('quotaUXFailure();const e=document.getElementById("projectName");e.value="Safari quota";e.dispatchEvent(new Event("input",{bubbles:true}));')
             wait_for('document.getElementById("saveStatus").dataset.state==="error"')
