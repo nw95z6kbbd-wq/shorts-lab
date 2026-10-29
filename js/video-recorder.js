@@ -131,11 +131,26 @@
           onFormat(recorder.mimeType);
           mix?.start(context.currentTime + .02);
           const start = performance.now();
+          // MediaRecorder timestamps the mixed stream on the Web Audio clock.
+          // Safari can advance that clock more slowly during device warm-up.
+          // Keep frames, audio and the stop boundary on that same media clock;
+          // silent Canvas recording retains its original performance clock.
+          const audioStart = context?.currentTime;
+          let audioLast = audioStart, audioAdvancedAt = start;
+          const elapsedTime = now => {
+            if (!context) return now - start;
+            const time = context.currentTime;
+            if (context.state !== 'running' || !Number.isFinite(time) || time < audioLast) throw new Error('Аудиопоток прерван или его часы недоступны. Повторите запись.');
+            if (time > audioLast) audioAdvancedAt = now;
+            else if (now - audioAdvancedAt >= 10000) throw new Error('Аудиопоток не продвигается. Повторите запись или уберите аудиодорожки.');
+            audioLast = time;
+            return (time - audioStart) * 1000;
+          };
           onProgress(0, 0);
           function frame(now) {
             if (settled) return;
             try {
-              const elapsed = Math.min(plan.durationMs, Math.max(0, now - start));
+              const elapsed = Math.min(plan.durationMs, Math.max(0, elapsedTime(now)));
               render(elapsed);
               onProgress(Math.min(.99, elapsed / plan.durationMs), elapsed);
               if (elapsed >= plan.durationMs) {

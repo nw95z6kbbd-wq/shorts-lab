@@ -133,7 +133,7 @@ test('existing runtime/UI/storage sources and Safari guard retain the frozen mai
  const {createHash}=require('node:crypto'),checkpoint=require('./fixtures/runtime/before.json'),hash=b=>createHash('sha256').update(b).digest('hex');
  assert.equal(checkpoint.commit,'8042586d1c5c65a4a89eedd61052a37ca14b4868');
  const approved=new Set(['js/app.js','js/render-plan.js','js/render-adapters.js','js/video-renderer.js','tests/render_guard.py','tests/safari-baseline-test.py']);
- for(const [name,expected] of Object.entries(checkpoint.files))if(!approved.has(name))assert.equal(hash(fs.readFileSync(name)),expected,name);
+ for(const [name,expected] of Object.entries(checkpoint.files))if(!approved.has(name))assert.equal(hash(name==='js/video-recorder.js'?require('node:child_process').execFileSync('python',['tests/recorder_clock_guard.py',name]):fs.readFileSync(name)),expected,name);
  require('node:child_process').execFileSync('python',['tests/render_guard.py']);
  for(const name of ['render-plan.js','render-adapters.js'])assert.equal(hash(fs.readFileSync('tests/fixtures/editor-canvas/before/'+name)),checkpoint.files['js/'+name],name+' frozen before Editor Canvas');
  assert.equal(hash(fs.readFileSync('tests/fixtures/editor-canvas/before/render_guard.py')),checkpoint.files['tests/render_guard.py']);

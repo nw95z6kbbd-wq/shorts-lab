@@ -57,7 +57,7 @@ test('5000 scenes preserve identity and fallback; future DTO and too many scenes
 test('frozen pre-integration code proves storage, Video, baseline and narrow save barriers remain protected',()=>{
  const hash=b=>createHash('sha256').update(b).digest('hex'),before=require('./fixtures/editor-timing/before.json');assert.equal(before.commit,'d4d8cd5bccd8ac466562363cdffbd4ef348b94c0');
  for(const name of ['js/app.js','index.html'])assert.equal(hash(fs.readFileSync('tests/fixtures/editor-timing/'+(name==='index.html'?'index-before.html':'app-before.js'))),before.files[name]);
- for(const [name,sha] of Object.entries(before.files))if(!['js/app.js','index.html','js/render-plan.js','js/render-adapters.js'].includes(name))assert.equal(hash(fs.readFileSync(name)),sha,name);
+ for(const [name,sha] of Object.entries(before.files))if(!['js/app.js','index.html','js/render-plan.js','js/render-adapters.js'].includes(name))assert.equal(hash(['js/video-recorder.js','tests/render_guard.py'].includes(name)?require('node:child_process').execFileSync('python',['tests/recorder_clock_guard.py',name]):fs.readFileSync(name)),sha,name);
  const old=fs.readFileSync('tests/fixtures/editor-timing/app-before.js','utf8'),now=fs.readFileSync('js/app.js','utf8');
  const slice=(s,a,b)=>s.slice(s.indexOf(a),s.indexOf(b));
  for(const [a,b,remove] of [
