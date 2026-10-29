@@ -19,7 +19,8 @@ def check_native_editor_audio(root,script,command,click):
    command('POST','/url',{'url':entry});ready()
    evidence=check_editor_audio(execute,click,media_payload());saved=evidence.pop('saved')
    command('POST','/url',{'url':entry});ready();execute('await editorAudioReady();await editorLiveReady();return true;');assert execute('return await studioUiSnapshot();')==saved
-   click('.sidebar [data-backup-export]')
+   export_selector=script('return document.querySelector(".sidebar [data-backup-export]").getClientRects().length?".sidebar [data-backup-export]":".mobile-filebar [data-backup-export]";')
+   click(export_selector)
    archive=execute('''await editorLiveUntil(()=>!backupDownload.hidden,'ZIP ready');const blob=await(await fetch(backupDownload.href)).blob();const bundle=await ShortsBackupFormat.importArchive(blob);audioCheck(bundle.manifest.version===2,'ZIP2');return await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result.slice(r.result.lastIndexOf(',')+1));r.onerror=reject;r.readAsDataURL(blob);});''')
    click('#backupCancel')
    fresh=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(Handler,directory=str(root)));threading.Thread(target=fresh.serve_forever,daemon=True).start()
