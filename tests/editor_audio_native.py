@@ -10,7 +10,11 @@ def check_native_editor_audio(root,script,command,click):
  server=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(Handler,directory=str(root)));threading.Thread(target=server.serve_forever,daemon=True).start()
  diagnostics=(root/'tests/runtime-diagnostics.js').read_text()
  def execute(code,args=None):
-  return command_result(command('POST','/execute/async',{'script':diagnostics+'\nconst done=arguments[arguments.length-1];Promise.resolve().then(async()=>{'+code+'}).then(value=>done({ok:true,value}),e=>done({ok:false,failure:ShortsRuntimeDiagnostics.failure(e)}));','args':args or []}))
+  try:
+   return command_result(command('POST','/execute/async',{'script':diagnostics+'\nconst done=arguments[arguments.length-1];Promise.resolve().then(async()=>{'+code+'}).then(value=>done({ok:true,value}),e=>done({ok:false,failure:ShortsRuntimeDiagnostics.failure(e)}));','args':args or []}))
+  except Exception:
+   state=script('return {audio:document.getElementById("editorAudioState")?.textContent,preview:document.getElementById("portrait")?.dataset.previewState,label:document.getElementById("playPreview")?.getAttribute("aria-label"),time:document.getElementById("editorCanvas")?.dataset.timeMs,taps:window.editorAudioTaps?.slice(-6).map(t=>({offset:t.options.offsetSeconds,when:t.when,now:t.context.currentTime,state:t.context.state,stopped:t.stopped})),media:window.ShortsMediaSessions?.statistics()};')
+   print('::error title=Native Editor audio state::'+json.dumps({'phase':code[:120],'state':state}).replace('%','%25'),flush=True);raise
  def ready():
   execute('await ShortsEditorReady;const end=Date.now()+25000;while(!window.ShortsVideoRestored){if(Date.now()>end)throw Error("Video restore timeout");await new Promise(r=>setTimeout(r,30));}return true;')
   audio_helpers(root,script)

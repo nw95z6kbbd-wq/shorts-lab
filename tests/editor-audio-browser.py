@@ -22,7 +22,8 @@ def run():
    def execute(code,args=None):
     try:return page.evaluate('([code,args])=>new Function("return (async function(){"+code+"}).apply(null,arguments)").apply(null,args)',[code,args or []])
     except Exception:
-     print('AUDIO FAILURE STATE '+json.dumps(page.evaluate('''()=>({audio:editorAudioState.textContent,preview:portrait.dataset.previewState,label:playPreview.getAttribute('aria-label'),seek:editorSeek.value,time:editorCanvas.dataset.timeMs,scene:editorCanvas.dataset.sceneId,taps:window.editorAudioTaps?.map(t=>({offset:t.options.offsetSeconds,when:t.when,now:t.context.currentTime,context:t.context.state,stopped:t.stopped})),errors:document.getElementById('editorTimingErrorText').textContent,media:ShortsMediaSessions.statistics()})''')),flush=True);raise
+     state=page.evaluate('''()=>({audio:editorAudioState.textContent,preview:portrait.dataset.previewState,label:playPreview.getAttribute('aria-label'),seek:editorSeek.value,time:editorCanvas.dataset.timeMs,scene:editorCanvas.dataset.sceneId,taps:window.editorAudioTaps?.slice(-8).map(t=>({offset:t.options.offsetSeconds,when:t.when,now:t.context.currentTime,context:t.context.state,stopped:t.stopped})),errors:document.getElementById('editorTimingErrorText').textContent,media:ShortsMediaSessions.statistics()})''')
+     print('::error title=Editor audio state::'+json.dumps({'engine':engine,'mobile':mobile,'phase':code[:120],'state':state}).replace('%','%25'),flush=True);raise
    result=check_editor_audio(execute,lambda selector:page.locator(selector).click(),media_payload());saved=result.pop('saved');print('PASS actual audio: '+json.dumps(result),flush=True)
    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
    context.close();context=launch();page=context.new_page();open_app(page);page.evaluate('editorLiveReady()');page.evaluate('editorAudioReady()');assert page.evaluate('studioUiSnapshot()')==saved
