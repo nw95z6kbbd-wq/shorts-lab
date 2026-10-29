@@ -17,7 +17,7 @@ def prepare(output):
     favicon = quote((ROOT / "assets/favicon.svg").read_text(encoding="utf-8"), safe="")
     html = html.replace('href="assets/favicon.svg"', 'href="data:image/svg+xml,' + favicon + '"')
     scripts = re.findall(r'<script src="([^"]+)" defer></script>', html)
-    if scripts != ["js/core.js", "js/product.js", "js/editor-profile.js", "js/render-plan.js", "js/render-adapters.js", "js/video-core.js", "js/project-db.js", "js/storage.js", "js/zip-store.js", "js/backup-format.js", "js/integrations.js", "js/editor-timing.js", "js/editor-canvas.js", "js/video-renderer.js", "js/video-audio.js", "js/video-recorder.js", "js/video-media.js", "js/media-session.js", "js/render-session.js", "js/editor-preview.js", "js/editor-images.js", "js/app.js", "js/video-ui.js", "js/product-ui.js", "js/ux.js", "js/backup-ui.js"]:
+    if scripts != ["js/core.js", "js/product.js", "js/editor-profile.js", "js/render-plan.js", "js/render-adapters.js", "js/video-core.js", "js/project-db.js", "js/storage.js", "js/zip-store.js", "js/backup-format.js", "js/integrations.js", "js/editor-timing.js", "js/editor-canvas.js", "js/video-renderer.js", "js/video-audio.js", "js/video-recorder.js", "js/video-media.js", "js/media-session.js", "js/render-session.js", "js/editor-preview.js", "js/editor-images.js", "js/editor-audio.js", "js/app.js", "js/video-ui.js", "js/product-ui.js", "js/ux.js", "js/backup-ui.js"]:
         raise ValueError("Script order changed: update the single-file packaging before publication.")
     html = re.sub(r'\s*<script src="[^"]+" defer></script>', "", html)
     # Inline classic scripts ignore defer. Keep the source page's after-parser

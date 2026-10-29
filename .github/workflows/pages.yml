@@ -94,6 +94,11 @@ jobs:
           EDITOR_MOBILE=1 python tests/check-errors.py tests/editor-canvas-browser.py
       - name: Check real browser video and audio recording
         run: python tests/check-errors.py tests/video-browser.py
+      - name: Check Editor audio UI and actual signals
+        run: |
+          python scripts/prepare-site.py
+          python tests/check-errors.py tests/editor-audio-browser.py
+          EDITOR_AUDIO_MOBILE=1 EDITOR_AUDIO_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/editor-audio-browser.py
       - name: Check images and two-track video export
         run: python tests/check-errors.py tests/media-browser.py
       - name: Check project restart and restored video export
@@ -199,6 +204,10 @@ jobs:
           RUNTIME_BROWSER=webkit python tests/check-errors.py tests/runtime-session-browser.py
           RUNTIME_BROWSER=webkit RUNTIME_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/runtime-session-browser.py
           RUNTIME_BROWSER=webkit RUNTIME_MOBILE=1 RUNTIME_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/runtime-session-browser.py
+      - name: Check Editor audio UI and actual signals in WebKit/mobile
+        run: |
+          EDITOR_AUDIO_BROWSER=webkit python tests/check-errors.py tests/editor-audio-browser.py
+          EDITOR_AUDIO_BROWSER=webkit EDITOR_AUDIO_MOBILE=1 EDITOR_AUDIO_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/editor-audio-browser.py
       - name: Check Editor timing UI in WebKit and offline mobile
         run: |
           TIMING_BROWSER=webkit python tests/check-errors.py tests/editor-timing-browser.py

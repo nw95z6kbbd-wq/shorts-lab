@@ -22,6 +22,7 @@ from render_plan_native import check_native_render_plan
 from render_guard import assert_render_stack
 from runtime_session_native import check_native_runtime
 from editor_canvas_native import check_native_editor_canvas
+from editor_audio_native import check_native_editor_audio
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -323,6 +324,7 @@ def run():
             check_native_render_plan(ROOT,script,command)
             check_native_runtime(ROOT,script,command,click)
             check_native_editor_canvas(ROOT,script,command,click)
+            check_native_editor_audio(ROOT,script,command,click)
     finally:
         if session:
             try: request('DELETE','/session/'+session)

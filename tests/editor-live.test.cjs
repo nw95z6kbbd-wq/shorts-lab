@@ -51,7 +51,7 @@ test('precise additive runtime/source bridges retain the previous full preparati
  const {createHash}=require('node:crypto'),hash=b=>createHash('sha256').update(b).digest('hex'),before=require('./fixtures/editor-live/before.json'),bridges=require('./fixtures/editor-live/runtime-bridges.json');
  assert.equal(before.commit,'0ffcb4812e6389011701ea8f852ef367cbaf602a');
  for(const [file,sha] of Object.entries(before.files))assert.equal(hash(fs.readFileSync('tests/fixtures/editor-live/'+file.split('/').pop())),sha);
- for(const [file,entries] of Object.entries(bridges)){let s=fs.readFileSync(file,'utf8');for(const e of entries){assert.equal(s.split(e.new).length,2,file+' exact supported extension');s=s.replace(e.new,e.old);}assert.equal(hash(s),before.files[file],file+' full path unchanged');}
+ for(const [file,entries] of Object.entries(bridges)){let s=require('./editor-audio-bridge.cjs')(file,fs.readFileSync(file,'utf8'));for(const e of entries){assert.equal(s.split(e.new).length,2,file+' exact supported extension');s=s.replace(e.new,e.old);}assert.equal(hash(s),before.files[file],file+' full path unchanged');}
  const old=fs.readFileSync('tests/fixtures/editor-live/app.js','utf8'),now=fs.readFileSync('js/app.js','utf8');for(const [start,end] of [['  async function saveNow()', '  function changed()'],['  function changed()', '  function confirmAction('],['    backupSnapshot()', '    confirm:'],['    useScript(', '  renderAll();']]){const slice=s=>s.slice(s.indexOf(start),s.indexOf(end,s.indexOf(start)));assert.equal(slice(old),slice(now),start);}
 });
 
