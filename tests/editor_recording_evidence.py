@@ -36,12 +36,29 @@ def inspect_recording(path):
             'format':info['format'],'streams':info['streams'],'video':{**bounds(video),'dimensions':sorted({(f[2].get('width'),f[2].get('height')) for f in video})},'audio':bounds(audio),'fullDecode':True}
 
 
+def assert_complete_recording(evidence):
+    """A plausible container header or one decodable frame is insufficient."""
+    video, audio = evidence['video'], evidence['audio']
+    assert video['dimensions'] == [(720, 1280)], ('Recorded frame resolution', video)
+    assert video['count'] >= 12, ('Incomplete recorded frame count', video)
+    span = video['end'] - video['firstPts']
+    assert 2.7 <= span <= 4, ('Incomplete recorded frame timeline', video)
+    assert audio['count'] and 2.7 <= audio['end'] - audio['firstPts'] <= 4, ('Incomplete recorded audio timeline', audio)
+    assert 2.7 <= float(evidence['format']['duration']) <= 4, ('Incomplete recorded container duration', evidence['format'])
+    assert evidence['fullDecode'] is True
+
+
 def save_recording_evidence(root, script, command, label):
     """Bounded test-owned Blob transport; keep diagnostics even when decoding fails."""
     folder=Path(root)/'test-results/editor-canvas'/label
     folder.mkdir(parents=True,exist_ok=True)
     evidence=script('return window.editorRecordingEvidence || null;')
     result={'browser':evidence}
+    if label.startswith('safari-recording-failure'):
+        try:
+            result['sameBytesReprobe']=command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];reprobeEditorRecording().then(done,e=>done({error:e.name+": "+e.message}));','args':[]})
+        except Exception as error:
+            result['sameBytesReprobe']={'error':str(error)[:300]}
     (folder/'browser.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2))
     try:
         value=command('POST','/execute/async',{'script':'''const done=arguments[arguments.length-1],blob=window.editorRecordedBlob;
@@ -59,9 +76,11 @@ def save_recording_evidence(root, script, command, label):
     except Exception as error:
         result['inspectionError']={'name':type(error).__name__,'message':str(error)[:800]}
     (folder/'evidence.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
-    encoded=json.dumps(result,ensure_ascii=False)
-    # Error diagnostics remain public even after GitHub's per-step notice limit.
-    print('::warning title=Editor recording byte evidence::'+encoded.replace('%','%25').replace('\r','%0D').replace('\n','%0A'),flush=True)
+    # Split evidence below GitHub's 4 KiB per-annotation truncation boundary.
+    # Never print recorded media bytes, source paths, or data URLs.
+    for kind, value in result.items():
+        encoded=json.dumps(value,ensure_ascii=False)
+        print('::warning title=Editor recording '+kind+'::'+encoded.replace('%','%25').replace('\r','%0D').replace('\n','%0A'),flush=True)
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
             summary.write('\n### Editor recording byte evidence\n\n```json\n'+json.dumps(result,ensure_ascii=False,indent=2)+'\n```\n')

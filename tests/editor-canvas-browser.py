@@ -12,6 +12,7 @@ from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from playwright.sync_api import sync_playwright
 from backup_assets import media_payload
 from editor_canvas_diagnostics import save_editor_diagnostics
+from editor_recording_evidence import inspect_recording, assert_complete_recording
 ROOT=Path(__file__).resolve().parents[1]
 class Handler(SimpleHTTPRequestHandler):
     def log_message(self,*args):pass
@@ -53,7 +54,7 @@ def run():
                 data=page.evaluate('async()=>{const r=new FileReader();const ready=new Promise((resolve,reject)=>{r.onload=()=>resolve(r.result.slice(r.result.lastIndexOf(",")+1));r.onerror=reject;});r.readAsDataURL(editorRecordedBlob);return ready;}')
                 spec_module=importlib.util.spec_from_file_location('editor_media',ROOT/'tests/media-browser.py');media=importlib.util.module_from_spec(spec_module);spec_module.loader.exec_module(media)
                 with tempfile.TemporaryDirectory(prefix='editor-canvas-recording-') as folder:
-                    video=Path(folder)/'editor.webm';video.write_bytes(base64.b64decode(data));media.checks.verify_video(video,3,audio=True);voice,music=media.spectrum(video,1);assert voice>.015 and music>.01,(voice,music);media.no_black_frames(video)
+                    video=Path(folder)/'editor.webm';video.write_bytes(base64.b64decode(data));encoded=inspect_recording(video);assert_complete_recording(encoded);result['encoded']={'video':encoded['video'],'audio':encoded['audio'],'fullDecode':encoded['fullDecode']};media.checks.verify_video(video,3,audio=True);voice,music=media.spectrum(video,1);assert voice>.015 and music>.01,(voice,music);media.no_black_frames(video)
             assert not errors,errors
             print(f'::notice title=Editor Canvas verified::PASS [{engine} {entry} mobile={mobile}]: '+json.dumps(result),flush=True);context.close();browser.close()
     finally:server.shutdown();server.server_close()

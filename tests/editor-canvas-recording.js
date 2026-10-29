@@ -15,6 +15,30 @@ window.prepareEditorCanvasRecording = async function(payload){
  const button=document.createElement('button');button.id='editorRecordProbe';button.textContent='Editor recording probe';button.style='position:fixed;left:20px;top:20px;z-index:20000';document.body.append(button);
  evidence.plan={durationMs:plan.durationMs,scenes:plan.timeline.map(s=>({id:s.id,startMs:s.startMs,endMs:s.endMs}))};
  evidence.canvas={width:canvas.width,height:canvas.height};
+ // Failure-only observation of the exact same bytes. This cannot turn a failed
+ // assertion into success: the native caller always rethrows its original error.
+ window.reprobeEditorRecording=async()=>{
+  const element=document.createElement('video');element.muted=true;element.playsInline=true;
+  const unmount=mountRuntimeRecordedVideo(element),events=[],listeners=[];
+  let timer,frame,count=0,lastMediaTime=null;
+  const snapshot=()=>({width:element.videoWidth,height:element.videoHeight,duration:Number.isFinite(element.duration)?element.duration:String(element.duration),currentTime:element.currentTime,readyState:element.readyState});
+  try{
+   const serialized=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(window.editorRecordedBlob);});
+   const source=runtimeRecordingDataURL(window.editorRecordedBlob.type,serialized);
+   return await new Promise(resolve=>{
+    let finished=false;
+    const finish=(state,error)=>{if(finished)return;finished=true;clearTimeout(timer);resolve({state,error,frames:count,lastMediaTime,events,video:snapshot()});};
+    for(const name of ['loadedmetadata','durationchange','loadeddata','canplay','ended','error']){
+     const fn=()=>{if(events.length<24)events.push({event:name,...snapshot()});if(name==='ended')finish('ended');if(name==='error')finish('error','Media decode error');};
+     listeners.push([name,fn]);element.addEventListener(name,fn);
+    }
+    const observe=(_now,data)=>{count++;lastMediaTime=data.mediaTime;if(!finished)frame=element.requestVideoFrameCallback(observe);};
+    if(element.requestVideoFrameCallback)frame=element.requestVideoFrameCallback(observe);
+    timer=setTimeout(()=>finish('observation-timeout'),5000);
+    element.src=source;element.load();element.play().catch(error=>finish('play-rejected',error.name+': '+error.message));
+   });
+  }finally{clearTimeout(timer);if(frame!=null)element.cancelVideoFrameCallback?.(frame);for(const [name,fn] of listeners)element.removeEventListener(name,fn);unmount();}
+ };
  button.onclick=()=>{
   const started=performance.now();let previous;
   window.editorRecordingPromise=ShortsVideoRecorder.capabilities(true,'webm').supported?ShortsVideoRecorder.record({canvas,plan,resources,voiceBuffer:buffers.voice,musicBuffer:buffers.music,...ShortsRenderPlan.audioOptions(plan),format:'webm',
@@ -35,7 +59,13 @@ window.prepareEditorCanvasRecording = async function(payload){
    const traceEvents=['loadedmetadata','durationchange','loadeddata','canplay','canplaythrough','error'],listeners=[];
    for(const event of traceEvents){const listener=()=>{evidence.video=probe();if(evidence.events.length<24)evidence.events.push({event,...probe()});};listeners.push([event,listener]);video.addEventListener(event,listener);}
    stopTrace=()=>{for(const [event,listener] of listeners)video.removeEventListener(event,listener);};
-   await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Editor metadata timeout')),15000);const check=()=>{if(video.error){clearTimeout(timer);reject(Error('Editor video decode error'));}else if(video.videoWidth&&Number.isFinite(video.duration)&&video.duration>0){clearTimeout(timer);resolve();}};for(const event of ['loadedmetadata','durationchange','loadeddata','error'])video.addEventListener(event,check);video.src=source;video.load();});
+   await new Promise((resolve,reject)=>{
+    const events=['loadedmetadata','durationchange','loadeddata','error'];
+    const finish=error=>{clearTimeout(timer);for(const event of events)video.removeEventListener(event,check);error?reject(error):resolve();};
+    const check=()=>{if(video.error)finish(Error('Editor video decode error'));else if(video.videoWidth&&Number.isFinite(video.duration)&&video.duration>0)finish();};
+    const timer=setTimeout(()=>finish(Error('Editor metadata timeout')),15000);
+    for(const event of events)video.addEventListener(event,check);video.src=source;video.load();
+   });
    await waitRuntimeVideoFrame(video);
    evidence.video=probe();
    if(video.videoWidth!==720||video.videoHeight!==1280||video.duration<2.7||video.duration>4)throw Error('Incomplete Editor recording');

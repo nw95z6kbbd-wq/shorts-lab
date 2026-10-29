@@ -2,7 +2,9 @@ name: Check Shorts Studio
 
 on:
   push:
-    branches: [main]
+    # Temporary investigation trigger while the GitHub PR API is unavailable.
+    # This is the checks workflow; upload_pages still defaults to false.
+    branches: [main, fix/safari-editor-recording-validation]
   pull_request:
     branches: [main, feat/browser-video-generator]
   workflow_dispatch:
@@ -89,6 +91,7 @@ jobs:
           RUNTIME_MOBILE=1 python tests/check-errors.py tests/runtime-session-browser.py
       - name: Check canonical Editor Canvas and real recording
         run: |
+          python tests/editor-recording-evidence-test.py
           python tests/check-errors.py tests/editor-canvas-browser.py
           EDITOR_MOBILE=1 python tests/check-errors.py tests/editor-canvas-browser.py
       - name: Check real browser video and audio recording
@@ -284,6 +287,7 @@ jobs:
             brew install ffmpeg
           fi
           ffprobe -version
+          python tests/editor-recording-evidence-test.py
       - name: Enable Safari WebDriver
         run: sudo /usr/bin/safaridriver --enable
       - name: Check product UI and video smoke test in real Safari
