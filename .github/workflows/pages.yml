@@ -89,6 +89,7 @@ jobs:
           RUNTIME_MOBILE=1 python tests/check-errors.py tests/runtime-session-browser.py
       - name: Check canonical Editor Canvas and real recording
         run: |
+          python tests/editor-recording-evidence-test.py
           python tests/check-errors.py tests/editor-canvas-browser.py
           EDITOR_MOBILE=1 python tests/check-errors.py tests/editor-canvas-browser.py
       - name: Check real browser video and audio recording
@@ -278,6 +279,13 @@ jobs:
           python-version: '3.12'
       - name: Verify pinned Safari baseline and source guard
         run: python tests/safari-baseline-test.py --baseline .safari-baseline
+      - name: Ensure independent recording inspection tools
+        run: |
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            brew install ffmpeg
+          fi
+          ffprobe -version
+          python tests/editor-recording-evidence-test.py
       - name: Enable Safari WebDriver
         run: sudo /usr/bin/safaridriver --enable
       - name: Check product UI and video smoke test in real Safari

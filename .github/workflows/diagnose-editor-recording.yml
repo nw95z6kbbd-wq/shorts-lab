@@ -1,0 +1,15 @@
+name: Diagnose Editor recording
+
+# Branch-scoped checks while the PR API is unavailable. No publication route.
+on:
+  push:
+    branches: [fix/safari-editor-recording-validation]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    uses: ./.github/workflows/pages.yml
+    with:
+      upload_pages: false

@@ -10,6 +10,7 @@ from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
 from editor_canvas_diagnostics import save_editor_diagnostics
 from runtime_session_native import command_result
+from editor_recording_evidence import save_recording_evidence, assert_complete_recording
 
 def check_native_editor_canvas(root,script,command,click):
     class Handler(SimpleHTTPRequestHandler):
@@ -20,9 +21,21 @@ def check_native_editor_canvas(root,script,command,click):
         return command_result(command('POST','/execute/async',{'script':diagnostics+'\nconst done=arguments[arguments.length-1];Promise.resolve().then(async()=>{'+code+'}).then(value=>done({ok:true,value}),e=>done({ok:false,failure:ShortsRuntimeDiagnostics.failure(e)}));','args':args or []}))
     grants=[]
     args=[json.loads((root/'tests/fixtures/editor-canvas/spec.json').read_text()),(root/'tests/fixtures/editor-canvas/reference.svg').read_text(),media_payload()]
-    def check_recording():
+    def check_recording(attempt):
         for name in ['runtime-session-fixture.js','editor-canvas-recording.js']:script((root/'tests'/name).read_text())
-        execute('await prepareEditorCanvasRecording(arguments[0]);return true;',[media_payload()]);click('#editorRecordProbe');recording=execute('return await finishEditorCanvasRecording();');assert not recording.get('skipped'),recording
+        execute('await prepareEditorCanvasRecording(arguments[0],{shortAudio:arguments[1]});return true;',[media_payload(),attempt==1]);click('#editorRecordProbe')
+        try:
+            recording=execute('return await finishEditorCanvasRecording();')
+        except Exception:
+            try:
+                save_recording_evidence(root,script,command,'safari-recording-failure-'+str(attempt))
+            except Exception as diagnostic_error:
+                print('::warning title=Editor diagnostic transport::'+str(diagnostic_error)[:800],flush=True)
+            raise
+        evidence=save_recording_evidence(root,script,command,'safari-recording-'+('http' if script('return location.protocol;')=='http:' else 'file')+'-'+str(attempt))
+        assert not evidence.get('inspectionError'),evidence
+        assert_complete_recording(evidence['encoded'])
+        assert not recording.get('skipped'),recording
         print('::notice title=Native Safari Editor recording verified::'+json.dumps(recording),flush=True)
         if os.environ.get('GITHUB_STEP_SUMMARY'):
             with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
@@ -68,7 +81,10 @@ def check_native_editor_canvas(root,script,command,click):
             if os.environ.get('GITHUB_STEP_SUMMARY'):
                 with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
                     summary.write('\n### Editor Canvas — actual Safari entry\n\n```json\n'+json.dumps(evidence,ensure_ascii=False,indent=2)+'\n```\n')
-            if entry.startswith('http:') or entry.endswith('/downloads/Shorts-Studio.html'):check_recording()
+            if entry.startswith('http:') or entry.endswith('/downloads/Shorts-Studio.html'):
+                # Repeated measurements, not retry-on-failure: every recording
+                # must satisfy the unchanged browser and full-byte assertions.
+                for attempt in range(10):check_recording(attempt)
     finally:
         for grant in grants:grant.unlink(missing_ok=True)
         server.shutdown();server.server_close()

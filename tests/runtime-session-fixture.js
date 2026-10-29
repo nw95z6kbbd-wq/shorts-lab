@@ -22,9 +22,10 @@ window.waitRuntimeVideoFrame = function (element, timeoutMs = 4000) {
 window.seekRuntimeVideoFrame = function (element, time, timeoutMs = 4000) {
  return new Promise((resolve,reject)=>{
   let ended=false,seeked=false,presented=false,frame,paintQueued=false,metadata;
-  const usesFrames=typeof element.requestVideoFrameCallback==='function';
+  const usesFrames=typeof element.requestVideoFrameCallback==='function',wasPaused=element.paused;
+  let resumedForSeek=false;
   const paint=window.requestAnimationFrame?window.requestAnimationFrame.bind(window):((fn)=>setTimeout(fn,0));
-  const finish=error=>{if(ended)return;ended=true;clearTimeout(timer);element.removeEventListener('seeked',onSeek);element.removeEventListener('error',onError);if(frame!=null)element.cancelVideoFrameCallback?.(frame);error?reject(error):resolve(metadata||{mediaTime:element.currentTime});};
+  const finish=error=>{if(ended)return;ended=true;clearTimeout(timer);element.removeEventListener('seeked',onSeek);element.removeEventListener('error',onError);if(frame!=null)element.cancelVideoFrameCallback?.(frame);if(resumedForSeek)element.pause();error?reject(error):resolve(metadata||{mediaTime:element.currentTime});};
   const ready=()=>{if(ended||!seeked||!presented||element.readyState<2||paintQueued)return;paintQueued=true;paint(()=>paint(()=>finish()));};
   const onError=()=>finish(Error('Recorded video seek decode error: '+element.error?.code+' '+element.error?.message));
   const onSeek=()=>{seeked=true;if(!usesFrames)presented=true;ready();};
@@ -32,7 +33,13 @@ window.seekRuntimeVideoFrame = function (element, time, timeoutMs = 4000) {
   const timer=setTimeout(()=>finish(Error('Runtime requested frame presentation timeout at '+time)),timeoutMs);
   element.addEventListener('seeked',onSeek);element.addEventListener('error',onError);
   if(usesFrames)frame=element.requestVideoFrameCallback(onFrame);
-  try{element.currentTime=time;}catch(error){finish(error);}
+  try{
+   element.currentTime=time;
+   // A paused Safari seek can decode the target without delivering a new
+   // compositor callback. Present a real frame, retain the same 100ms timestamp
+   // check, then restore pause. No readiness-only or timeout-success fallback.
+   if(usesFrames&&wasPaused){resumedForSeek=true;Promise.resolve(element.play()).catch(finish);}
+  }catch(error){finish(error);}
  });
 };
 // File-origin Blob URLs have browser-specific media-origin handling. An inline

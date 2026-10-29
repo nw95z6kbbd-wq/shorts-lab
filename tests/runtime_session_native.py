@@ -4,6 +4,7 @@ import json
 import threading
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
+from editor_recording_evidence import save_recording_evidence
 
 def command_result(result):
     assert isinstance(result,dict) and result.get('ok') is True,json.dumps(result,ensure_ascii=False)
@@ -27,6 +28,18 @@ def check_native_runtime(root,script,command,click):
         execute('await ShortsEditorReady;while(!window.ShortsVideoRestored)await new Promise(r=>setTimeout(r,20));return true;')
         for name in ('backup-fixture.js','runtime-session-fixture.js'):script((root/'tests'/name).read_text())
         execute('return await prepareRuntimeSessionChecks();');click('#runtimeAudioStart');assert execute('return await runtimeAudioPromise;')
-        click('#runtimeRecordStart');result=execute('return await finishRuntimeSessionChecks();');assert not result['recording'].get('skipped'),result
+        click('#runtimeRecordStart')
+        try:
+            result=execute('return await finishRuntimeSessionChecks();')
+        except Exception:
+            try:save_recording_evidence(root,script,command,'native-runtime-failure',kind='runtime')
+            except Exception as error:print('::warning title=Runtime diagnostic transport::'+str(error)[:800],flush=True)
+            raise
+        assert not result['recording'].get('skipped'),result
+        evidence=save_recording_evidence(root,script,command,'native-runtime-recording',kind='runtime')
+        assert not evidence.get('inspectionError'),evidence
+        actual=evidence['encoded'];video=actual['video'];audio=actual['audio']
+        assert video['dimensions']==[(720,1280)] and video['count']>=24,actual
+        assert 5.5<video['end']-video['firstPts']<7.5 and audio['count'] and 5.5<audio['end']-audio['firstPts']<7.5,actual
         print('::notice title=Native Safari runtime verified::'+json.dumps(result),flush=True)
     finally:server.shutdown();server.server_close()

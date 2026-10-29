@@ -85,7 +85,7 @@
       signal?.throwIfAborted();
       return await new Promise((resolve, reject) => {
         const chunks = [];
-        let settled = false, stopping = false;
+        let settled = false, stopping = false, flushRequested = false, finalFlushPending = false, drainRequired = false;
         function fail(error) {
           if (settled) return;
           settled = true; cancelAnimationFrame(animationFrame);
@@ -93,7 +93,7 @@
         }
         async function finish() {
           if (settled) return;
-          if (!stopping) { fail(new Error('Браузер завершил запись раньше времени. Попробуйте ещё раз или выберите WebM.')); return; }
+          if (!stopping || (drainRequired && (!flushRequested || finalFlushPending))) { fail(new Error('Браузер завершил запись раньше времени. Попробуйте ещё раз или выберите WebM.')); return; }
           try {
             const mimeType = recorder.mimeType || chunks.find(chunk => chunk.type)?.type;
             const extension = V.extensionFor(mimeType);
@@ -110,10 +110,17 @@
           let candidate;
           try {
             candidate = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 2600000, audioBitsPerSecond: 128000 });
-            candidate.ondataavailable = event => { if (!settled && event.data.size) chunks.push(event.data); };
+            candidate.ondataavailable = event => {
+              if (!settled && event.data.size) chunks.push(event.data);
+              if (!settled && finalFlushPending) {
+                finalFlushPending = false;
+                try { if (recorder.state !== 'inactive') recorder.stop(); } catch (error) { fail(error); }
+              }
+            };
             candidate.onerror = () => fail(new Error('Ошибка видеокодека браузера. Попробуйте формат WebM или уберите аудиодорожку.'));
             candidate.onstop = finish;
             recorder = candidate;
+            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm';
             candidate.start(250);
             break;
           } catch (_) {
@@ -131,17 +138,45 @@
           onFormat(recorder.mimeType);
           mix?.start(context.currentTime + .02);
           const start = performance.now();
+          // MediaRecorder timestamps the mixed stream on the Web Audio clock.
+          // Safari can advance that clock more slowly during device warm-up.
+          // Keep frames, audio and the stop boundary on that same media clock;
+          // silent Canvas recording retains its original performance clock.
+          const audioStart = context?.currentTime;
+          let audioLast = audioStart, audioAdvancedAt = start;
+          const elapsedTime = now => {
+            if (!context) return now - start;
+            const time = context.currentTime;
+            if (context.state !== 'running' || !Number.isFinite(time) || time < audioLast) throw new Error('Аудиопоток прерван или его часы недоступны. Повторите запись.');
+            if (time > audioLast) audioAdvancedAt = now;
+            else if (now - audioAdvancedAt >= 10000) throw new Error('Аудиопоток не продвигается. Повторите запись или уберите аудиодорожки.');
+            audioLast = time;
+            return (time - audioStart) * 1000;
+          };
           onProgress(0, 0);
           function frame(now) {
             if (settled) return;
             try {
-              const elapsed = Math.min(plan.durationMs, Math.max(0, now - start));
+              const elapsed = Math.min(plan.durationMs, Math.max(0, elapsedTime(now)));
               render(elapsed);
               onProgress(Math.min(.99, elapsed / plan.durationMs), elapsed);
               if (elapsed >= plan.durationMs) {
                 stopping = true;
                 // Allow the last drawn frame to reach the canvas capture track before flushing.
-                flushTimer = setTimeout(() => { if (!settled && recorder.state !== 'inactive') recorder.stop(); }, Math.ceil(1000 / V.FPS));
+                flushTimer = setTimeout(() => {
+                  if (settled || recorder.state === 'inactive') return;
+                  if (!drainRequired) { try { recorder.stop(); } catch (error) { fail(error); } return; }
+                  recorder.onpause = () => {
+                    if (settled || flushRequested) return;
+                    flushRequested = true; finalFlushPending = true;
+                    try { recorder.requestData(); } catch (error) { fail(error); }
+                  };
+                  // Freeze input at the final frame, flush while the encoder is
+                  // still alive, then stop only after dataavailable acknowledges it.
+                  // Safari can otherwise drop the tail and emit an empty stop chunk.
+                  try { if (recorder.state === 'paused') recorder.onpause(); else recorder.pause(); }
+                  catch (error) { fail(error); }
+                }, Math.ceil(1000 / V.FPS));
                 finalTimer = setTimeout(() => fail(new Error('Браузер не смог завершить видеофайл. Попробуйте WebM.')), 10000);
               } else animationFrame = requestAnimationFrame(frame);
             } catch (error) { fail(error); }
@@ -153,7 +188,7 @@
       cancelAnimationFrame(animationFrame); clearTimeout(flushTimer); clearTimeout(finalTimer);
       if (abortListener) signal?.removeEventListener('abort', abortListener);
       if (visibilityListener) document.removeEventListener('visibilitychange', visibilityListener);
-      if (recorder) { recorder.ondataavailable = null; recorder.onerror = null; recorder.onstop = null; if (recorder.state !== 'inactive') { try { recorder.stop(); } catch (_) {} } }
+      if (recorder) { recorder.ondataavailable = null; recorder.onerror = null; recorder.onstop = null; recorder.onpause = null; if (recorder.state !== 'inactive') { try { recorder.stop(); } catch (_) {} } }
       mix?.stop();
       stream?.getTracks().forEach(track => track.stop());
       if (context) await context.close().catch(() => {});
