@@ -41,12 +41,28 @@ window.prepareEditorCanvasRecording = async function(payload){
  };
  button.onclick=()=>{
   const started=performance.now();let previous;
+  const NativeRecorder=window.MediaRecorder,recorders=[];let TrackedRecorder;
+  evidence.recorders=recorders;
+  if(typeof NativeRecorder==='function'){
+   TrackedRecorder=new Proxy(NativeRecorder,{
+    get:(target,key)=>key==='isTypeSupported'?target.isTypeSupported.bind(target):Reflect.get(target,key),
+    construct:(target,args)=>{
+     const recorder=Reflect.construct(target,args),trace={createdMs:performance.now()-started,requestedMime:args[1]?.mimeType,events:[],tracks:args[0].getTracks().map(t=>{const s=t.getSettings();return{kind:t.kind,readyState:t.readyState,muted:t.muted,width:s.width,height:s.height,frameRate:s.frameRate,sampleRate:s.sampleRate};})};
+     if(recorders.length<8)recorders.push(trace);
+     for(const event of ['start','dataavailable','stop','error'])recorder.addEventListener(event,e=>{if(trace.events.length<32)trace.events.push({event,atMs:performance.now()-started,timecode:e.timecode,size:e.data?.size,state:recorder.state});});
+     return recorder;
+    }
+   });
+   window.MediaRecorder=TrackedRecorder;
+  }
   window.editorRecordingPromise=ShortsVideoRecorder.capabilities(true,'webm').supported?ShortsVideoRecorder.record({canvas,plan,resources,voiceBuffer:buffers.voice,musicBuffer:buffers.music,...ShortsRenderPlan.audioOptions(plan),format:'webm',
-   onFormat:type=>{evidence.mimeType=type;},onProgress:(_fraction,ms)=>{
+   onFormat:type=>{evidence.mimeType=type;evidence.formatAtMs=performance.now()-started;},onProgress:(_fraction,ms)=>{
     const now=performance.now(),r=evidence.render,scene=ShortsRenderPlan.frameAt(plan,ms).scene.id;
     if(r.firstMs===null)r.firstMs=ms;r.lastMs=ms;r.count++;r.wallMs=now-started;r.maxGapMs=Math.max(r.maxGapMs,previous===undefined?0:now-previous);previous=now;
     const s=r.scenes[scene]||(r.scenes[scene]={count:0,firstMs:ms,lastMs:ms});s.count++;s.lastMs=ms;
-   }}):Promise.resolve({skipped:true});window.editorRecordingPromise.catch(()=>{});
+   }}):Promise.resolve({skipped:true});
+  window.editorRecordingPromise=window.editorRecordingPromise.finally(()=>{evidence.completedWallMs=performance.now()-started;if(TrackedRecorder&&window.MediaRecorder===TrackedRecorder)window.MediaRecorder=NativeRecorder;});
+  window.editorRecordingPromise.catch(()=>{});
  };
  window.finishEditorCanvasRecording=async()=>{
   let video,unmount,stopTrace=()=>{};
