@@ -59,9 +59,9 @@
   return Object.freeze({load,cancel,retain(ids){for(const id of accepted.keys())if(!ids.has(id)){io.storage.discard(id);accepted.delete(id);}},async dispose(){await cancel();await tail;},status:()=>({loading:current.size>0,generation})});
  }
  function createPlayback({onState=()=>{}}={}){
-  let active=null,key=null,generation=0,tail=Promise.resolve(),failure=null,preparing=false;
+  let active=null,key=null,generation=0,operation=0,tail=Promise.resolve(),failure=null,preparing=false;
   function close(){
-   generation++;key=null;preparing=false;
+   generation++;operation++;key=null;preparing=false;
    // Cancel synchronously, but do not admit a new owner until cleanup succeeds.
    active?.session.cancel().catch(()=>{});
    tail=tail.catch(()=>{}).then(async()=>{
@@ -84,14 +84,25 @@
     catch(e){if(token===generation){preparing=false;failure=e;onState('error',e);}await session.dispose();if(active===item)active=null;}
    });tail.catch(e=>{if(token===generation){failure=e;preparing=false;onState('error',e);}});return tail;
   }
-  async function start(ms){
-   const item=active,token=generation;if(!item||preparing||failure)throw failure||fail('AUDIO_LOADING','Дождитесь подготовки аудио.');
-   if(item.handle){await item.handle.seek(Math.floor(ms));await item.handle.resume();}
-   else item.handle=await item.session.playAudio({offsetSeconds:ms/1000});
+  async function start(ms,{paused=false}={}){
+   const item=active,token=generation,request=++operation;if(!item||preparing||failure)throw failure||fail('AUDIO_LOADING','Дождитесь подготовки аудио.');
+   try{
+   if(!item.handle){
+    if(!item.starting){const pending=item.session.playAudio({offsetSeconds:ms/1000,startPaused:true});item.starting=pending;pending.then(()=>{if(item.starting===pending)item.starting=null;},()=>{if(item.starting===pending)item.starting=null;});}
+    item.handle=await item.starting;
+   }
    if(token!==generation){await item.handle.stop();throw fail('CANCELLED','Запуск аудио устарел.');}
+   const current=()=>{if(token!==generation||request!==operation)throw fail('CANCELLED','Позиция запуска аудио устарела.');};
+   current();if(paused)await item.handle.pause();current();await item.handle.seek(Math.floor(ms));current();if(!paused)await item.handle.resume();current();
+   }catch(e){
+    if(token===generation&&request===operation&&e.code!=='CANCELLED'&&item.handle){
+     try{await item.handle.stop();item.handle=null;}catch(cleanup){failure=cleanup;onState('error',cleanup);throw cleanup;}
+    }
+    throw e;
+   }
   }
   return Object.freeze({update,start,close,
-   pause(){return active?.handle?.pause()||Promise.resolve();},
+   pause(){operation++;return active?.handle?.pause()||Promise.resolve();},
    positionMs(){return active?.handle?.positionMs()??null;},
    status(){return {ready:!!active&&!preparing&&!failure,preparing,error:failure?{code:failure.code,message:failure.message}:null,active:active?.session.status()||null};},
    retry(){failure=null;key=null;}

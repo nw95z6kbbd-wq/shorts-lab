@@ -2881,11 +2881,12 @@ document.addEventListener("DOMContentLoaded", () => {
     function borrowed(lease){return {voiceBuffer:lease.audio(frozenPlan.audio.voice.assetId),musicBuffer:lease.audio(frozenPlan.audio.music.assetId),...io.plan.audioOptions(frozenPlan)};}
     function busy(){alive();if(uses.size)throw error('BUSY','Остановите текущего потребителя перед новым воспроизведением или записью.');}
     function finishUse(use){use.lease.release();uses.delete(use);}
-    async function playAudio({offsetSeconds=0}={}) {
+    async function playAudio({offsetSeconds=0,startPaused=false}={}) {
       if(windowFrame)throw error('PREVIEW_ONLY','Сессия кадра не подготавливает аудио.');
       busy();if(!Number.isFinite(offsetSeconds)||offsetSeconds<0||offsetSeconds>frozenPlan.durationMs/1000)throw error('OFFSET','Некорректная позиция аудио.');
+      if(typeof startPaused!=='boolean')throw error('AUDIO_PLAYBACK','Некорректное состояние запуска аудио.');
       const use={kind:'audio',lease:acquire(),abort:new AbortController()},options={...borrowed(use.lease),offsetSeconds};uses.add(use);
-      let context,mix,stopPromise,timer,origin=0,offset=offsetSeconds,paused=false,pausePromise=Promise.resolve(),lastClock=0,advancedAt=0;
+      let context,mix,stopPromise,timer,origin=0,offset=offsetSeconds,paused=startPaused,pausePromise=Promise.resolve(),lastClock=0,advancedAt=0;
       const wall=io.now||(()=>performance.now());
       const positionMs=()=>{
         if(use.abort.signal.aborted)throw error('STATE','Воспроизведение закрыто.');
@@ -2924,7 +2925,8 @@ document.addEventListener("DOMContentLoaded", () => {
           });clearTimeout(timer);
           if(disposed||use.abort.signal.aborted)throw error('CANCELLED','Запуск аудио отменён.');
           if(context.state!=='running')throw error('AUDIO_GESTURE','AudioContext не запущен пользовательским действием.');
-          startMix();
+          if(startPaused)await context.suspend();else startMix();
+          if(disposed||use.abort.signal.aborted)throw error('CANCELLED','Запуск аудио отменён.');
         }
         return Object.freeze({stop,positionMs,
           pause(){
@@ -3162,9 +3164,9 @@ document.addEventListener("DOMContentLoaded", () => {
   return Object.freeze({load,cancel,retain(ids){for(const id of accepted.keys())if(!ids.has(id)){io.storage.discard(id);accepted.delete(id);}},async dispose(){await cancel();await tail;},status:()=>({loading:current.size>0,generation})});
  }
  function createPlayback({onState=()=>{}}={}){
-  let active=null,key=null,generation=0,tail=Promise.resolve(),failure=null,preparing=false;
+  let active=null,key=null,generation=0,operation=0,tail=Promise.resolve(),failure=null,preparing=false;
   function close(){
-   generation++;key=null;preparing=false;
+   generation++;operation++;key=null;preparing=false;
    // Cancel synchronously, but do not admit a new owner until cleanup succeeds.
    active?.session.cancel().catch(()=>{});
    tail=tail.catch(()=>{}).then(async()=>{
@@ -3187,14 +3189,25 @@ document.addEventListener("DOMContentLoaded", () => {
     catch(e){if(token===generation){preparing=false;failure=e;onState('error',e);}await session.dispose();if(active===item)active=null;}
    });tail.catch(e=>{if(token===generation){failure=e;preparing=false;onState('error',e);}});return tail;
   }
-  async function start(ms){
-   const item=active,token=generation;if(!item||preparing||failure)throw failure||fail('AUDIO_LOADING','Дождитесь подготовки аудио.');
-   if(item.handle){await item.handle.seek(Math.floor(ms));await item.handle.resume();}
-   else item.handle=await item.session.playAudio({offsetSeconds:ms/1000});
+  async function start(ms,{paused=false}={}){
+   const item=active,token=generation,request=++operation;if(!item||preparing||failure)throw failure||fail('AUDIO_LOADING','Дождитесь подготовки аудио.');
+   try{
+   if(!item.handle){
+    if(!item.starting){const pending=item.session.playAudio({offsetSeconds:ms/1000,startPaused:true});item.starting=pending;pending.then(()=>{if(item.starting===pending)item.starting=null;},()=>{if(item.starting===pending)item.starting=null;});}
+    item.handle=await item.starting;
+   }
    if(token!==generation){await item.handle.stop();throw fail('CANCELLED','Запуск аудио устарел.');}
+   const current=()=>{if(token!==generation||request!==operation)throw fail('CANCELLED','Позиция запуска аудио устарела.');};
+   current();if(paused)await item.handle.pause();current();await item.handle.seek(Math.floor(ms));current();if(!paused)await item.handle.resume();current();
+   }catch(e){
+    if(token===generation&&request===operation&&e.code!=='CANCELLED'&&item.handle){
+     try{await item.handle.stop();item.handle=null;}catch(cleanup){failure=cleanup;onState('error',cleanup);throw cleanup;}
+    }
+    throw e;
+   }
   }
   return Object.freeze({update,start,close,
-   pause(){return active?.handle?.pause()||Promise.resolve();},
+   pause(){operation++;return active?.handle?.pause()||Promise.resolve();},
    positionMs(){return active?.handle?.positionMs()??null;},
    status(){return {ready:!!active&&!preparing&&!failure,preparing,error:failure?{code:failure.code,message:failure.message}:null,active:active?.session.status()||null};},
    retry(){failure=null;key=null;}
@@ -3670,7 +3683,17 @@ window.ShortsEditorReady = (async function () {
     if (elapsedMs >= total) elapsedMs = 0;
     playing = true; const epoch = ++playEpoch;
     updatePlaybackUI();
-    try { if (withAudio) await audioPlayback.start(Math.floor(elapsedMs)); }
+    try {
+      // Activate the owned context in this trusted click, but produce no sound
+      // until the selected Canvas window has actually rendered its first frame.
+      if (withAudio) await audioPlayback.start(Math.floor(elapsedMs), { paused: true });
+      if (!playing || epoch !== playEpoch) return;
+      project = { ...project, selectedSceneId: P.frameAt(plan, elapsedMs).scene.id }; updateSelectedScene();
+      const ready = await renderPreview();
+      if (!playing || epoch !== playEpoch) return;
+      if (!ready) { pausePlayback(); return; }
+      if (withAudio) { await audioPlayback.start(Math.floor(elapsedMs)); audioFailure = null; audioState = 'ready'; renderAudio(); }
+    }
     catch (error) { if (epoch === playEpoch) { pausePlayback(); audioFailure = error; audioState = 'error'; renderAudio(); } return; }
     if (!playing || epoch !== playEpoch) { audioPlayback.pause().catch(()=>{}); return; }
     playbackAnchor = performance.now() - elapsedMs;

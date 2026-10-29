@@ -461,7 +461,17 @@ window.ShortsEditorReady = (async function () {
     if (elapsedMs >= total) elapsedMs = 0;
     playing = true; const epoch = ++playEpoch;
     updatePlaybackUI();
-    try { if (withAudio) await audioPlayback.start(Math.floor(elapsedMs)); }
+    try {
+      // Activate the owned context in this trusted click, but produce no sound
+      // until the selected Canvas window has actually rendered its first frame.
+      if (withAudio) await audioPlayback.start(Math.floor(elapsedMs), { paused: true });
+      if (!playing || epoch !== playEpoch) return;
+      project = { ...project, selectedSceneId: P.frameAt(plan, elapsedMs).scene.id }; updateSelectedScene();
+      const ready = await renderPreview();
+      if (!playing || epoch !== playEpoch) return;
+      if (!ready) { pausePlayback(); return; }
+      if (withAudio) { await audioPlayback.start(Math.floor(elapsedMs)); audioFailure = null; audioState = 'ready'; renderAudio(); }
+    }
     catch (error) { if (epoch === playEpoch) { pausePlayback(); audioFailure = error; audioState = 'error'; renderAudio(); } return; }
     if (!playing || epoch !== playEpoch) { audioPlayback.pause().catch(()=>{}); return; }
     playbackAnchor = performance.now() - elapsedMs;

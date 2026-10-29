@@ -47,7 +47,8 @@ def inspect_recording(path, editor_progress=True):
         return values
     progress={'first':filled(strip[:stride]),'last':filled(strip[-stride:])} if len(strip)>=stride else None
     return {'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'bytes':path.stat().st_size,
-            'format':info['format'],'streams':info['streams'],'video':{**bounds(video),'dimensions':sorted({(f[2].get('width'),f[2].get('height')) for f in video}),'progressPixels':progress},'audio':bounds(audio),'fullDecode':True}
+            'format':info['format'],'streams':info['streams'],'video':{**bounds(video),'dimensions':sorted({(f[2].get('width'),f[2].get('height')) for f in video}),'progressPixels':progress,
+            'nearestSeekFrames':{str(t):min((f[0] for f in video),key=lambda pts:abs(pts-t),default=None) for t in [.5,1.5,2.5,2.7,4.8]}},'audio':bounds(audio),'fullDecode':True}
 
 
 def assert_complete_recording(evidence):

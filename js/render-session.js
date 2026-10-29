@@ -61,11 +61,12 @@
     function borrowed(lease){return {voiceBuffer:lease.audio(frozenPlan.audio.voice.assetId),musicBuffer:lease.audio(frozenPlan.audio.music.assetId),...io.plan.audioOptions(frozenPlan)};}
     function busy(){alive();if(uses.size)throw error('BUSY','Остановите текущего потребителя перед новым воспроизведением или записью.');}
     function finishUse(use){use.lease.release();uses.delete(use);}
-    async function playAudio({offsetSeconds=0}={}) {
+    async function playAudio({offsetSeconds=0,startPaused=false}={}) {
       if(windowFrame)throw error('PREVIEW_ONLY','Сессия кадра не подготавливает аудио.');
       busy();if(!Number.isFinite(offsetSeconds)||offsetSeconds<0||offsetSeconds>frozenPlan.durationMs/1000)throw error('OFFSET','Некорректная позиция аудио.');
+      if(typeof startPaused!=='boolean')throw error('AUDIO_PLAYBACK','Некорректное состояние запуска аудио.');
       const use={kind:'audio',lease:acquire(),abort:new AbortController()},options={...borrowed(use.lease),offsetSeconds};uses.add(use);
-      let context,mix,stopPromise,timer,origin=0,offset=offsetSeconds,paused=false,pausePromise=Promise.resolve(),lastClock=0,advancedAt=0;
+      let context,mix,stopPromise,timer,origin=0,offset=offsetSeconds,paused=startPaused,pausePromise=Promise.resolve(),lastClock=0,advancedAt=0;
       const wall=io.now||(()=>performance.now());
       const positionMs=()=>{
         if(use.abort.signal.aborted)throw error('STATE','Воспроизведение закрыто.');
@@ -104,7 +105,8 @@
           });clearTimeout(timer);
           if(disposed||use.abort.signal.aborted)throw error('CANCELLED','Запуск аудио отменён.');
           if(context.state!=='running')throw error('AUDIO_GESTURE','AudioContext не запущен пользовательским действием.');
-          startMix();
+          if(startPaused)await context.suspend();else startMix();
+          if(disposed||use.abort.signal.aborted)throw error('CANCELLED','Запуск аудио отменён.');
         }
         return Object.freeze({stop,positionMs,
           pause(){

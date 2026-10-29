@@ -5,12 +5,12 @@ const audioFactory=require('../js/editor-audio.js'),mediaFactory=require('../js/
 const tick=()=>new Promise(r=>setTimeout(r,0));
 function gate(){let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};}
 function fixture(){
- const originals=new Map(),contexts=[],mixes=[];let decodeGate,closeFailure=false,wall=0;
+ const originals=new Map(),contexts=[],mixes=[];let decodeGate,closeFailure=false,wall=0,resumeGate,resumeFailure=false;
  const media=mediaFactory({original:async id=>originals.get(id),image:()=>{throw Error('audio-only session decoded image');},audio:async blob=>{if(decodeGate)await decodeGate.promise;if(await blob.text()==='broken')throw Error('bad audio');return {length:100,numberOfChannels:1,duration:1};}});
- const runtime=runtimeFactory({media,adapters:A,plan:P,now:()=>wall,context:()=>{const context={state:'suspended',currentTime:0,destination:{},async resume(){this.state='running';},async suspend(){this.state='suspended';},async close(){if(closeFailure)throw Error('close rejected');this.state='closed';}};contexts.push(context);return context;},mix:(ctx,options)=>{const mix={options,start:t=>mix.when=t,stop:()=>mix.stopped=true};mixes.push(mix);return mix;}});
+ const runtime=runtimeFactory({media,adapters:A,plan:P,now:()=>wall,context:()=>{const context={state:'suspended',currentTime:0,destination:{},async resume(){if(resumeFailure)throw Error('native permission denied');if(resumeGate)await resumeGate.promise;this.state='running';},async suspend(){this.state='suspended';},async close(){if(closeFailure)throw Error('close rejected');this.state='closed';}};contexts.push(context);return context;},mix:(ctx,options)=>{const mix={options,start:t=>mix.when=t,stop:()=>mix.stopped=true};mixes.push(mix);return mix;}});
  const p=C.upgradeProject(C.createProject(true));p.timing='manual';p.scenes=p.scenes.slice(0,3);p.scenes.forEach((s,i)=>{s.durationMs=1000;s.imageId='do-not-read-image-'+i;});p.audio.voice.assetId='voice';p.audio.music.assetId='music';
  originals.set('voice',{id:'voice',kind:'voice',blob:new Blob(['wave'],{type:'audio/wav'})});originals.set('music',{id:'music',kind:'music',blob:new Blob(['wave2'],{type:'audio/wav'})});
- return {media,runtime,p,contexts,mixes,originals,setGate:g=>decodeGate=g,setCloseFailure:v=>closeFailure=v,setWall:v=>wall=v};
+ return {media,runtime,p,contexts,mixes,originals,setGate:g=>decodeGate=g,setCloseFailure:v=>closeFailure=v,setWall:v=>wall=v,setResumeGate:g=>resumeGate=g,setResumeFailure:v=>resumeFailure=v};
 }
 test('audio edits use DTO2 validators, leave legacy reads alone, and preserve every scene/media field',()=>{
  const api=audioFactory({core:C}),old=C.createProject(true),before=structuredClone(old),next=api.edit(old,'music',{assetId:'original',name:'music.wav',volume:.35,fadeInMs:1234,fadeOutMs:0});
@@ -80,4 +80,16 @@ test('rapid new revisions cannot bypass an unclosed playback owner after close r
  const first=controller.update(next,A.fromEditor(next),2),second=controller.update(next,A.fromEditor(next),3);await Promise.allSettled([first,second]);
  assert.equal(controller.status().ready,false);assert.equal(controller.status().error.code,'AUDIO_CLOSE');assert.equal(f.contexts.length,1);assert.equal(f.media.statistics().sessions,1);
  await assert.rejects(controller.start(0),{code:'AUDIO_CLOSE'});f.setCloseFailure(false);await controller.update(next,A.fromEditor(next),4);await controller.start(500);assert.equal(f.contexts.filter(c=>c.state!=='closed').length,1);assert.equal(f.contexts[0].state,'closed');await controller.close();assert.equal(f.media.statistics().sessions,0);
+});
+test('trusted activation can buffer the first Canvas window without starting any audio sources',async()=>{
+ const f=fixture(),controller=audioFactory({runtime:f.runtime}).createPlayback();await controller.update(f.p,A.fromEditor(f.p),1);await controller.start(1700,{paused:true});assert.equal(f.contexts[0].state,'suspended');assert.equal(f.mixes.length,0);f.contexts[0].currentTime=12;assert.equal(controller.positionMs(),1700);await controller.start(1700);assert.equal(f.mixes.length,1);assert.equal(f.mixes[0].options.offsetSeconds,1.7);assert.equal(f.contexts.length,1);await controller.close();
+});
+
+test('rapid Play/Pause/Play during real asynchronous activation shares one pending consumer and the latest offset',async()=>{
+ const f=fixture(),g=gate(),controller=audioFactory({runtime:f.runtime}).createPlayback();await controller.update(f.p,A.fromEditor(f.p),1);f.setResumeGate(g);
+ const first=controller.start(0);await tick();await controller.pause();const latest=controller.start(700);g.resolve();f.setResumeGate(null);const results=await Promise.allSettled([first,latest]);assert.equal(results[0].status,'rejected');assert.equal(results[0].reason.code,'CANCELLED');assert.equal(results[1].status,'fulfilled');assert.equal(f.contexts.length,1);assert.equal(f.mixes.length,1);assert.equal(f.mixes[0].options.offsetSeconds,.7);await controller.close();assert.equal(f.media.statistics().sessions,0);
+});
+
+test('denied activation releases its consumer and permits a later trusted retry',async()=>{
+ const f=fixture(),controller=audioFactory({runtime:f.runtime}).createPlayback();await controller.update(f.p,A.fromEditor(f.p),1);f.setResumeFailure(true);await assert.rejects(controller.start(0),{code:'AUDIO_PLAYBACK'});assert.equal(f.contexts[0].state,'closed');assert.equal(controller.status().active.ownedConsumers,0);f.setResumeFailure(false);await controller.start(500);assert.equal(f.mixes.at(-1).options.offsetSeconds,.5);assert.equal(f.contexts.filter(c=>c.state!=='closed').length,1);await controller.close();assert.equal(f.media.statistics().residentBytes,0);
 });
