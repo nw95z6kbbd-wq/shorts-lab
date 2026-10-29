@@ -23,26 +23,27 @@ def check_editor_audio(execute,click,payload):
     click('#playPreview');backward=execute('return await editorAudioPlaying(20);');assert backward['offset']==.75,backward
     click('#nextScene');click('#playPreview');scene=execute('return await editorAudioPlaying(20);');assert scene['offset']==2,scene
     for _ in range(4):
-        click('#playPreview');click('#playPreview');execute('await editorAudioPlaying(20);return editorAudioNoLeaks();')
+        click('#playPreview');execute('await editorAudioPaused();editorSeek.value="1000";editorSeek.dispatchEvent(new Event("input",{bubbles:true}));await editorLiveReady("audio-scene-0",1000);return true;')
+        click('#playPreview');execute('await editorAudioPlaying(20);return editorAudioNoLeaks();')
     # Replacing an active original must close its old graph, preserve settings,
     # and never resume a late asynchronous result into a new owner.
     replacement={**payload[4],'name':'replacement-music.wav'}
     assert execute('return await editorAudioUpload("music",arguments[0]);',[replacement])=='ready'
-    execute('await editorAudioReady();audioCheck(editorAudioNoLeaks().liveContexts===0,"replaced audio still sounds");return true;')
+    execute('await editorAudioReady();audioCheck(editorAudioNoLeaks().liveContexts===0,"unclosed audio context after replacement");return true;')
     original=execute('await editorTimingWaitForSave();return await studioUiSnapshot();')
     for item in [{**payload[3],'name':'broken.wav','base64':'YmFk'}, {**payload[3],'type':'audio/mpeg'}, {**payload[3],'base64':''}]:
         assert execute('return await editorAudioUpload("voice",arguments[0]);',[item])=='error'
         assert execute('return await studioUiSnapshot();')==original,'Rejected audio modified saved projects/originals'
-    execute('''window.savedAudioDecoder=ShortsVideoRecorder.decodeAudio;window.audioDecodeEntered=false;window.releaseAudioDecode=false;ShortsVideoRecorder.decodeAudio=async b=>{audioDecodeEntered=true;await editorLiveUntil(()=>releaseAudioDecode,'gated audio decode');return savedAudioDecoder(b);};window.audioFirst=editorAudioUpload('voice',arguments[0]);await editorLiveUntil(()=>audioDecodeEntered,'decode entered');window.audioLatest=editorAudioUpload('voice',arguments[1]);releaseAudioDecode=true;await audioFirst;await audioLatest;ShortsVideoRecorder.decodeAudio=savedAudioDecoder;await editorAudioReady();return true;''',[{**payload[3],'name':'stale-voice.wav'},{**payload[3],'name':'latest-voice.wav'}])
+    execute('''window.savedAudioDecoder=ShortsVideoRecorder.decodeAudio;window.audioDecodeEntered=false;window.releaseAudioDecode=false;ShortsVideoRecorder.decodeAudio=async b=>{audioDecodeEntered=true;await editorLiveUntil(()=>releaseAudioDecode,'gated audio decode');return savedAudioDecoder(b);};window.audioFirst=editorAudioUpload('voice',arguments[0],false);await editorLiveUntil(()=>audioDecodeEntered,'decode entered');window.audioLatest=editorAudioUpload('voice',arguments[1]);releaseAudioDecode=true;await audioFirst;await audioLatest;ShortsVideoRecorder.decodeAudio=savedAudioDecoder;await editorAudioReady();return true;''',[{**payload[3],'name':'stale-voice.wav'},{**payload[3],'name':'latest-voice.wav'}])
     state=execute('return ShortsEditor.backupSnapshot();');assert state['audio']['voice']['name']=='latest-voice.wav' and state['audio']['music']['name']=='replacement-music.wav'
     execute('await editorTimingWaitForSave();return true;');before_invalid=execute('return await studioUiSnapshot();')
     execute('editorMusicFadeIn.value="-1";editorMusicFadeIn.dispatchEvent(new Event("input",{bubbles:true}));return true;')
     execute('return await editorTimingErrorAssert(arguments[0]);',[before_invalid])
     execute('editorMusicFadeIn.value="0,250";editorMusicFadeIn.dispatchEvent(new Event("input",{bubbles:true}));await editorAudioReady();return true;')
     click('#playPreview');execute('await editorAudioPlaying(20);return true;')
-    click('#editorVoiceRemove');execute('await editorAudioReady();audioCheck(editorAudioNoLeaks().liveContexts===0,"voice removal leaves audio graph");return true;')
+    click('#editorVoiceRemove');execute('await editorLiveUntil(()=>editorVoiceRemove.hidden,"voice removal applied");await editorAudioReady();audioCheck(editorAudioNoLeaks().liveContexts===0,"voice removal leaves audio context");return true;')
     click('#playPreview');execute('await editorAudioPlaying(20);audioCheck(!editorAudioTaps.at(-1).options.voiceBuffer,"removed voice still mixed");return true;')
-    click('#editorMusicRemove');execute('await editorAudioReady();audioCheck(editorAudioState.dataset.state==="silent"&&editorAudioNoLeaks().liveContexts===0,"music removal leaves graph");return true;')
+    click('#editorMusicRemove');execute('await editorLiveUntil(()=>editorMusicRemove.hidden,"music removal applied");await editorAudioReady();audioCheck(editorAudioState.dataset.state==="silent"&&editorAudioNoLeaks().liveContexts===0,"music removal leaves audio context");return true;')
     # Different roles are independent even when native decodes are serialized.
     execute('await Promise.all([editorAudioUpload("voice",editorAudioShort(arguments[0],1)),editorAudioUpload("music",editorAudioShort(arguments[1],2))]);await editorAudioReady();audioCheck(editorAudioState.dataset.state==="ready","parallel voice/music admission");return true;',[payload[3],payload[4]])
     execute('editorSeek.value="3500";editorSeek.dispatchEvent(new Event("input",{bubbles:true}));await editorLiveReady("audio-scene-1",3500);return true;')

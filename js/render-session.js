@@ -67,6 +67,8 @@
       if(typeof startPaused!=='boolean')throw error('AUDIO_PLAYBACK','Некорректное состояние запуска аудио.');
       const use={kind:'audio',lease:acquire(),abort:new AbortController()},options={...borrowed(use.lease),offsetSeconds};uses.add(use);
       let context,mix,stopPromise,timer,origin=0,offset=offsetSeconds,paused=startPaused,pausePromise=Promise.resolve(),lastClock=0,advancedAt=0;
+      let nativeControl=Promise.resolve(),controlEpoch=0;
+      const control=run=>{nativeControl=nativeControl.catch(()=>{}).then(()=>{if(use.abort.signal.aborted||disposed)throw error('CANCELLED','Операция аудио отменена.');return run();});return nativeControl;};
       const wall=io.now||(()=>performance.now());
       const positionMs=()=>{
         if(use.abort.signal.aborted)throw error('STATE','Воспроизведение закрыто.');
@@ -86,6 +88,9 @@
         if(stopPromise)return stopPromise;use.abort.abort();clearTimeout(timer);
         stopPromise=(async()=>{
           try{mix?.stop();}catch(_){/* Closing the owned context still tears down its entire graph. */}
+          // A late native suspend/resume must not change a context AFTER close
+          // has released its lease. Wait for the owned control queue to settle.
+          let deadline;try{await Promise.race([nativeControl.catch(()=>{}),new Promise((_,reject)=>{deadline=setTimeout(()=>reject(error('AUDIO_CLOSE','Браузер не завершил изменение состояния аудио; ресурсы удерживаются. Повторите очистку или перезагрузите страницу.')),3000);})]);}finally{clearTimeout(deadline);}
           if(context&&context.state!=='closed'){
             try{await context.close();}catch(e){throw error('AUDIO_CLOSE','Не удалось закрыть AudioContext; ресурсы удерживаются до повторной очистки.',e);}
             if(context.state!=='closed')throw error('AUDIO_CLOSE','AudioContext не подтвердил закрытие; повторите очистку.');
@@ -101,26 +106,32 @@
             const cancelled=()=>reject(error('CANCELLED','Запуск аудио отменён.'));
             use.abort.signal.addEventListener('abort',cancelled,{once:true});
             timer=setTimeout(()=>reject(error('AUDIO_GESTURE','Браузер не разрешил звук. Запустите аудио явным нажатием.')),3000);
-            Promise.resolve(context.resume()).then(resolve,reject).finally(()=>use.abort.signal.removeEventListener('abort',cancelled));
+            nativeControl=Promise.resolve(context.resume());nativeControl.then(resolve,reject).finally(()=>use.abort.signal.removeEventListener('abort',cancelled));
           });clearTimeout(timer);
           if(disposed||use.abort.signal.aborted)throw error('CANCELLED','Запуск аудио отменён.');
           if(context.state!=='running')throw error('AUDIO_GESTURE','AudioContext не запущен пользовательским действием.');
-          if(startPaused)await context.suspend();else startMix();
+          if(startPaused){pausePromise=control(()=>context.suspend());await pausePromise;}else startMix();
           if(disposed||use.abort.signal.aborted)throw error('CANCELLED','Запуск аудио отменён.');
         }
         return Object.freeze({stop,positionMs,
           pause(){
             if(use.abort.signal.aborted)return Promise.reject(error('STATE','Воспроизведение закрыто.'));
-            if(paused)return pausePromise;
-            offset=positionMs()/1000;paused=true;mix?.stop();mix=null;
-            pausePromise=context?Promise.resolve(context.suspend()):Promise.resolve();return pausePromise;
+            controlEpoch++;
+            if(paused&&context?.state==='suspended')return pausePromise;
+            let clockError;try{offset=positionMs()/1000;}catch(e){clockError=e;}
+            paused=true;mix?.stop();mix=null;
+            pausePromise=context?control(()=>context.suspend()):Promise.resolve();return clockError?pausePromise.then(()=>{throw clockError;}):pausePromise;
           },
           async resume(){
             await pausePromise;if(use.abort.signal.aborted||disposed)throw error('CANCELLED','Воспроизведение отменено.');
-            if(!paused)return;await context?.resume();
-            if(use.abort.signal.aborted||disposed)throw error('CANCELLED','Воспроизведение отменено.');
-            if(context&&context.state!=='running')throw error('AUDIO_GESTURE','Нажмите Play, чтобы разрешить звук.');
-            if(context)startMix();paused=false;
+            if(!paused)return;const request=++controlEpoch;
+            await control(async()=>{
+              if(request!==controlEpoch)throw error('CANCELLED','Позиция воспроизведения устарела.');
+              await context?.resume();
+              if(use.abort.signal.aborted||disposed||request!==controlEpoch)throw error('CANCELLED','Воспроизведение отменено.');
+              if(context&&context.state!=='running')throw error('AUDIO_GESTURE','Нажмите Play, чтобы разрешить звук.');
+              if(context)startMix();paused=false;
+            });
           },
           async seek(ms){
             if(!Number.isSafeInteger(ms)||ms<0||ms>frozenPlan.durationMs)throw error('OFFSET','Некорректная позиция аудио.');

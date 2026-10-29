@@ -444,8 +444,9 @@ window.ShortsEditorReady = (async function () {
 
   function pausePlayback() {
     playEpoch++;
+    const epoch = playEpoch, revision = previewRevision;
     if (playing && audioPlayback.status().ready) { try { const position = audioPlayback.positionMs(); if (position !== null) elapsedMs = Math.floor(position); } catch (_) {} }
-    audioPlayback.pause().catch(error => { audioFailure = error; audioState = 'error'; renderAudio(); });
+    audioPlayback.pause().catch(error => { if (epoch === playEpoch && revision === previewRevision && error.code !== 'CANCELLED') { audioFailure = error; audioState = 'error'; renderAudio(); } });
     if (!playing) return;
     playing = false;
     cancelAnimationFrame(animationFrame);
@@ -470,10 +471,10 @@ window.ShortsEditorReady = (async function () {
       const ready = await renderPreview();
       if (!playing || epoch !== playEpoch) return;
       if (!ready) { pausePlayback(); return; }
-      if (withAudio) { await audioPlayback.start(Math.floor(elapsedMs)); audioFailure = null; audioState = 'ready'; renderAudio(); }
+      if (withAudio) { await audioPlayback.start(Math.floor(elapsedMs)); if (!playing || epoch !== playEpoch) return; audioFailure = null; audioState = 'ready'; renderAudio(); }
     }
     catch (error) { if (epoch === playEpoch) { pausePlayback(); audioFailure = error; audioState = 'error'; renderAudio(); } return; }
-    if (!playing || epoch !== playEpoch) { audioPlayback.pause().catch(()=>{}); return; }
+    if (!playing || epoch !== playEpoch) return; // A stale completion cannot pause the current owner.
     playbackAnchor = performance.now() - elapsedMs;
     async function frame(now) {
       if (!playing || epoch !== playEpoch) return;

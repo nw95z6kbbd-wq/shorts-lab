@@ -1,16 +1,27 @@
 /* Test-owned originals and actual audio signal assertions, shared by all engines. */
 window.audioCheck=(value,label)=>{if(!value)throw Error('Editor audio: '+label);};
 window.editorAudioReady=()=>editorLiveUntil(()=>['ready','silent','error'].includes(document.getElementById('editorAudioState').dataset.state),'audio prepared');
-window.editorAudioUpload=async function(role,file){
+window.editorAudioUpload=async function(role,file,checkName=true){
  const input=document.getElementById(role==='voice'?'editorVoiceFile':'editorMusicFile'),dt=new DataTransfer();
  dt.items.add(new File([Uint8Array.from(atob(file.base64),c=>c.charCodeAt(0))],file.name,{type:file.type}));input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));
  await editorLiveUntil(()=>document.getElementById(role==='voice'?'editorVoiceStatus':'editorMusicStatus').dataset.state!=='loading','upload '+role);
- return document.getElementById(role==='voice'?'editorVoiceStatus':'editorMusicStatus').dataset.state;
+ const state=document.getElementById(role==='voice'?'editorVoiceStatus':'editorMusicStatus').dataset.state;
+ if(state==='ready'&&checkName)audioCheck(document.getElementById(role==='voice'?'editorVoiceName':'editorMusicName').textContent===file.name,'accepted file name differs');return state;
+};
+window.editorAudioPaused=async()=>{
+ await editorLiveUntil(()=>document.getElementById('playPreview').getAttribute('aria-label')==='Воспроизвести предпросмотр'&&(!window.editorAudioTaps?.length||editorAudioTaps.at(-1).stopped)&&[...new Set((window.editorAudioTaps||[]).map(t=>t.context))].every(c=>c.state!=='running'),'actual pause completion');
 };
 window.editorAudioTap=function(){
- if(window.editorAudioTaps)return;window.editorAudioTaps=[];
+ if(window.editorAudioTaps)return;window.editorAudioTaps=[];window.editorAudioContexts=[];const seen=new WeakSet();
  const connect=ShortsVideoAudio.connectMix;
  ShortsVideoAudio.connectMix=function(context,options){
+  if(!seen.has(context)){
+   seen.add(context);const trace={events:[]};editorAudioContexts.push(trace);
+   for(const method of ['suspend','resume','close']){const native=context[method].bind(context);context[method]=(...args)=>{
+    trace.events.push({action:method+':start',state:context.state});
+    return Promise.resolve(native(...args)).then(value=>{trace.events.push({action:method+':end',state:context.state});return value;},e=>{trace.events.push({action:method+':error',state:context.state});throw e;});
+   };}
+  }
   const analyser=context.createAnalyser();analyser.fftSize=2048;analyser.connect(options.destination);
   const mix=connect(context,{...options,destination:analyser}),tap={context,options,analyser,when:null,stopped:false};editorAudioTaps.push(tap);
   return {start(when){tap.when=when;mix.start(when);},stop(){tap.stopped=true;mix.stop();analyser.disconnect();}};
