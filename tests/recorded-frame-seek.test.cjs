@@ -34,3 +34,8 @@ test('a legitimate VFR held frame is checked against its independently decoded P
  const actual=create(now,{heldFrame:2.316});assert.equal((await actual.seek(2.5,2.316)).mediaTime,2.316);assert.equal(actual.element.currentTime,2.5);assert.equal(actual.element.paused,true);
  for(const expected of [2.2,2.71,NaN]){const f=create(now,{heldFrame:2.316});await assert.rejects(f.seek(2.5,expected));assert.equal(f.callbacks.size,0);}
 });
+test('next presented frame keeps the exact historical 100ms window, without adding the oracle offset to it',async()=>{
+ const legacy=create(before,{paused:false,heldFrame:1.561});assert.equal((await legacy.seek(1.5)).mediaTime,1.561);
+ const current=create(now,{heldFrame:1.561});assert.equal((await current.seek(1.5,1.561)).mediaTime,1.561);
+ for(const frame of [1.601,1.65]){const f=create(now,{heldFrame:frame});await assert.rejects(f.seek(1.5,1.561),/presentation timeout/);}
+});

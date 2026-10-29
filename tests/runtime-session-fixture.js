@@ -20,7 +20,7 @@ window.waitRuntimeVideoFrame = function (element, timeoutMs = 4000) {
 // seeked/readyState confirm decoded data, not compositor presentation. Register
 // before seeking so a paused video cannot present its new frame before we listen.
 window.seekRuntimeVideoFrame = function (element, time, timeoutMs = 4000, expectedMediaTime = time) {
- if(!Number.isFinite(expectedMediaTime)||expectedMediaTime<0||expectedMediaTime>time)return Promise.reject(Error('Invalid independently decoded frame expectation'));
+ if(!Number.isFinite(expectedMediaTime)||expectedMediaTime<0||expectedMediaTime-time>.1)return Promise.reject(Error('Invalid independently decoded frame expectation'));
  return new Promise((resolve,reject)=>{
   let ended=false,seeked=false,presented=false,frame,paintQueued=false,metadata;const observed=[];
   const usesFrames=typeof element.requestVideoFrameCallback==='function',wasPaused=element.paused;
@@ -30,7 +30,7 @@ window.seekRuntimeVideoFrame = function (element, time, timeoutMs = 4000, expect
   const ready=()=>{if(ended||!seeked||!presented||element.readyState<2||paintQueued)return;paintQueued=true;paint(()=>paint(()=>finish()));};
   const onError=()=>finish(Error('Recorded video seek decode error: '+element.error?.code+' '+element.error?.message));
   const onSeek=()=>{seeked=true;if(!usesFrames)presented=true;ready();};
-  const onFrame=(_now,data)=>{if(ended)return;frame=null;if(observed.length<24)observed.push({mediaTime:data.mediaTime,presentedFrames:data.presentedFrames});if(Number.isFinite(data.mediaTime)&&Math.abs(data.mediaTime-expectedMediaTime)<=.1){metadata={mediaTime:data.mediaTime};presented=true;ready();}else frame=element.requestVideoFrameCallback(onFrame);};
+  const onFrame=(_now,data)=>{if(ended)return;frame=null;if(observed.length<24)observed.push({mediaTime:data.mediaTime,presentedFrames:data.presentedFrames});if(Number.isFinite(data.mediaTime)&&Math.abs(data.mediaTime-expectedMediaTime)<=.1&&(expectedMediaTime<=time||Math.abs(data.mediaTime-time)<=.1)){metadata={mediaTime:data.mediaTime};presented=true;ready();}else frame=element.requestVideoFrameCallback(onFrame);};
   const timer=setTimeout(()=>finish(Error('Runtime requested frame presentation timeout at '+time+' '+JSON.stringify({expectedMediaTime,seeked,presented,readyState:element.readyState,currentTime:element.currentTime,paused:element.paused,seeking:element.seeking,observed}))),timeoutMs);
   element.addEventListener('seeked',onSeek);element.addEventListener('error',onError);
   if(usesFrames)frame=element.requestVideoFrameCallback(onFrame);

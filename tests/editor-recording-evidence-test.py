@@ -70,6 +70,12 @@ class RecordingEvidenceTests(unittest.TestCase):
             value=inspect_recording(self.root/'sparse.webm');value['video']['heldSeekFrames']['2.5']=patch
             with self.assertRaises(AssertionError):editor_frame_expectations(value)
 
+    def test_next_scene_frame_retains_original_100ms_acceptance_and_rejects_later_frames(self):
+        value=inspect_recording(self.root/'full.webm');value['video']['heldSeekFrames']['1.5']={'pts':.818,'until':1.561}
+        self.assertEqual(editor_frame_expectations(value)[1],1.561)
+        value['video']['heldSeekFrames']['1.5']['until']=1.601
+        with self.assertRaises(AssertionError):editor_frame_expectations(value)
+
 
 if __name__=='__main__':
     unittest.main(verbosity=2)

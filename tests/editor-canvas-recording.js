@@ -102,7 +102,7 @@ window.prepareEditorCanvasRecording = async function(payload,{shortAudio=false}=
    if(video.videoWidth!==720||video.videoHeight!==1280||video.duration<2.7||video.duration>4)throw Error('Incomplete Editor recording');
    const sample=document.createElement('canvas');sample.width=sample.height=1;const x=sample.getContext('2d'),colors=[];
    const targets=[.5,1.5,2.5];
-   if(expectedFrameTimes!==null&&(!Array.isArray(expectedFrameTimes)||expectedFrameTimes.length!==3||expectedFrameTimes.some((t,i)=>!Number.isFinite(t)||t<i||t>targets[i])))throw Error('Invalid independent frame expectations');
+   if(expectedFrameTimes!==null&&(!Array.isArray(expectedFrameTimes)||expectedFrameTimes.length!==3||expectedFrameTimes.some((t,i)=>!Number.isFinite(t)||t<i||t-targets[i]>.1)))throw Error('Invalid independent frame expectations');
    for(const [i,time] of targets.entries()){await seekRuntimeVideoFrame(video,time,4000,expectedFrameTimes?.[i]??time);x.drawImage(video,300,350,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
    const [r,b,g]=colors;if(!(r[0]>r[2]*1.5&&b[2]>b[0]*1.5&&g[1]>g[0]*1.5))throw Error('Editor image order '+JSON.stringify(colors));
    evidence.video=probe();return {width:video.videoWidth,height:video.videoHeight,duration:video.duration,type:result.mimeType,images:3,audio:'voice+music',source:plan.source.mode};

@@ -67,9 +67,14 @@ def editor_frame_expectations(evidence):
     result=[]
     for index,target in enumerate([.5,1.5,2.5]):
         value=evidence['video']['heldSeekFrames'][str(target)]
-        assert isinstance(value['pts'],(int,float)) and index<=value['pts']<=target, ('Missing scene frame at requested time',target,value)
+        assert isinstance(value['pts'],(int,float)) and 0<=value['pts']<=target, ('Invalid preceding frame',target,value)
         assert isinstance(value['until'],(int,float)) and value['until']>target, ('Unproven held frame interval',target,value)
-        result.append(value['pts'])
+        if value['pts']>=index:result.append(value['pts'])
+        else:
+            # The original sampler also accepts the next presented frame up to
+            # 100 ms after Seek. Keep that existing rule, never widen it.
+            assert index<=value['until']<index+1 and value['until']-target<=.1, ('Missing scene frame at requested time',target,value)
+            result.append(value['until'])
     return result
 
 
