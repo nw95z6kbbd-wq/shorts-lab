@@ -1,5 +1,5 @@
 /* Test-owned consumer: no production UI or persistence writes. */
-window.prepareEditorCanvasRecording = async function(payload){
+window.prepareEditorCanvasRecording = async function(payload,{shortAudio=false}={}){
  window.editorRecordedBlob=null;
  const evidence=window.editorRecordingEvidence={entry:location.protocol==='file:'?'file':'http',events:[],render:{count:0,firstMs:null,lastMs:null,maxGapMs:0,scenes:{}}};
  const images=new Map(),buffers={};
@@ -8,6 +8,12 @@ window.prepareEditorCanvasRecording = async function(payload){
   if(file.type.startsWith('image/'))images.set(file.name.split('.')[0],await ShortsVideoMedia.decodeImage(blob));
   else buffers[file.name.split('.')[0]]=await ShortsVideoRecorder.decodeAudio(blob);
  }
+ if(shortAudio)for(const key of Object.keys(buffers)){
+  const original=buffers[key],short=new AudioBuffer({numberOfChannels:original.numberOfChannels,length:Math.round(original.sampleRate*.25),sampleRate:original.sampleRate});
+  for(let channel=0;channel<original.numberOfChannels;channel++)short.copyToChannel(original.getChannelData(channel).subarray(0,short.length),channel);
+  buffers[key]=short;
+ }
+ evidence.inputs={voiceSeconds:buffers.voice?.duration,musicSeconds:buffers.music?.duration};
  const p=ShortsCore.upgradeProject(ShortsCore.createProject(false));p.timing='manual';p.scenes=['red','blue','green'].map((id,i)=>({id:'editor-photo-'+i,text:'Моя сцена '+(i+1),durationMs:1000,visual:'image',imageId:id,imageName:id,camera:'static',transition:'none'}));p.selectedSceneId=p.scenes[0].id;
  p.audio.voice.assetId='voice';p.audio.music.assetId='music';p.audio.voice.volume=.65;p.audio.music.volume=.45;p.audio.music.fadeInMs=200;p.audio.music.fadeOutMs=300;
  const plan=ShortsRenderAdapters.fromEditor(p),resources={images:new Map([...images].map(([id,r])=>[id,r.image]))};

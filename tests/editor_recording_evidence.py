@@ -8,7 +8,7 @@ import shutil
 import subprocess
 
 
-def inspect_recording(path):
+def inspect_recording(path, editor_progress=True):
     """Report real decoded frame coverage separately from container duration."""
     assert shutil.which('ffprobe') and shutil.which('ffmpeg'), 'FFmpeg and ffprobe are required for independent Editor recording validation'
     raw = subprocess.check_output(['ffprobe', '-v', 'error', '-show_frames', '-show_streams', '-show_format', '-show_entries',
@@ -34,7 +34,7 @@ def inspect_recording(path):
     subprocess.run(['ffmpeg','-v','error','-xerror','-i',str(path),'-f','null','-'],check=True,capture_output=True,timeout=40)
     # Diagnostic only: locate how far the canonical scene-progress bar had
     # advanced in the first and last actual frames (leading/trailing loss).
-    strip=subprocess.check_output(['ffmpeg','-v','error','-xerror','-i',str(path),'-an','-vf','format=rgb24,crop=634:1:43:107','-pix_fmt','rgb24','-f','rawvideo','-'],timeout=40) if video and all((f[2].get('width'),f[2].get('height'))==(720,1280) for f in video) else b''
+    strip=subprocess.check_output(['ffmpeg','-v','error','-xerror','-i',str(path),'-an','-vf','format=rgb24,crop=634:1:43:107','-pix_fmt','rgb24','-f','rawvideo','-'],timeout=40) if editor_progress and video and all((f[2].get('width'),f[2].get('height'))==(720,1280) for f in video) else b''
     stride=634*3
     def filled(row):
         values=[]
@@ -62,11 +62,13 @@ def assert_complete_recording(evidence):
     assert evidence['fullDecode'] is True
 
 
-def save_recording_evidence(root, script, command, label):
+def save_recording_evidence(root, script, command, label, kind='editor'):
     """Bounded test-owned Blob transport; keep diagnostics even when decoding fails."""
     folder=Path(root)/'test-results/editor-canvas'/label
     folder.mkdir(parents=True,exist_ok=True)
-    evidence=script('return window.editorRecordingEvidence || null;')
+    assert kind in ('editor','runtime')
+    blob_name='editorRecordedBlob' if kind=='editor' else 'runtimeRecordedBlob'
+    evidence=script('return window.editorRecordingEvidence || null;') if kind=='editor' else script('const d=window.runtimeSessionDiagnostics?.();return d?{trace:d.trace,pool:d.pool,contexts:d.contexts}:null;')
     result={'browser':evidence}
     if label.startswith('safari-recording-failure'):
         try:
@@ -75,9 +77,9 @@ def save_recording_evidence(root, script, command, label):
             result['sameBytesReprobe']={'error':str(error)[:300]}
     (folder/'browser.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2))
     try:
-        value=command('POST','/execute/async',{'script':'''const done=arguments[arguments.length-1],blob=window.editorRecordedBlob;
+        value=command('POST','/execute/async',{'script':'''const done=arguments[arguments.length-1],blob=window[arguments[0]];
           if(!blob)return done({missing:true});if(blob.size>16*1048576)return done({error:'Test recording exceeds 16 MiB diagnostic transport budget'});
-          const r=new FileReader();r.onerror=()=>done({error:'Diagnostic Blob read failed'});r.onload=()=>done({type:blob.type,base64:r.result.slice(r.result.lastIndexOf(',')+1)});r.readAsDataURL(blob);''','args':[]})
+          const r=new FileReader();r.onerror=()=>done({error:'Diagnostic Blob read failed'});r.onload=()=>done({type:blob.type,base64:r.result.slice(r.result.lastIndexOf(',')+1)});r.readAsDataURL(blob);''','args':[blob_name]})
         if value.get('error'):
             raise RuntimeError(value['error'])
         if value.get('missing'):
@@ -86,7 +88,7 @@ def save_recording_evidence(root, script, command, label):
             extension='mp4' if value['type'].startswith('video/mp4') else 'webm'
             path=folder/('recording.'+extension)
             path.write_bytes(base64.b64decode(value['base64'],validate=True))
-            result['encoded']=inspect_recording(path)
+            result['encoded']=inspect_recording(path,editor_progress=kind=='editor')
     except Exception as error:
         result['inspectionError']={'name':type(error).__name__,'message':str(error)[:800]}
     (folder/'evidence.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
@@ -101,7 +103,7 @@ def save_recording_evidence(root, script, command, label):
     # Never print recorded media bytes, source paths, or data URLs.
     for kind, value in result.items():
         encoded=json.dumps(value,ensure_ascii=False)
-        level='error' if label.startswith('safari-recording-failure') else 'notice'
+        level='error' if 'failure' in label else 'notice'
         print('::'+level+' title=Editor recording '+kind+'::'+encoded.replace('%','%25').replace('\r','%0D').replace('\n','%0A'),flush=True)
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:

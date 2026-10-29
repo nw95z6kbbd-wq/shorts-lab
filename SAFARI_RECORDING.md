@@ -55,7 +55,7 @@ Cancellation and visibility handling retain the existing cleanup path.
 - Native tests make ten successive recordings per HTTP/standalone entry; a single
   failure fails the job. These are measurements, not retry-until-success.
 - FFmpeg decodes every frame, checks real video/audio timestamp spans and dimensions.
-  A well-formed 3 s header on a real 0.8 s payload is a negative fixture.
+  A well-formed 3 s header on a real 1.8 s payload is a negative fixture.
 - Failed generated Blobs, MIME, renderer timings, audio clocks, native recorder
   events and an optional second playback are retained under
   `test-results/editor-canvas`. The second playback cannot rescue a failed assertion.
@@ -73,3 +73,17 @@ now ensures it is installed too. The branch-scoped `Diagnose Editor recording`
 workflow calls all existing checks with read-only permissions and
 `upload_pages: false` while PR creation through GitHub API is blocked. It does not
 provide a Pages publication route. Main's original push/PR rules remain unchanged.
+
+## Paused seek sampling
+
+A separate native run also exposed a pre-existing test-player stall after seeking
+while paused (including on the complete 6 s runtime clip). The sampler now briefly
+plays the muted generated file until a real compositor frame is observed, then
+restores the original paused state. The 100 ms timestamp requirement, 4 s timeout,
+ready-state checks and actual RGB scene-order assertions remain unchanged. No
+frame, a wrong timestamp or denied playback still fails. A frozen 9bc4c30 sampler
+reproduces the old timeout with a gated compositor. Native runtime recordings are
+also fully decoded by FFmpeg; container metadata alone cannot rescue a partial clip.
+
+One native measurement per entry uses 0.25 s voice/music buffers with the 3 s plan,
+so audio input ending early must neither shorten the video nor hang the media clock.

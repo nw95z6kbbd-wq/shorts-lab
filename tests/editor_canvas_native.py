@@ -23,7 +23,7 @@ def check_native_editor_canvas(root,script,command,click):
     args=[json.loads((root/'tests/fixtures/editor-canvas/spec.json').read_text()),(root/'tests/fixtures/editor-canvas/reference.svg').read_text(),media_payload()]
     def check_recording(attempt):
         for name in ['runtime-session-fixture.js','editor-canvas-recording.js']:script((root/'tests'/name).read_text())
-        execute('await prepareEditorCanvasRecording(arguments[0]);return true;',[media_payload()]);click('#editorRecordProbe')
+        execute('await prepareEditorCanvasRecording(arguments[0],{shortAudio:arguments[1]});return true;',[media_payload(),attempt==1]);click('#editorRecordProbe')
         try:
             recording=execute('return await finishEditorCanvasRecording();')
         except Exception:

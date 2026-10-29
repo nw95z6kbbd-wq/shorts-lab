@@ -14,13 +14,13 @@ class RecordingEvidenceTests(unittest.TestCase):
     def setUpClass(cls):
         cls.directory=tempfile.TemporaryDirectory(prefix='editor-recording-evidence-')
         cls.root=Path(cls.directory.name)
-        for name,seconds,size in [('full',3,'720x1280'),('partial',.8,'720x1280'),('wrong-size',3,'360x640')]:
+        for name,seconds,size in [('full',3,'720x1280'),('partial',1.8,'720x1280'),('wrong-size',3,'360x640')]:
             path=cls.root/(name+'.webm')
             subprocess.run(['ffmpeg','-v','error','-f','lavfi','-i',f'testsrc2=size={size}:rate=10:duration={seconds}',
                 '-f','lavfi','-i',f'sine=frequency=440:sample_rate=48000:duration={seconds}',
                 '-c:v','libvpx-vp9','-deadline','realtime','-cpu-used','8','-b:v','250k','-c:a','libopus','-y',str(path)],check=True,capture_output=True,timeout=40)
         # Use the actual unchanged application patcher. This makes a misleading
-        # but well-formed 3s header over a genuinely 0.8s video/audio payload.
+        # but well-formed 3s header over a genuinely 1.8s video/audio payload.
         subprocess.run(['node','-e',"const fs=require('fs'),V=require('./js/video-core.js'),p=process.argv[1];fs.writeFileSync(p,V.patchWebmDuration(new Uint8Array(fs.readFileSync(p)),3000));",str(cls.root/'partial.webm')],cwd=ROOT,check=True)
 
     @classmethod
@@ -37,7 +37,7 @@ class RecordingEvidenceTests(unittest.TestCase):
         value=inspect_recording(self.root/'partial.webm')
         self.assertEqual(float(value['format']['duration']),3)
         self.assertTrue(value['fullDecode'])
-        self.assertGreater(value['video']['count'],0)
+        self.assertGreaterEqual(value['video']['count'],12)
         with self.assertRaisesRegex(AssertionError,'Incomplete recorded frame'):
             assert_complete_recording(value)
 
