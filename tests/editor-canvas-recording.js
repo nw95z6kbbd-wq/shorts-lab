@@ -42,6 +42,14 @@ window.prepareEditorCanvasRecording = async function(payload){
  button.onclick=()=>{
   const started=performance.now();let previous;
   const NativeRecorder=window.MediaRecorder,recorders=[];let TrackedRecorder;
+  const audioGlobals=[],contexts=[];
+  evidence.audioContexts=[];
+  const clocks=()=>contexts.map(context=>({state:context.state,time:context.currentTime,sampleRate:context.sampleRate}));
+  for(const key of ['AudioContext','webkitAudioContext']){
+   const Native=window[key];if(typeof Native!=='function')continue;
+   const Tracked=new Proxy(Native,{construct:(target,args)=>{const context=Reflect.construct(target,args);contexts.push(context);evidence.audioContexts.push({createdMs:performance.now()-started});return context;}});
+   audioGlobals.push({key,Native,Tracked});window[key]=Tracked;
+  }
   evidence.recorders=recorders;
   if(typeof NativeRecorder==='function'){
    TrackedRecorder=new Proxy(NativeRecorder,{
@@ -49,7 +57,7 @@ window.prepareEditorCanvasRecording = async function(payload){
     construct:(target,args)=>{
      const recorder=Reflect.construct(target,args),trace={createdMs:performance.now()-started,requestedMime:args[1]?.mimeType,events:[],tracks:args[0].getTracks().map(t=>{const s=t.getSettings();return{kind:t.kind,readyState:t.readyState,muted:t.muted,width:s.width,height:s.height,frameRate:s.frameRate,sampleRate:s.sampleRate};})};
      if(recorders.length<8)recorders.push(trace);
-     for(const event of ['start','dataavailable','stop','error'])recorder.addEventListener(event,e=>{if(trace.events.length<32)trace.events.push({event,atMs:performance.now()-started,timecode:e.timecode,size:e.data?.size,state:recorder.state});});
+     for(const event of ['start','dataavailable','stop','error'])recorder.addEventListener(event,e=>{if(trace.events.length<32)trace.events.push({event,atMs:performance.now()-started,timecode:e.timecode,size:e.data?.size,state:recorder.state,audio:clocks()});});
      return recorder;
     }
    });
@@ -58,10 +66,11 @@ window.prepareEditorCanvasRecording = async function(payload){
   window.editorRecordingPromise=ShortsVideoRecorder.capabilities(true,'webm').supported?ShortsVideoRecorder.record({canvas,plan,resources,voiceBuffer:buffers.voice,musicBuffer:buffers.music,...ShortsRenderPlan.audioOptions(plan),format:'webm',
    onFormat:type=>{evidence.mimeType=type;evidence.formatAtMs=performance.now()-started;},onProgress:(_fraction,ms)=>{
     const now=performance.now(),r=evidence.render,scene=ShortsRenderPlan.frameAt(plan,ms).scene.id;
+    if(r.firstMs===null)evidence.audioAtFirstFrame=clocks();evidence.audioAtLastFrame=clocks();
     if(r.firstMs===null)r.firstMs=ms;r.lastMs=ms;r.count++;r.wallMs=now-started;r.maxGapMs=Math.max(r.maxGapMs,previous===undefined?0:now-previous);previous=now;
     const s=r.scenes[scene]||(r.scenes[scene]={count:0,firstMs:ms,lastMs:ms});s.count++;s.lastMs=ms;
    }}):Promise.resolve({skipped:true});
-  window.editorRecordingPromise=window.editorRecordingPromise.finally(()=>{evidence.completedWallMs=performance.now()-started;if(TrackedRecorder&&window.MediaRecorder===TrackedRecorder)window.MediaRecorder=NativeRecorder;});
+  window.editorRecordingPromise=window.editorRecordingPromise.finally(()=>{evidence.completedWallMs=performance.now()-started;if(TrackedRecorder&&window.MediaRecorder===TrackedRecorder)window.MediaRecorder=NativeRecorder;for(const {key,Native,Tracked} of audioGlobals)if(window[key]===Tracked)window[key]=Native;});
   window.editorRecordingPromise.catch(()=>{});
  };
  window.finishEditorCanvasRecording=async()=>{

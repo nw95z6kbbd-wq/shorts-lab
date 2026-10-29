@@ -84,7 +84,7 @@ def check_native_editor_canvas(root,script,command,click):
             if entry.startswith('http:') or entry.endswith('/downloads/Shorts-Studio.html'):
                 # Repeated measurements, not retry-on-failure: every recording
                 # must satisfy the unchanged browser and full-byte assertions.
-                for attempt in range(3):check_recording(attempt)
+                for attempt in range(10):check_recording(attempt)
     finally:
         for grant in grants:grant.unlink(missing_ok=True)
         server.shutdown();server.server_close()

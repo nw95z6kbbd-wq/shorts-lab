@@ -80,7 +80,8 @@ def save_recording_evidence(root, script, command, label):
     # Never print recorded media bytes, source paths, or data URLs.
     for kind, value in result.items():
         encoded=json.dumps(value,ensure_ascii=False)
-        print('::warning title=Editor recording '+kind+'::'+encoded.replace('%','%25').replace('\r','%0D').replace('\n','%0A'),flush=True)
+        level='error' if label.startswith('safari-recording-failure') else 'notice'
+        print('::'+level+' title=Editor recording '+kind+'::'+encoded.replace('%','%25').replace('\r','%0D').replace('\n','%0A'),flush=True)
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
             summary.write('\n### Editor recording byte evidence\n\n```json\n'+json.dumps(result,ensure_ascii=False,indent=2)+'\n```\n')
