@@ -135,3 +135,14 @@ test('late pause errors cannot overwrite the new revision; current real errors r
 test('removing the last track reports silent only after the previous context and media are actually closed',async()=>{
  const f=fixture(),states=[],controller=audioFactory({runtime:f.runtime}).createPlayback({onState:s=>states.push(s)});await controller.update(f.p,A.fromEditor(f.p),1);await controller.start(0);const g=gate();f.setCloseGate(g);const silent=structuredClone(f.p);silent.audio.voice.assetId=null;silent.audio.music.assetId=null;const changing=controller.update(silent,A.fromEditor(silent),2);await tick();assert.equal(states.at(-1),'loading');assert.equal(controller.status().ready,false);assert.ok(f.media.statistics().residentBytes>0);g.resolve();await changing;assert.equal(states.at(-1),'silent');assert.equal(f.contexts[0].state,'closed');assert.equal(f.media.statistics().sessions,0);await controller.close();
 });
+
+test('native audio startup awaits missing globals and restoration, rejects wrong documents and restore errors',async()=>{
+ const vm=require('node:vm'),source=fs.readFileSync('tests/editor-audio-startup.js','utf8'),expected='http://127.0.0.1:123/index.html';
+ function page(){const env={window:{},location:{href:expected},document:{readyState:'loading',title:'',body:{inert:true},scripts:[]},Date};vm.createContext(env);vm.runInContext(source,env);return env;}
+ const env=page(),g=gate();let calls=0,done=false;
+ const starting=env.editorAudioStartup(expected,{poll:async()=>{calls++;if(calls===1){env.window.ShortsEditorReady=g.promise;env.window.ShortsEditor={};}else{env.window.ShortsVideoRestored=true;env.document.body.inert=false;}await tick();}}).then(()=>done=true);
+ await tick();await tick();assert.equal(done,false);g.resolve();await starting;assert.ok(calls>=2);
+ const wrong=page();Object.assign(wrong.window,{ShortsEditorReady:Promise.resolve(),ShortsEditor:{},ShortsVideoRestored:true});wrong.document.body.inert=false;wrong.location.href='about:blank';await assert.rejects(wrong.editorAudioStartup(expected),/expected .* but opened about:blank/);
+ const failed=page();Object.assign(failed.window,{ShortsEditorReady:Promise.reject(Error('IndexedDB restore failure')),ShortsEditor:{},ShortsVideoRestored:true});failed.document.body.inert=false;await assert.rejects(failed.editorAudioStartup(expected),/IndexedDB restore failure/);
+ const absent=page();let now=0;absent.Date={now:()=>now++};await assert.rejects(absent.editorAudioStartup(expected,{timeoutMs:0,poll:async()=>{}}),/startup timeout.*ShortsEditorReady/);
+});
