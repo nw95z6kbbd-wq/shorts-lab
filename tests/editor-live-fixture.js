@@ -61,7 +61,8 @@ window.editorLiveThumbnail=async function(index,file){
   if(a.some((value,i)=>value!==b[i]))throw Error('Thumbnail pixels do not match source of scene '+index);
   if(!image.alt.startsWith('Изображение сцены '+(index+1)))throw Error('Thumbnail alternative text/order mismatch');
   const rect=image.getBoundingClientRect();if(Math.abs(rect.width-58)>1||Math.abs(rect.height-72)>1)throw Error('Shared thumbnail geometry changed');
-  await editorLiveUntil(()=>ShortsMediaSessions.statistics().sessions<=1,'thumbnail decoder released');
+  const project=ShortsEditor.backupSnapshot(),owners=1+Number(!!(project.audio?.voice.assetId||project.audio?.music.assetId));
+  await editorLiveUntil(()=>ShortsMediaSessions.statistics().sessions<=owners,'thumbnail decoder released; only preview/audio owners remain');
   return {sceneId:ShortsEditor.backupSnapshot().scenes[index].id,natural:[image.naturalWidth,image.naturalHeight],size:[rect.width,rect.height],pixels:'source matches'};
  }finally{original.dispose();}
 };

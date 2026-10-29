@@ -38,3 +38,7 @@ test('5000 cards do not eagerly read originals; at most eight small thumbnails a
  f.visible(cards[0],false);await until(()=>f.reads.length===9&&!f.controller.status().preparing);assert.equal(f.controller.status().ready,8);f.controller.suspend();assert.equal(f.controller.status().ready,0);assert.equal(f.revoked.length,9);assert.equal(f.media.statistics().residentBytes,0);
  f.controller.resume();await until(()=>f.controller.status().ready===8&&!f.controller.status().preparing);f.controller.dispose();assert.equal(f.media.statistics().sessions,0);assert.equal(f.revoked.length,17);
 });
+
+test('display errors revoke the small URL and keep the original for editing and ZIP',async()=>{
+ const f=setup(),card=f.card();f.visible(card);await until(()=>f.controller.status().ready===1&&!f.controller.status().preparing);card.image.onerror();assert.equal(card.image.hidden,true);assert.equal(card.image.src,undefined);assert.equal(f.revoked.length,1);assert.equal(f.controller.status().ready,0);assert.match(card.message.textContent,/Оригинал не изменён/);assert.ok(f.originals.has('one'));f.controller.dispose();assert.equal(f.media.statistics().residentBytes,0);
+});
