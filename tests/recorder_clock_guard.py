@@ -1,4 +1,4 @@
-"""One exact, reviewed media-clock bridge; the historical encoder stays pinned."""
+"""Exact reviewed media-clock/finalization bridges; the historical encoder stays pinned."""
 import sys
 from pathlib import Path
 
@@ -20,14 +20,46 @@ CLOCK = '''          // MediaRecorder timestamps the mixed stream on the Web Aud
 '''
 NEW='Math.min(plan.durationMs, Math.max(0, elapsedTime(now)))'
 OLD='Math.min(plan.durationMs, Math.max(0, now - start))'
-GUARD_NEW="    # Strip only the exact, audited media-clock correction before legacy proof.\n    recorder=__import__('recorder_clock_guard').strip_clock((root/'js/video-recorder.js').read_text())\n"
+DATA_OLD="            candidate.ondataavailable = event => { if (!settled && event.data.size) chunks.push(event.data); };\n"
+DATA_NEW='''            candidate.ondataavailable = event => {
+              if (!settled && event.data.size) chunks.push(event.data);
+              if (!settled && finalFlushPending) {
+                finalFlushPending = false;
+                try { if (recorder.state !== 'inactive') recorder.stop(); } catch (error) { fail(error); }
+              }
+            };
+'''
+FLUSH_OLD="                flushTimer = setTimeout(() => { if (!settled && recorder.state !== 'inactive') recorder.stop(); }, Math.ceil(1000 / V.FPS));\n"
+FLUSH_NEW='''                flushTimer = setTimeout(() => {
+                  if (settled || recorder.state === 'inactive') return;
+                  recorder.onpause = () => {
+                    if (settled || flushRequested) return;
+                    flushRequested = true; finalFlushPending = true;
+                    try { recorder.requestData(); } catch (error) { fail(error); }
+                  };
+                  // Freeze input at the final frame, flush while the encoder is
+                  // still alive, then stop only after dataavailable acknowledges it.
+                  // Safari can otherwise drop the tail and emit an empty stop chunk.
+                  try { if (recorder.state === 'paused') recorder.onpause(); else recorder.pause(); }
+                  catch (error) { fail(error); }
+                }, Math.ceil(1000 / V.FPS));
+'''
+DRAIN=[(DATA_NEW,DATA_OLD),(FLUSH_NEW,FLUSH_OLD),
+       ('let settled = false, stopping = false, flushRequested = false, finalFlushPending = false;','let settled = false, stopping = false;'),
+       ('recorder.onstop = null; recorder.onpause = null;','recorder.onstop = null;'),
+       ('if (!stopping || !flushRequested || finalFlushPending)','if (!stopping)')]
+GUARD_NEW="    # Strip only exact, audited media-clock/finalization corrections before legacy proof.\n    recorder=__import__('recorder_clock_guard').strip_clock((root/'js/video-recorder.js').read_text())\n"
 GUARD_OLD="    recorder=(root/'js/video-recorder.js').read_text()\n"
 
 
 def strip_clock(text):
     assert text.count(CLOCK)==1, 'Unexpected/missing approved audio clock bridge'
     assert text.count(NEW)==1, 'Unexpected/missing approved elapsed clock call'
-    return text.replace(CLOCK,'',1).replace(NEW,OLD,1)
+    text=text.replace(CLOCK,'',1).replace(NEW,OLD,1)
+    for new,old in DRAIN:
+        assert text.count(new)==1, 'Unexpected/missing approved finalization bridge'
+        text=text.replace(new,old,1)
+    return text
 
 
 def historical_source(path):
@@ -48,6 +80,16 @@ def verify_clock_guard():
     return 3
 
 
+def verify_drain_guard():
+    source=(Path(__file__).resolve().parents[1]/'js/video-recorder.js').read_text()
+    for old,new in [('recorder.requestData()','recorder.stop()'),('!settled && finalFlushPending','!settled'),("recorder.state === 'paused'","recorder.state !== 'paused'"),('if (!stopping || !flushRequested || finalFlushPending)','if (!stopping)')]:
+        assert source.count(old)==1
+        try:strip_clock(source.replace(old,new,1))
+        except AssertionError:pass
+        else:raise AssertionError('Finalization guard accepted: '+old)
+    return 4
+
+
 if __name__=='__main__':
-    if sys.argv[1:] == ['--self-test']:print('PASS:',verify_clock_guard(),'audio clock mutations rejected')
+    if sys.argv[1:] == ['--self-test']:print('PASS:',verify_clock_guard(),'audio clock mutations rejected;',verify_drain_guard(),'finalization mutations rejected')
     else:sys.stdout.write(historical_source(Path(sys.argv[1])))

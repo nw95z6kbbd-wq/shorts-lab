@@ -85,7 +85,7 @@
       signal?.throwIfAborted();
       return await new Promise((resolve, reject) => {
         const chunks = [];
-        let settled = false, stopping = false;
+        let settled = false, stopping = false, flushRequested = false, finalFlushPending = false;
         function fail(error) {
           if (settled) return;
           settled = true; cancelAnimationFrame(animationFrame);
@@ -93,7 +93,7 @@
         }
         async function finish() {
           if (settled) return;
-          if (!stopping) { fail(new Error('Браузер завершил запись раньше времени. Попробуйте ещё раз или выберите WebM.')); return; }
+          if (!stopping || !flushRequested || finalFlushPending) { fail(new Error('Браузер завершил запись раньше времени. Попробуйте ещё раз или выберите WebM.')); return; }
           try {
             const mimeType = recorder.mimeType || chunks.find(chunk => chunk.type)?.type;
             const extension = V.extensionFor(mimeType);
@@ -110,7 +110,13 @@
           let candidate;
           try {
             candidate = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 2600000, audioBitsPerSecond: 128000 });
-            candidate.ondataavailable = event => { if (!settled && event.data.size) chunks.push(event.data); };
+            candidate.ondataavailable = event => {
+              if (!settled && event.data.size) chunks.push(event.data);
+              if (!settled && finalFlushPending) {
+                finalFlushPending = false;
+                try { if (recorder.state !== 'inactive') recorder.stop(); } catch (error) { fail(error); }
+              }
+            };
             candidate.onerror = () => fail(new Error('Ошибка видеокодека браузера. Попробуйте формат WebM или уберите аудиодорожку.'));
             candidate.onstop = finish;
             recorder = candidate;
@@ -156,7 +162,19 @@
               if (elapsed >= plan.durationMs) {
                 stopping = true;
                 // Allow the last drawn frame to reach the canvas capture track before flushing.
-                flushTimer = setTimeout(() => { if (!settled && recorder.state !== 'inactive') recorder.stop(); }, Math.ceil(1000 / V.FPS));
+                flushTimer = setTimeout(() => {
+                  if (settled || recorder.state === 'inactive') return;
+                  recorder.onpause = () => {
+                    if (settled || flushRequested) return;
+                    flushRequested = true; finalFlushPending = true;
+                    try { recorder.requestData(); } catch (error) { fail(error); }
+                  };
+                  // Freeze input at the final frame, flush while the encoder is
+                  // still alive, then stop only after dataavailable acknowledges it.
+                  // Safari can otherwise drop the tail and emit an empty stop chunk.
+                  try { if (recorder.state === 'paused') recorder.onpause(); else recorder.pause(); }
+                  catch (error) { fail(error); }
+                }, Math.ceil(1000 / V.FPS));
                 finalTimer = setTimeout(() => fail(new Error('Браузер не смог завершить видеофайл. Попробуйте WebM.')), 10000);
               } else animationFrame = requestAnimationFrame(frame);
             } catch (error) { fail(error); }
@@ -168,7 +186,7 @@
       cancelAnimationFrame(animationFrame); clearTimeout(flushTimer); clearTimeout(finalTimer);
       if (abortListener) signal?.removeEventListener('abort', abortListener);
       if (visibilityListener) document.removeEventListener('visibilitychange', visibilityListener);
-      if (recorder) { recorder.ondataavailable = null; recorder.onerror = null; recorder.onstop = null; if (recorder.state !== 'inactive') { try { recorder.stop(); } catch (_) {} } }
+      if (recorder) { recorder.ondataavailable = null; recorder.onerror = null; recorder.onstop = null; recorder.onpause = null; if (recorder.state !== 'inactive') { try { recorder.stop(); } catch (_) {} } }
       mix?.stop();
       stream?.getTracks().forEach(track => track.stop());
       if (context) await context.close().catch(() => {});

@@ -44,10 +44,32 @@ audio stream. Silent Canvas recording retains the exact old `now - start` path.
 
 The plan remains 3000 ms; it is not stretched to match source audio length.
 A slow device can take longer wall time to prepare/record those media seconds.
-Codec selection, bitrates, audio graph, fades, renderer and final flush are unchanged.
+Codec selection, bitrates, audio graph, fades and renderer are unchanged.
+Finalization now explicitly pauses input, requests/drains pending data, then stops.
 An interrupted, invalid/backwards, or non-advancing audio clock fails explicitly.
 A clock that stops advancing for 10 s fails instead of leaving an endless capture.
 Cancellation and visibility handling retain the existing cleanup path.
+
+## Separate final-chunk loss
+
+The clock correction alone was deliberately not accepted as complete. A subsequent
+native run isolated an independent writer/drain failure:
+https://github.com/nw95z6kbbd-wq/shorts-lab/actions/runs/40838020719
+
+Here AudioContext reached 3.009887 s and the renderer reached 3000 ms, but the
+`stop` dataavailable event contained **zero bytes**. The last previously delivered
+chunk covered only 2.244 s; FFmpeg decoded 53 video frames and 901 audio frames.
+The browser duration was 2.26 s, and the last-frame progress was [205,204,44],
+confirming loss of the end of the third scene (not just inaccurate metadata).
+
+At the existing final-frame capture boundary the recorder now pauses gathering
+new samples, waits for `pause`, calls `requestData()`, waits for `dataavailable`,
+and only then calls `stop()`. This is an event barrier, not an added fixed delay.
+Pausing input prevents a slow flush from padding/extending voice or video. The
+existing 10 s completion watchdog remains; missing pause/data acknowledgements,
+errors or unsolicited stops reject instead of returning a partial successful file.
+A controlled writer model reproduces stop dropping a 750 ms pending tail; both
+immediate and delayed flush acknowledgement preserve the complete media interval.
 
 ## Strict validation and source protection
 
@@ -62,7 +84,7 @@ Cancellation and visibility handling retain the existing cleanup path.
 - `recorder_clock_guard.py` removes only the exact reviewed clock extension.
   The original recorder/source hashes and pinned `ad1ca0a701605af6d80c8de8983ec5ebeb9e8905`
   remain unchanged. The original eight mutation checks remain mandatory; three
-  additional clock mutations are rejected. No moving baseline is used.
+  additional clock mutations and four finalization mutations are rejected. No moving baseline is used.
 - Controlled clock tests execute the actual old/new recorder source. They reproduce
   the old short recording under 600 ms audio startup lag and cover slower/faster,
   stalled/interrupted/invalid/backwards audio clocks, cancellation, and exact

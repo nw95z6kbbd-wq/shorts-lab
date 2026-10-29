@@ -63,7 +63,7 @@ window.prepareEditorCanvasRecording = async function(payload,{shortAudio=false}=
     construct:(target,args)=>{
      const recorder=Reflect.construct(target,args),trace={createdMs:performance.now()-started,requestedMime:args[1]?.mimeType,events:[],tracks:args[0].getTracks().map(t=>{const s=t.getSettings();return{kind:t.kind,readyState:t.readyState,muted:t.muted,width:s.width,height:s.height,frameRate:s.frameRate,sampleRate:s.sampleRate};})};
      if(recorders.length<8)recorders.push(trace);
-     for(const event of ['start','dataavailable','stop','error'])recorder.addEventListener(event,e=>{if(trace.events.length<32)trace.events.push({event,atMs:performance.now()-started,timecode:e.timecode,size:e.data?.size,state:recorder.state,audio:clocks()});});
+     for(const event of ['start','pause','dataavailable','stop','error'])recorder.addEventListener(event,e=>{if(trace.events.length<32)trace.events.push({event,atMs:performance.now()-started,timecode:e.timecode,size:e.data?.size,state:recorder.state,audio:clocks()});});
      return recorder;
     }
    });

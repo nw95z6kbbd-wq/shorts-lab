@@ -21,7 +21,7 @@ def assert_render_stack(root=ROOT,baseline=None):
     for name,expected in json.loads((FIXTURE/'unchanged-runtime.json').read_text()).items():
         assert hashlib.sha256((root/name).read_bytes()).hexdigest()==expected,'Unapproved runtime change: '+name
         if baseline:assert (root/name).read_bytes()==(baseline/name).read_bytes(),name
-    # Strip only the exact, audited media-clock correction before legacy proof.
+    # Strip only exact, audited media-clock/finalization corrections before legacy proof.
     recorder=__import__('recorder_clock_guard').strip_clock((root/'js/video-recorder.js').read_text())
     for new,old in [('record({ canvas, plan, resources,','record({ canvas, plan,'),('    window.ShortsRenderPlan.assertRenderable(plan);\n',''),('render(canvas, plan, ms, resources)','render(canvas, plan, ms)')]:recorder=replace_once(recorder,new,old,'recorder '+new)
     expected=(FIXTURE/'video-recorder-before.js').read_text();assert recorder==expected,'Encoder/capture loop changed outside approved resource bridge'
