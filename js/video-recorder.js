@@ -79,6 +79,7 @@
       if (hasAudio) {
         const Audio = AudioContextClass();
         context = new Audio();
+        recordingPolicy?.onContext?.(context);
         await resumeAudio(context);
         signal?.throwIfAborted();
         const destination = context.createMediaStreamDestination();

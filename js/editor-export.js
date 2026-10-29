@@ -31,10 +31,14 @@
    const role=['voice','music'].find(role=>job.data.plan.audio[role].assetId&&job.data.plan.audio[role].assetId===cause.assetId);
    return error(cause.code||cause.name||'EXPORT',(role?(role==='voice'?'Озвучка: ':'Музыка: '):'')+(cause.message||'Не удалось подготовить видео.'),{assetId:cause.assetId,cause});
   }
+  async function closeContexts(job){
+   for(const context of job.contexts){if(context.state!=='closed'){try{await context.close();}catch(cause){throw error('AUDIO_CLOSE','Браузер не подтвердил закрытие аудиоконтекста; ресурсы удерживаются. Повторите отмену или очистку.',{cause});}if(context.state!=='closed')throw error('AUDIO_CLOSE','Аудиоконтекст ещё не закрыт; ресурсы удерживаются.');}}
+   job.contexts.clear();job.pin?.release();job.pin=null;
+  }
   function unlisten(job){job.external?.removeEventListener('abort',job.externalAbort);}
   async function retire(job){
    if(!job)return;job.abort.abort(error('CANCELLED','Экспорт отменён.'));unlisten(job);
-   const closing=job.session?.cancel();await Promise.allSettled([job.preparation,job.recording]);await closing;await job.session?.dispose();jobs.delete(job);
+   const closing=job.session?.cancel();await Promise.allSettled([job.preparation,job.recording]);await closeContexts(job);await closing;await job.session?.dispose();jobs.delete(job);
   }
   function prepare({project,canvas,contentRevision=0,savedRevision=null,signal}={}){
    if(closed)return Promise.reject(error('STATE','Контроллер экспорта закрыт.'));
@@ -42,7 +46,7 @@
    let data;
    try{data=io.runtime.snapshotData(project,io.adapters.fromEditor(project));}
    catch(cause){active=null;state='error';failure=cause;return Promise.all(previous.map(retire)).then(()=>{throw cause;},cleanup=>{failure=cleanup;throw cleanup;});}
-   const job={id:'editor-export-'+token,generation:token,data,canvas,abort:new AbortController(),session:null,external:signal};active=job;jobs.add(job);
+   const job={id:'editor-export-'+token,generation:token,data,canvas,abort:new AbortController(),session:null,external:signal,contexts:new Set(),pin:null};active=job;jobs.add(job);
    job.externalAbort=()=>{if(active===job){publish(job,'cancelled');generation++;state='cancelled';failure=null;void retire(job).catch(cause=>{failure=cause;state='error';});}};
    signal?.addEventListener('abort',job.externalAbort,{once:true});publish(job,'preparing');
    job.preparation=(async()=>{
@@ -65,7 +69,7 @@
       if(scene.endMs-scene.startMs<1000/plan.output.fps)throw error('EXPORT_TIMING','Длительность сцены короче одного кадра 24 fps. Измените её явно.',{sceneId:scene.id});
       for(const cue of scene.cues){if(cue.endMs-cue.startMs<1000/plan.output.fps)throw error('EXPORT_TIMING','Интервал субтитра короче одного кадра 24 fps. Увеличьте длительность или явно выберите субтитры по сценам.',{sceneId:scene.id});try{io.profile.layout(ctx,cue.text,style);}catch(cause){throw Object.assign(cause,{sceneId:scene.id});}if(++count%8===0){await io.yield();check(job);}}
      }
-     job.policy=Object.freeze({mimeTypes,maxBytes:maxOutputBytes});
+     job.policy=Object.freeze({mimeTypes,maxBytes:maxOutputBytes,onContext:context=>job.contexts.add(context)});
      job.session=io.runtime.create({slot:'editor',projectId:data.project.id,...data,contentRevision,savedRevision,signal:job.abort.signal});
      await job.session.prepare();check(job);job.session.renderFrame(canvas,0);check(job);publish(job,'ready');
      return Object.freeze({jobId:job.id,plan:data.plan,identity:job.session.identity,formats:mimeTypes,estimatedBytes:estimate,omittedScenes:data.plan.omittedScenes});
@@ -79,13 +83,14 @@
    lastResult=null;publish(job,'recording');
    signal?.addEventListener('abort',job.externalAbort,{once:true});if(signal?.aborted){job.externalAbort();signal.removeEventListener('abort',job.externalAbort);return Promise.reject(error('CANCELLED','Запуск записи отменён.'));}
    // No await before session.record(): AudioContext.resume belongs to this click.
+   job.pin=job.session.acquire();
    const recording=job.session.record({canvas:job.canvas,signal,recordingPolicy:job.policy,
     onFormat:type=>{if(current(job))emit(onProgress,Object.freeze({jobId:job.id,state:'recording',fraction:0,mimeType:type}));},
     onProgress:(fraction,timeMs)=>{if(current(job)){if(timeMs>=job.data.plan.durationMs)publish(job,'finalizing');emit(onProgress,Object.freeze({jobId:job.id,state,fraction:Math.min(.99,fraction),timeMs}));}}
    });
    job.recording=(async()=>{
     try{
-     const raw=await recording;check(job);publish(job,'validating');await job.session.dispose();jobs.delete(job);check(job);
+     const raw=await recording;check(job);publish(job,'validating');await closeContexts(job);await job.session.dispose();jobs.delete(job);check(job);
      const plan=job.data.plan,expected={durationMs:plan.durationMs,...plan.output,hasAudio:!!(plan.audio.voice.assetId||plan.audio.music.assetId)};
      const info=await io.inspector.inspect(raw.blob,expected,{signal:job.abort.signal});check(job);
      if(!job.policy.mimeTypes.some(type=>type.startsWith('video/'+info.container)))throw error('FORMAT','Записан незапрошенный контейнер.');
@@ -94,12 +99,12 @@
      lastResult=Object.freeze({blob:raw.blob,container:info.container,extension:info.extension,mimeType:'video/'+info.container,videoCodec:info.video.codec,audioCodec:info.audio?.codec||null,width:playback.width,height:playback.height,durationMs:playback.durationMs,plannedDurationMs:plan.durationMs,bytes:raw.blob.size,streams:info,fallback:info.container==='webm'&&plan.exportSettings.format==='auto',jobId:job.id,identity:job.session.identity,validation:Object.freeze({sampleCoverage:true,browserMetadata:true,fullDecode:false})});
      publish(job,'complete');emit(onProgress,Object.freeze({jobId:job.id,state:'complete',fraction:1,timeMs:plan.durationMs}));unlisten(job);return lastResult;
     }catch(cause){
-     await job.session.dispose();jobs.delete(job);unlisten(job);const reason=describe(job,cause);if(current(job)){lastResult=null;if(cause.name==='AbortError'||cause.code==='CANCELLED')publish(job,'cancelled');else publish(job,'error',reason);}throw reason;
+     try{await closeContexts(job);await job.session.dispose();jobs.delete(job);}catch(cleanup){unlisten(job);if(current(job))publish(job,'error',cleanup);throw cleanup;}unlisten(job);const reason=describe(job,cause);if(current(job)){lastResult=null;if(cause.name==='AbortError'||cause.code==='CANCELLED')publish(job,'cancelled');else publish(job,'error',reason);}throw reason;
     }finally{signal?.removeEventListener('abort',job.externalAbort);}
    })();job.recording.catch(()=>{});return job.recording;
   }
   async function cancel(){if(active)publish(active,'cancelled');generation++;state='cancelled';failure=null;lastResult=null;await Promise.all([...jobs].map(retire));}
-  return Object.freeze({prepare,start,cancel,async dispose(){closed=true;await cancel();active=null;state='disposed';},status:()=>Object.freeze({state,generation,observerError,pendingJobs:jobs.size,jobId:active?.id||null,identity:active?.session?.identity||null,error:failure?{code:failure.code||failure.name,message:failure.message}:null,hasResult:!!lastResult,session:active?.session?.status()||null}),toJSON(){throw error('RUNTIME','Контроллер экспорта нельзя сохранять в DTO или ZIP.');}});
+  return Object.freeze({prepare,start,cancel,async dispose(){closed=true;await cancel();active=null;state='disposed';},status:()=>Object.freeze({state,generation,observerError,pendingJobs:jobs.size,cleanupPending:[...jobs].some(j=>j.pin),jobId:active?.id||null,identity:active?.session?.identity||null,error:failure?{code:failure.code||failure.name,message:failure.message}:null,hasResult:!!lastResult,session:active?.session?.status()||null}),toJSON(){throw error('RUNTIME','Контроллер экспорта нельзя сохранять в DTO или ZIP.');}});
  }
  return Object.freeze({create,formats,MAX_OUTPUT_BYTES});
 });

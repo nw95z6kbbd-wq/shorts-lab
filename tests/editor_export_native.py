@@ -25,6 +25,7 @@ def check_native_editor_export(root,script,command,click):
     label=('file' if entry.startswith('file:') else 'http')+'-'+mode+'-'+str(audio);folder=root/'test-results/editor-canvas/editor-export'/label;folder.mkdir(parents=True,exist_ok=True)
     prepared=execute('return await prepareEditorExportFixture(arguments[0],arguments[1]);',[media_payload(),{'format':mode,'audio':audio}])
     if mode=='auto':assert any(t.startswith('video/mp4') for t in prepared['formats']), 'This Safari has no compatible H.264/AAC encoder: actual MP4 requirement not verified'
+    script((root/'tests/editor-export-safari-diagnostics.js').read_text());script('window.stopExportTrace=installEditorExportTrace();')
     click('#editorExportStart')
     try:
      result=execute('return await finishEditorExportFixture();');data=encoded('editorExportBlob');path=folder/('recording.'+result['extension']);path.write_bytes(base64.b64decode(data['data']));actual=verify_file(path,result,audio)
@@ -33,12 +34,26 @@ def check_native_editor_export(root,script,command,click):
      if audio:assert execute('return await exerciseEditorExportErrors();')==['missing image','overflow','resource count']
      evidence.append({'entry':entry,'mode':mode,'actual':actual})
     except Exception as failure:
+     print('::error title=Editor export native trace::'+json.dumps(script('return {states:exportStates,progress:exportProgress.slice(-6),trace:{recorders:editorExportTrace.recorders,contexts:editorExportTrace.contexts.map(c=>({rate:c.sampleRate,state:c.state,time:c.currentTime})),progress:editorExportTrace.progress.slice(-8)}};')),flush=True)
+     try:
+      script('stopExportTrace();setupEditorExportMatrix();')
+      for config in [
+       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2'},
+       {'type':'video/mp4;codecs=avc1.42E01E,mp4a.40.2'},
+       {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','rate':48000},
+       {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','rate':44100},
+       {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','noSlice':True},
+       {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','fresh':True},
+       {'type':'video/mp4'},
+      ]:
+       script('window.exportMatrixConfig=arguments[0];',[config]);click('#exportMatrix');row=execute('return await exportMatrixPromise;');print('::notice title=Failure-only native codec matrix::'+json.dumps(row),flush=True)
+     except Exception as diagnostic:print('::warning title=Native matrix failure::'+str(diagnostic)[:800],flush=True)
      try:
       data=encoded('exportRawBlob');failed=folder/('failed'+('.mp4' if data['type'].startswith('video/mp4') else '.webm'));failed.write_bytes(base64.b64decode(data['data']));actual=inspect_recording(failed);print('::error title=Native Editor export independent evidence::'+json.dumps({'failure':str(failure),'mime':data['type'],'formats':prepared['formats'],'streams':actual['streams'],'video':actual['video'],'audio':actual['audio'],'format':actual['format']}),flush=True)
       (folder/'state.json').write_text(json.dumps(script('return {states:window.exportStates,progress:window.exportProgress,status:window.exportJob?.status()};'),ensure_ascii=False,indent=2))
      except Exception as diagnostic:print('::warning title=Editor export evidence::'+str(diagnostic)[:500],flush=True)
      raise
-    execute('await disposeEditorExportFixture();return true;')
+    script('stopExportTrace();');execute('await disposeEditorExportFixture();return true;')
   print('::notice title=Native Safari Editor export confirmed::'+json.dumps(evidence),flush=True)
  finally:
   for grant in grants:grant.unlink(missing_ok=True)

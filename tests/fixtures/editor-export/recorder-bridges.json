@@ -18,5 +18,9 @@
   {
     "old": "            if (settled) return;\n            settled = true;",
     "new": "            if (recordingPolicy && blob.size > recordingPolicy.maxBytes) throw Object.assign(new Error('Размер завершённого видео превышает рабочий предел экспорта.'), { code: 'OUTPUT_BUDGET' });\n            if (settled) return;\n            settled = true;"
+  },
+  {
+    "old": "        context = new Audio();\n        await resumeAudio(context);",
+    "new": "        context = new Audio();\n        recordingPolicy?.onContext?.(context);\n        await resumeAudio(context);"
   }
 ]

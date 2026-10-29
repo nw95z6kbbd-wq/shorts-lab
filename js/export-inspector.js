@@ -19,7 +19,8 @@
    const children=box=>boxes(box.data,box.end),find=(list,type,required=true)=>{const a=list.filter(x=>x.type===type);if(a.length>1||required&&!a.length)fail('CONTAINER','Некорректная структура MP4: '+type);return a[0];};
    const table=(box,stride,offset=8)=>{check(box.data,offset,box.end);const n=u32(box.data+4);if(n>MAX_SAMPLES)fail('CONTAINER','Слишком большая таблица MP4.');check(box.data+offset,n*stride,box.end);return Array.from({length:n},(_,i)=>box.data+offset+i*stride);};
    const top=boxes(0,b.length),ftyp=find(top,'ftyp'),moov=find(top,'moov'),mdats=top.filter(x=>x.type==='mdat');
-   if(ftyp.size<16||!mdats.length)fail('CONTAINER','В MP4 отсутствуют заголовок или медиаданные.');
+   if(ftyp.size<16||!mdats.length||(ftyp.end-ftyp.data)%4)fail('CONTAINER','В MP4 отсутствуют заголовок или медиаданные.');
+   const brands=[text(ftyp.data,4)];for(let p=ftyp.data+8;p<ftyp.end;p+=4)brands.push(text(p,4));if(!brands.some(brand=>['isom','iso2','iso4','iso5','iso6','mp41','mp42','avc1','dash','cmfc','M4V '].includes(brand)))fail('CONTAINER','ISO BMFF не объявляет совместимость с MP4.');
    const inData=(p,n)=>mdats.some(m=>p>=m.data&&p+n<=m.end);
    const movie=children(moov),mvhd=find(movie,'mvhd');check(mvhd.data,32,mvhd.end);
    const movieScale=u32(mvhd.data+(b[mvhd.data]===1?20:12));if(!movieScale)fail('CONTAINER','Нет шкалы времени MP4.');
@@ -86,7 +87,7 @@
     const a=list(e),id=integer(get(a,0xd7,true)),kind=integer(get(a,0x83,true)),codec=string(get(a,0x86,true)),t={id,kind:kind===1?'video':kind===2?'audio':'unknown',codec,first:Infinity,end:0,count:0,bytes:0,defaultDuration:get(a,0x23e383)?integer(get(a,0x23e383))/1000000:1000/24};
     if(tracks.has(id))fail('CONTAINER','Повторный номер WebM track.');
     if(kind===1){const video=list(get(a,0xe0,true));Object.assign(t,{width:integer(get(video,0xb0,true)),height:integer(get(video,0xba,true)),codec:{V_VP8:'vp8',V_VP9:'vp9'}[codec]});if(!t.codec)fail('CODEC','Неподдерживаемый видеокодек WebM.');}
-    else if(kind===2){if(codec!=='A_OPUS')fail('CODEC','Требуется Opus в WebM.');t.codec='opus';const audio=list(get(a,0xe1,true));t.channels=get(audio,0x9f)?integer(get(audio,0x9f)):1;t.sampleRate=48000;}
+    else if(kind===2){if(codec!=='A_OPUS')fail('CODEC','Требуется Opus в WebM.');t.codec='opus';const audio=list(get(a,0xe1,true));t.channels=get(audio,0x9f)?integer(get(audio,0x9f)):1;t.sampleRate=48000;const privateData=get(a,0x63a2,true);check(privateData.data,19,privateData.end);if(text(privateData.data,8)!=='OpusHead'||b[privateData.data+8]!==1||b[privateData.data+9]!==t.channels||![1,2].includes(t.channels)||b[privateData.data+18]!==0)fail('CODEC','Неверное описание Opus.');}
     else fail('CODEC','Неподдерживаемая дорожка WebM.');tracks.set(id,t);
    }
    function block(e,clusterTime,blockDuration){
@@ -117,6 +118,7 @@
   fail('CONTAINER','Записанные байты не являются поддерживаемым MP4 или WebM.');
  }
  function assertExpected(info,{durationMs,width=720,height=1280,fps=24,hasAudio}={}){
+  if(!Number.isSafeInteger(durationMs)||durationMs<=0||width!==720||height!==1280||fps!==24||typeof hasAudio!=='boolean')fail('SETTINGS','Неверные ожидаемые параметры записанного файла.');
   const tolerance=Math.min(250,Math.max(2000/fps,durationMs*.05));
   if(info.video.width!==width||info.video.height!==height)fail('OUTPUT_DIMENSIONS','Фактическое разрешение видео не совпадает с 720×1280.');
   if(Boolean(info.audio)!==hasAudio)fail('OUTPUT_AUDIO','Количество звуковых дорожек не соответствует проекту.');
