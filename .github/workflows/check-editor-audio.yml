@@ -1,0 +1,11 @@
+name: Check Editor audio branch
+on:
+  push:
+    branches: [feat/editor-audio-controls]
+permissions:
+  contents: read
+jobs:
+  checks:
+    uses: ./.github/workflows/pages.yml
+    with:
+      upload_pages: false

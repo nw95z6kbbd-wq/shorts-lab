@@ -152,6 +152,20 @@ body{overflow:hidden}
 .preview-column .portrait-wrap{display:block}
 .editor-canvas-frame{margin-inline:auto}
 
+/* Independent project audio, in the scrollable editing column. */
+.editor-audio-panels{display:grid;gap:16px;margin-top:22px;min-width:0}
+.editor-audio-panel{padding:22px;min-width:0}
+.editor-audio-panel h2{margin:0 0 15px;font-size:17px}
+.editor-audio-files{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
+.editor-audio-files>span{font-size:13px;color:var(--muted);overflow-wrap:anywhere;min-width:0}
+.editor-audio-panel [data-state="error"],.editor-audio-panel [aria-invalid="true"]{color:#ffadba}
+.editor-audio-panel input[aria-invalid="true"]{border-color:#ffadba}
+.editor-audio-panel .music-fades{margin-top:16px}
+@media(max-width:600px){.editor-audio-panel{padding:16px}.editor-audio-files .button{white-space:normal}}
+@media(max-width:600px){.editor-audio-panels{order:4;width:100%}.editor-bottom{order:5}}
+/* Informational text has no actions: it must never intercept Play/Pause. */
+#toast{pointer-events:none}
+
 </style>
 </head>
 <body>
@@ -248,13 +262,14 @@ body{overflow:hidden}
           </div>
 
           <section id="scenesSection" class="scenes-section" aria-labelledby="scenesTitle"><div class="section-heading"><div><h2 id="scenesTitle">Сцены проекта <span id="sceneHeadingCount">0</span></h2><p>Маленькие фрагменты большой истории.</p></div><button class="text-button" id="addScene"><svg><use href="#i-plus"/></svg>Добавить сцену</button></div><div class="studio-timing-controls"><label for="editorTimingMode">Длительности<select id="editorTimingMode" aria-describedby="editorTimingHelp"><option value="reading">Авто · 150 слов/мин</option><option value="manual">Вручную</option></select></label><output id="editorTimingSummary" aria-live="polite">Итого: 0:00</output><p id="editorTimingHelp">Авто — по тексту сцен. Вручную: секунды с точностью до 0,001; пусто — авто. Ручные значения сохраняются при переключении режимов.</p></div><div id="scriptChanged" class="notice" hidden><svg><use href="#i-info"/></svg><span>Сценарий изменён. Нажмите «Разбить на сцены», чтобы заменить текущие сцены новым текстом.</span></div><div id="sceneList" class="scene-list"></div><p class="scene-footnote" id="sceneFootnote">Предпросмотр и SRT используют текст сцен. Правки сцен не меняют исходный сценарий.</p></section>
+          <div class="editor-audio-panels" aria-label="Звук проекта"><section class="panel editor-audio-panel" aria-labelledby="editorVoiceHeading"><h2 id="editorVoiceHeading">Озвучка</h2><div class="editor-audio-files"><button type="button" class="button button-secondary" id="editorVoiceUpload">Добавить озвучку</button><input type="file" id="editorVoiceFile" class="sr-only" tabindex="-1" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm" aria-label="Файл: озвучка"><button type="button" class="text-button" id="editorVoiceRemove" hidden>Удалить озвучку</button><span id="editorVoiceName">Файл не выбран</span></div><p id="editorVoiceStatus" class="video-hint" role="status" aria-live="polite"></p><div class="video-volume"><label for="editorVoiceVolume">Громкость: озвучка</label><input id="editorVoiceVolume" type="range" min="0" max="100" step="1" value="70"><output id="editorVoiceVolumeValue" for="editorVoiceVolume">70%</output></div></section><section class="panel editor-audio-panel" aria-labelledby="editorMusicHeading"><h2 id="editorMusicHeading">Музыка</h2><div class="editor-audio-files"><button type="button" class="button button-secondary" id="editorMusicUpload">Добавить музыку</button><input type="file" id="editorMusicFile" class="sr-only" tabindex="-1" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm" aria-label="Файл: музыка"><button type="button" class="text-button" id="editorMusicRemove" hidden>Удалить музыку</button><span id="editorMusicName">Файл не выбран</span></div><p id="editorMusicStatus" class="video-hint" role="status" aria-live="polite"></p><div class="video-volume"><label for="editorMusicVolume">Громкость: музыка</label><input id="editorMusicVolume" type="range" min="0" max="100" step="1" value="25"><output id="editorMusicVolumeValue" for="editorMusicVolume">25%</output></div><div class="music-fades"><label for="editorMusicFadeIn">Плавное появление, сек<input id="editorMusicFadeIn" type="text" inputmode="decimal" value="1" aria-describedby="editorMusicFadeHint"></label><label for="editorMusicFadeOut">Плавное затухание, сек<input id="editorMusicFadeOut" type="text" inputmode="decimal" value="1" aria-describedby="editorMusicFadeHint"></label></div><p id="editorMusicFadeHint" class="video-hint">От 0 секунд, до трёх знаков после запятой. Затухание — перед концом музыки или ролика, смотря что наступит раньше. Повтора музыки нет.</p></section><p id="editorAudioState" class="video-hint" role="status" aria-live="polite">Звук запускается кнопкой Play. Поддержка форматов зависит от браузера. Оригиналы сохраняются на устройстве и в ZIP-копии; JSON не содержит медиа.</p></div>
           <footer class="editor-bottom"><span class="tiny-dot"></span>Всё для первого шага. Ничего лишнего.<span class="bottom-format">СОЗДАНО ДЛЯ 9:16</span></footer>
         </div>
 
         <aside class="preview-column" aria-label="Предпросмотр видео">
           <section class="preview-panel panel"><div class="preview-heading"><h2><svg><use href="#i-play"/></svg>Предпросмотр</h2><span class="format-badge">9:16</span></div>
             <div class="portrait-wrap"><div class="editor-canvas-frame" id="portrait"><canvas id="editorCanvas" width="720" height="1280" aria-label="Canvas-предпросмотр Студии 720 на 1280" aria-describedby="previewText editorPreviewMessage" hidden></canvas><div id="editorPreviewMessage" class="editor-preview-message" role="status" aria-live="polite">Подготавливаем предпросмотр…</div></div></div><span id="portraitScene" class="sr-only"></span><p id="previewText" class="sr-only"></p>
-            <div class="playback"><button class="icon-button" id="prevScene" aria-label="Предыдущая сцена"><svg><use href="#i-prev"/></svg></button><button class="play-button" id="playPreview" aria-label="Воспроизвести предпросмотр"><svg><use href="#i-play"/></svg></button><button class="icon-button" id="nextScene" aria-label="Следующая сцена"><svg><use href="#i-next"/></svg></button><span class="playback-time"><span id="currentTime">0:00</span><span>/</span><span id="previewDuration">0:00</span></span></div><div class="timeline"><div id="timelineProgress"></div></div><label class="sr-only" for="editorSeek">Позиция предпросмотра Студии</label><input id="editorSeek" class="editor-seek" type="range" min="0" max="0" step="1" value="0"><div class="preview-note"><span class="tiny-dot"></span>Canvas · 720 × 1280 · без звука</div>
+            <div class="playback"><button class="icon-button" id="prevScene" aria-label="Предыдущая сцена"><svg><use href="#i-prev"/></svg></button><button class="play-button" id="playPreview" aria-label="Воспроизвести предпросмотр"><svg><use href="#i-play"/></svg></button><button class="icon-button" id="nextScene" aria-label="Следующая сцена"><svg><use href="#i-next"/></svg></button><span class="playback-time"><span id="currentTime">0:00</span><span>/</span><span id="previewDuration">0:00</span></span></div><div class="timeline"><div id="timelineProgress"></div></div><label class="sr-only" for="editorSeek">Позиция предпросмотра Студии</label><input id="editorSeek" class="editor-seek" type="range" min="0" max="0" step="1" value="0"><div class="preview-note"><span class="tiny-dot"></span>Canvas · 720 × 1280 · звук по кнопке Play</div>
           </section>
           <section class="appearance-panel panel"><h2><svg><use href="#i-captions"/></svg>Стиль субтитров</h2><div class="caption-styles" role="group" aria-label="Стиль субтитров"><button data-caption="accent" class="caption-style active" aria-pressed="true"><span>Аа<span>Бб</span></span>Акцент</button><button data-caption="classic" class="caption-style" aria-pressed="false"><span>Аа Бб</span>Классика</button><button data-caption="outline" class="caption-style" aria-pressed="false"><span>Аа Бб</span>Контур</button></div><div class="appearance-row"><label for="captionSize">Размер текста</label><select id="captionSize"><option value="small">Маленький</option><option value="medium" selected>Средний</option><option value="large">Крупный</option></select></div><div class="appearance-row"><span id="backgroundLabel">Настроение</span><div class="theme-options" role="group" aria-labelledby="backgroundLabel"><button class="theme-swatch cosmos active" data-theme="cosmos" aria-label="Космос" title="Космос" aria-pressed="true"></button><button class="theme-swatch dusk" data-theme="dusk" aria-label="Сумерки" title="Сумерки" aria-pressed="false"></button><button class="theme-swatch minimal" data-theme="minimal" aria-label="Минимализм" title="Минимализм" aria-pressed="false"></button></div></div><p class="appearance-note">Оформление применяется к предпросмотру. SRT содержит только текст и таймкоды.</p></section>
         </aside>
@@ -2600,13 +2615,74 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+(function(root,factory){
+ 'use strict';
+ if(typeof module==='object'&&module.exports)module.exports=factory;
+ else root.ShortsAudioWindow=factory({context:rate=>{const Offline=root.OfflineAudioContext||root.webkitOfflineAudioContext;if(!Offline)throw Error('OfflineAudioContext недоступен.');return new Offline(1,1,rate);},hash:async bytes=>Array.from(new Uint8Array(await root.crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('')});
+})(typeof globalThis!=='undefined'?globalThis:this,function(io){
+ 'use strict';
+ const fail=(code,message,details={})=>Object.assign(new Error(message),{code,...details});
+ // Layer III frame headers bound sample count BEFORE native allocation. This
+ // is not partial decoding: decodeAudioData still decodes the entire MP3.
+ function inspect(bytes){
+  const b=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes);let p=0,samples=0,rate=0,channels=0,frames=0;
+  if(b[0]===73&&b[1]===68&&b[2]===51){
+   if(b.length<10||[6,7,8,9].some(i=>b[i]&128))throw fail('AUDIO_HEADER','Повреждён размер ID3 MP3.');
+   p=10+((b[6]<<21)|(b[7]<<14)|(b[8]<<7)|b[9])+((b[5]&16)?10:0);if(p>b.length)throw fail('AUDIO_HEADER','Неполный ID3 MP3.');
+  }
+  while(p<b.length){
+   if(b.length-p===128&&b[p]===84&&b[p+1]===65&&b[p+2]===71)break;
+   if(b[p]===0&&b.subarray(p).every(x=>x===0))break;
+   if(p+4>b.length||b[p]!==255||(b[p+1]&224)!==224)throw fail('AUDIO_HEADER','Повреждены кадры MP3 или неподдерживаемые хвостовые метаданные.');
+   const version=(b[p+1]>>3)&3,layer=(b[p+1]>>1)&3,index=b[p+2]>>4,ri=(b[p+2]>>2)&3;
+   if(version===1||layer!==1||index===0||index===15||ri===3)throw fail('AUDIO_CODEC','Для ограниченной подготовки поддерживается MP3 Layer III с указанным битрейтом.');
+   const sr=[44100,48000,32000][ri]/(version===3?1:version===2?2:4),ch=(b[p+3]>>6)===3?1:2;
+   if(rate&&rate!==sr)throw fail('AUDIO_CODEC','Смена частоты дискретизации внутри MP3 пока не поддерживается.');
+   rate=sr;channels=Math.max(channels,ch);
+   const kbps=(version===3?[0,32,40,48,56,64,80,96,112,128,160,192,224,256,320]:[0,8,16,24,32,40,48,56,64,80,96,112,128,144,160])[index];
+   const length=Math.floor((version===3?144:72)*kbps*1000/sr)+((b[p+2]>>1)&1);
+   if(p+length>b.length)throw fail('AUDIO_HEADER','Неполный кадр MP3.');
+   samples+=version===3?1152:576;frames++;p+=length;
+  }
+  if(!frames||!Number.isSafeInteger(samples))throw fail('AUDIO_HEADER','В MP3 нет проверяемых аудиокадров.');
+  if(samples/rate>600+2304/rate)throw fail('AUDIO_DURATION','Длительность аудиодорожки превышает 600 секунд.');
+  return {samples,sampleRate:rate,channels,frames,fullPcmBytes:samples*channels*4};
+ }
+ async function probe(blob){
+  const head=new Uint8Array(await blob.slice(0,3).arrayBuffer());
+  if(!(head[0]===73&&head[1]===68&&head[2]===51)&&!(head[0]===255&&(head[1]&224)===224&&(head[1]&6)===2))return null;
+  if(blob.size>25*1048576)throw fail('FILE_SIZE','Аудио превышает 25 МиБ.');
+  const bytes=await blob.arrayBuffer(),info=inspect(bytes);return {...info,bytes,hash:await io.hash(bytes)};
+ }
+ async function decode(info,durationMs){
+  if(!Number.isSafeInteger(durationMs)||durationMs<0)throw fail('OFFSET','Некорректная длительность окна аудио.');
+  const context=io.context(info.sampleRate);let full;
+  try{full=await context.decodeAudioData(info.bytes);}
+  catch(e){throw fail('AUDIO_DECODE','Не удалось декодировать MP3: повреждённый файл или неподдерживаемый кодек.');}
+  try{
+   if(!Number.isFinite(full.duration)||full.duration<=0||full.duration>600)throw fail('AUDIO_DURATION','Длительность аудиодорожки должна быть от доли секунды до 600 секунд.');
+   if(!Number.isSafeInteger(full.length)||full.length<=0||full.sampleRate!==info.sampleRate||full.numberOfChannels>info.channels||full.numberOfChannels<1||full.length>info.samples)throw fail('AUDIO_PCM','Декодированный MP3 не соответствует проверенному числу сэмплов и каналов.');
+   const length=Math.min(full.length,Math.max(1,Math.ceil(durationMs*full.sampleRate/1000)));
+   let buffer=full;
+   if(length<full.length){buffer=context.createBuffer(full.numberOfChannels,length,full.sampleRate);for(let c=0;c<full.numberOfChannels;c++)buffer.copyToChannel(full.getChannelData(c).subarray(0,length),c);}
+   return {buffer,info:{sampleRate:full.sampleRate,channels:full.numberOfChannels,durationSeconds:full.duration,fullFrames:full.length,fullPcmBytes:full.length*full.numberOfChannels*4,retainedFrames:length,retainedPcmBytes:length*full.numberOfChannels*4}};
+  }finally{full=null;}
+ }
+ return Object.freeze({inspect,probe,decode});
+});
+
+}, { once: true });
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
 (function (root, factory) {
   'use strict';
   if (typeof module === 'object' && module.exports) module.exports = factory;
   else root.ShortsMediaSessions = factory({
     original: id => root.ShortsStorage.asset(id),
     image: blob => root.ShortsVideoMedia.decodeImage(blob),
-    audio: blob => root.ShortsVideoRecorder.decodeAudio(blob)
+    audio: blob => root.ShortsVideoRecorder.decodeAudio(blob),
+    audioWindow: root.ShortsAudioWindow
   });
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (io, globalOptions) {
   'use strict';
@@ -2617,7 +2693,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const abortError = () => error('CANCELLED', 'Подготовка медиа отменена.');
   const noJSON = () => { throw error('RUNTIME', 'Runtime-сессии и заимствованные ресурсы нельзя сохранять в проект или ZIP.'); };
   let live = 0, resident = 0, peakResident = 0, decoding = false, serial = 0;
-  const queue = [];
+  const queue = [], audioPool = new Map();
+  let scratchBytes=0,peakScratchBytes=0,audioDecodes=0;
   for (const value of Object.values(globalLimits)) if (!Number.isSafeInteger(value) || value <= 0) throw error('LIMITS', 'Некорректный общий бюджет медиа.');
 
   function pump() {
@@ -2685,7 +2762,8 @@ document.addEventListener("DOMContentLoaded", () => {
     throw error('IMAGE_HEADER', 'Не удалось проверить размеры статического PNG/JPG/WebP в первых 256 КиБ.');
   }
 
-  function create({ owner, limits: options = {} } = {}) {
+  function create({ owner, limits: options = {}, audioDurationMs = null } = {}) {
+    if(audioDurationMs!==null&&(!Number.isSafeInteger(audioDurationMs)||audioDurationMs<0))throw error('OFFSET','Некорректное окно подготовки аудио.');
     if (!owner || !['editor','video'].includes(owner.slot) || typeof owner.projectId !== 'string' || !owner.projectId) throw error('IDENTITY', 'Укажите слот и идентификатор владельца медиа.');
     for(const key of ['contentRevision','savedRevision'])if(owner[key]!=null&&(!Number.isSafeInteger(owner[key])||owner[key]<0))throw error('IDENTITY','Некорректная редакция или ревизия владельца.');
     if(owner.sessionId!=null&&typeof owner.sessionId!=='string')throw error('IDENTITY','Некорректный идентификатор управляющей сессии.');
@@ -2710,6 +2788,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try { if (record.kind === 'image') record.decoded?.dispose(); } finally {
         originalBytes -= record.originalBytes; decodedBytes -= record.decodedBytes; resident -= record.originalBytes + record.decodedBytes;
         imagePixels -= record.imagePixels || 0;
+        if(record.poolKey){const pooled=audioPool.get(record.poolKey);if(pooled&&!--pooled.users)audioPool.delete(record.poolKey);}
         record.decoded = null; record.blob = null;
       }
     }
@@ -2723,6 +2802,34 @@ document.addEventListener("DOMContentLoaded", () => {
       cleanup(); return closed;
     }
     function current(epoch) { if (controller.signal.aborted || epoch !== generation) throw abortError(); }
+    async function loadWindowAudio(record,epoch){
+      let scratch=0;
+      const workspace=bytes=>{
+        if(scratch+bytes>limits.maxDecodedBytes||resident+bytes>globalLimits.maxResidentBytes)throw error('AUDIO_DECODE_BUDGET',`Полное декодирование MP3 требует ${((scratch+bytes)/MIB).toFixed(1)} МиБ временных данных (предел ${limits.maxDecodedBytes/MIB} МиБ); общий расчётный объём ${((resident+bytes)/MIB).toFixed(1)} МиБ при лимите ${globalLimits.maxResidentBytes/MIB} МиБ. Выберите более короткий исходник.`,{assetId:record.id});
+        scratch+=bytes;scratchBytes+=bytes;resident+=bytes;peakResident=Math.max(peakResident,resident);peakScratchBytes=Math.max(peakScratchBytes,scratchBytes);
+      };
+      pending++;record.loading=true;
+      const operation=scheduled(async()=>{
+        try{
+          current(epoch);workspace(record.blob.size);
+          const info=await io.audioWindow.probe(record.blob);current(epoch);
+          if(!info)return false;
+          const key=JSON.stringify([identity.slot,identity.projectId,record.id,audioDurationMs,info.hash]);
+          const windowBytes=Math.min(info.samples,Math.max(1,Math.ceil(audioDurationMs*info.sampleRate/1000)))*info.channels*4;
+          if(windowBytes>limits.maxAudioBytes)throw error('DECODED_BUDGET',`Аудио для длительности проекта требует ${(windowBytes/MIB).toFixed(1)} МиБ PCM; предел на дорожку ${limits.maxAudioBytes/MIB} МиБ. Сократите проект или исходник.`,{assetId:record.id});
+          reserve(record,0,windowBytes);
+          let pooled=audioPool.get(key);
+          if(!pooled){
+            workspace(info.fullPcmBytes);audioDecodes++;
+            const prepared=await io.audioWindow.decode(info,audioDurationMs);current(epoch);
+            pooled={...prepared,users:0};audioPool.set(key,pooled);
+          }
+          current(epoch);reserve(record,0,pooled.info.retainedPcmBytes-windowBytes);
+          pooled.users++;record.poolKey=key;record.decoded=pooled.buffer;record.audioInfo=pooled.info;return true;
+        }finally{scratchBytes-=scratch;resident-=scratch;}
+      },controller.signal).finally(()=>{record.loading=false;pending--;cleanup();});
+      return await interruptible(operation,controller.signal);
+    }
     async function load(item, epoch) {
       let stored;
       pending++;
@@ -2736,6 +2843,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!['image','voice','music'].includes(stored.kind) || image !== category || (stored.type && stored.type !== stored.blob.type) || (image && stored.blob.type && !['image/png','image/jpeg','image/webp','application/octet-stream'].includes(stored.blob.type)) || (!image && /^image\//.test(stored.blob.type))) throw error('MEDIA_TYPE', 'Тип исходника не соответствует ссылке проекта.',{assetId:item.id});
       const record = { id:item.id,kind:item.kind,blob:stored.blob,decoded:null,originalBytes:0,decodedBytes:0,loading:false,released:false };
       reserve(record,stored.blob.size,0); records.set(item.id,record);
+      if(!image&&audioDurationMs!==null&&io.audioWindow&&await loadWindowAudio(record,epoch))return;
+      current(epoch);
       let budget;
       if (image) {
         pending++; record.loading = true;
@@ -2753,7 +2862,7 @@ document.addEventListener("DOMContentLoaded", () => {
           decoded = await (image ? io.image(record.blob) : io.audio(record.blob));
           current(epoch);
           const bytes = image ? (decoded.width * decoded.height * 4) : decoded.length * decoded.numberOfChannels * 4;
-          if (!Number.isSafeInteger(bytes) || bytes <= 0 || (!image && bytes > limits.maxAudioBytes) || (image && bytes !== budget)) throw error('DECODED_BUDGET', 'Декодированные медиа превышают проверенный бюджет или имеют неверные размеры.',{assetId:item.id});
+          if (!Number.isSafeInteger(bytes) || bytes <= 0 || (!image && bytes > limits.maxAudioBytes) || (image && bytes !== budget)) throw error('DECODED_BUDGET', image?'Размер декодированного изображения не совпадает с заголовком.':`Полный PCM аудио требует ${(bytes/MIB).toFixed(1)} МиБ; предел ${limits.maxAudioBytes/MIB} МиБ на дорожку. Для этого контейнера подготовка короткого участка пока не поддерживается.`,{assetId:item.id,decodedBytes:bytes,maxAudioBytes:limits.maxAudioBytes});
           reserve(record,0,bytes - budget); record.decoded = decoded; decoded = null;
         } catch (e) {
           if (controller.signal.aborted) throw abortError();
@@ -2795,10 +2904,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return Object.freeze({ identity, prepare, acquire,
       cancel: () => close('cancelled',abortError()), dispose: () => close('disposed'),
-      status: () => Object.freeze({state,outcome,generation,consumers,pending,originalBytes,decodedBytes,imagePixels,cleanupPending:terminal()&&!finished,error:cause ? {code:cause.code,message:cause.message,assetId:cause.assetId,causeCode:cause.cause?.code||cause.cause?.name||null} : null}),
+      status: () => Object.freeze({state,outcome,generation,consumers,pending,originalBytes,decodedBytes,imagePixels,audioInfo:[...records.values()].filter(r=>r.audioInfo).map(r=>({assetId:r.id,...r.audioInfo})),cleanupPending:terminal()&&!finished,error:cause ? {code:cause.code,message:cause.message,assetId:cause.assetId,causeCode:cause.cause?.code||cause.cause?.name||null} : null}),
       toJSON:noJSON });
   }
-  return Object.freeze({ create, DEFAULTS, globalLimits, statistics: () => Object.freeze({sessions:live,residentBytes:resident,peakResidentBytes:peakResident,decoding,queued:queue.length}) });
+  return Object.freeze({ create, DEFAULTS, globalLimits, statistics: () => Object.freeze({sessions:live,residentBytes:resident,peakResidentBytes:peakResident,scratchBytes,peakScratchBytes,audioDecodes,pooledAudio:audioPool.size,decoding,queued:queue.length}) });
 });
 
 }, { once: true });
@@ -2842,7 +2951,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if(a===b)return true;if(!a||!b||typeof a!=='object'||typeof b!=='object'||Array.isArray(a)!==Array.isArray(b))return false;
     const keys=Object.keys(a);return keys.length===Object.keys(b).length&&keys.every(k=>Object.hasOwn(b,k)&&same(a[k],b[k]));
   }
-  function create({slot,project,plan,projectId=project?.id,contentRevision,savedRevision=null,limits,signal,previewTimeMs=null}={}) {
+  function create({slot,project,plan,projectId=project?.id,contentRevision,savedRevision=null,limits,signal,previewTimeMs=null,audioOnly=false}={}) {
     if(!['editor','video'].includes(slot)||typeof projectId!=='string'||!projectId||!Number.isSafeInteger(contentRevision)||contentRevision<0||(savedRevision!==null&&(!Number.isSafeInteger(savedRevision)||savedRevision<0)))throw error('IDENTITY','Укажите независимые slot, projectId, contentRevision и savedRevision (или null).');
     if(previewTimeMs!==null&&(!Number.isFinite(previewTimeMs)||previewTimeMs<0))throw error('OFFSET','Некорректная позиция кадра.');
     const certified=receipts.get(project)?.get(plan),budget={bytes:certified??0};
@@ -2857,25 +2966,47 @@ document.addEventListener("DOMContentLoaded", () => {
     // window of originals. No audio is decoded and partial windows cannot record.
     const windowFrame=previewTimeMs===null?null:io.plan.frameAt(frozenPlan,previewTimeMs);
     const windowScenes=windowFrame?[windowFrame.scene,...(windowFrame.scene.transition!=='none'&&windowFrame.scene.index?[frozenPlan.timeline[windowFrame.scene.index-1]]:[])]:null;
+    if(typeof audioOnly!=='boolean'||(audioOnly&&windowFrame))throw error('SCOPE','Несовместимая область подготовки медиа.');
     const needed=new Map();
-    for(const scene of windowScenes||frozenPlan.timeline)if(scene.visual==='image')needed.set(scene.imageId,{id:scene.imageId,kind:'image'});
+    for(const scene of audioOnly?[]:(windowScenes||frozenPlan.timeline))if(scene.visual==='image')needed.set(scene.imageId,{id:scene.imageId,kind:'image'});
     for(const role of windowFrame?[]:['voice','music']){const id=frozenPlan.audio[role].assetId;if(id){if(needed.get(id)?.kind==='image')throw error('REFERENCES','Изображение нельзя использовать как аудио.');needed.set(id,{id,kind:'audio'});}}
     let renderable=true;try{io.plan.assertRenderable(frozenPlan);}catch(_){renderable=false;}
-    const media=io.media.create({owner:identity,limits});
+    const media=io.media.create({owner:identity,limits,...(slot==='editor'&&!windowFrame?{audioDurationMs:frozenPlan.durationMs}:{})});
     function alive(){if(disposed)throw error('STATE','Runtime-сессия закрыта.');}
     function acquire(){alive();return media.acquire();}
     function borrowed(lease){return {voiceBuffer:lease.audio(frozenPlan.audio.voice.assetId),musicBuffer:lease.audio(frozenPlan.audio.music.assetId),...io.plan.audioOptions(frozenPlan)};}
     function busy(){alive();if(uses.size)throw error('BUSY','Остановите текущего потребителя перед новым воспроизведением или записью.');}
     function finishUse(use){use.lease.release();uses.delete(use);}
-    async function playAudio({offsetSeconds=0}={}) {
+    async function playAudio({offsetSeconds=0,startPaused=false}={}) {
       if(windowFrame)throw error('PREVIEW_ONLY','Сессия кадра не подготавливает аудио.');
       busy();if(!Number.isFinite(offsetSeconds)||offsetSeconds<0||offsetSeconds>frozenPlan.durationMs/1000)throw error('OFFSET','Некорректная позиция аудио.');
+      if(typeof startPaused!=='boolean')throw error('AUDIO_PLAYBACK','Некорректное состояние запуска аудио.');
       const use={kind:'audio',lease:acquire(),abort:new AbortController()},options={...borrowed(use.lease),offsetSeconds};uses.add(use);
-      let context,mix,stopPromise,timer;
+      let context,mix,stopPromise,timer,origin=0,offset=offsetSeconds,paused=startPaused,pausePromise=Promise.resolve(),lastClock=0,advancedAt=0;
+      let nativeControl=Promise.resolve(),controlEpoch=0;
+      const control=run=>{nativeControl=nativeControl.catch(()=>{}).then(()=>{if(use.abort.signal.aborted||disposed)throw error('CANCELLED','Операция аудио отменена.');return run();});return nativeControl;};
+      const wall=io.now||(()=>performance.now());
+      const positionMs=()=>{
+        if(use.abort.signal.aborted)throw error('STATE','Воспроизведение закрыто.');
+        if(context&&!paused){
+          const value=context.currentTime,now=wall();
+          if(!Number.isFinite(value)||value<lastClock)throw error('AUDIO_CLOCK','Часы аудиопотока недоступны или переместились назад.');
+          if(value>lastClock)advancedAt=now;else if(now-advancedAt>=10000)throw error('AUDIO_CLOCK','Аудиопоток не продвигается. Нажмите Play ещё раз.');
+          lastClock=value;
+        }
+        const time=paused?offset:offset+Math.max(0,(context?.currentTime??origin)-origin);
+        if(!Number.isFinite(time))throw error('AUDIO_CLOCK','Часы аудиопотока недоступны.');
+        if(context&&!paused&&context.state!=='running')throw error('AUDIO_CLOCK','Аудиопоток прерван. Нажмите Play ещё раз.');
+        return Math.min(frozenPlan.durationMs,time*1000);
+      };
+      function startMix(){mix=io.mix(context,{...options,offsetSeconds:offset,destination:context.destination});origin=context.currentTime+.02;lastClock=context.currentTime;advancedAt=wall();mix.start(origin);}
       const stop=()=>{
         if(stopPromise)return stopPromise;use.abort.abort();clearTimeout(timer);
         stopPromise=(async()=>{
           try{mix?.stop();}catch(_){/* Closing the owned context still tears down its entire graph. */}
+          // A late native suspend/resume must not change a context AFTER close
+          // has released its lease. Wait for the owned control queue to settle.
+          let deadline;try{await Promise.race([nativeControl.catch(()=>{}),new Promise((_,reject)=>{deadline=setTimeout(()=>reject(error('AUDIO_CLOSE','Браузер не завершил изменение состояния аудио; ресурсы удерживаются. Повторите очистку или перезагрузите страницу.')),3000);})]);}finally{clearTimeout(deadline);}
           if(context&&context.state!=='closed'){
             try{await context.close();}catch(e){throw error('AUDIO_CLOSE','Не удалось закрыть AudioContext; ресурсы удерживаются до повторной очистки.',e);}
             if(context.state!=='closed')throw error('AUDIO_CLOSE','AudioContext не подтвердил закрытие; повторите очистку.');
@@ -2891,17 +3022,41 @@ document.addEventListener("DOMContentLoaded", () => {
             const cancelled=()=>reject(error('CANCELLED','Запуск аудио отменён.'));
             use.abort.signal.addEventListener('abort',cancelled,{once:true});
             timer=setTimeout(()=>reject(error('AUDIO_GESTURE','Браузер не разрешил звук. Запустите аудио явным нажатием.')),3000);
-            Promise.resolve(context.resume()).then(resolve,reject).finally(()=>use.abort.signal.removeEventListener('abort',cancelled));
+            nativeControl=Promise.resolve(context.resume());nativeControl.then(resolve,reject).finally(()=>use.abort.signal.removeEventListener('abort',cancelled));
           });clearTimeout(timer);
           if(disposed||use.abort.signal.aborted)throw error('CANCELLED','Запуск аудио отменён.');
           if(context.state!=='running')throw error('AUDIO_GESTURE','AudioContext не запущен пользовательским действием.');
-          mix=io.mix(context,{...options,destination:context.destination});mix.start(context.currentTime+.02);
+          if(startPaused){pausePromise=control(()=>context.suspend());await pausePromise;}else startMix();
+          if(disposed||use.abort.signal.aborted)throw error('CANCELLED','Запуск аудио отменён.');
         }
-        return Object.freeze({stop,toJSON:noJSON});
+        return Object.freeze({stop,positionMs,
+          pause(){
+            if(use.abort.signal.aborted)return Promise.reject(error('STATE','Воспроизведение закрыто.'));
+            controlEpoch++;
+            if(paused&&context?.state==='suspended')return pausePromise;
+            let clockError;try{offset=positionMs()/1000;}catch(e){clockError=e;}
+            paused=true;mix?.stop();mix=null;
+            pausePromise=context?control(()=>context.suspend()):Promise.resolve();return clockError?pausePromise.then(()=>{throw clockError;}):pausePromise;
+          },
+          async resume(){
+            await pausePromise;if(use.abort.signal.aborted||disposed)throw error('CANCELLED','Воспроизведение отменено.');
+            if(!paused)return;const request=++controlEpoch;
+            await control(async()=>{
+              if(request!==controlEpoch)throw error('CANCELLED','Позиция воспроизведения устарела.');
+              await context?.resume();
+              if(use.abort.signal.aborted||disposed||request!==controlEpoch)throw error('CANCELLED','Воспроизведение отменено.');
+              if(context&&context.state!=='running')throw error('AUDIO_GESTURE','Нажмите Play, чтобы разрешить звук.');
+              if(context)startMix();paused=false;
+            });
+          },
+          async seek(ms){
+            if(!Number.isSafeInteger(ms)||ms<0||ms>frozenPlan.durationMs)throw error('OFFSET','Некорректная позиция аудио.');
+            const wasPaused=paused;await this.pause();offset=ms/1000;if(!wasPaused)await this.resume();
+          },toJSON:noJSON});
       }catch(e){await stop();throw e.code?e:error('AUDIO_PLAYBACK',e.message||'Не удалось запустить аудио.',e);}
     }
     async function record({canvas,onProgress,onFormat,signal:external}={}){
-      if(windowFrame)throw error('PREVIEW_ONLY','Для записи нужна полная подготовка медиа.');
+      if(windowFrame||audioOnly)throw error('PREVIEW_ONLY','Для записи нужна полная подготовка медиа.');
       busy();io.plan.assertRenderable(frozenPlan);
       const use={kind:'record',lease:acquire(),abort:new AbortController()};uses.add(use);
       const stop=()=>use.abort.abort();use.stop=stop;external?.addEventListener('abort',stop,{once:true});if(external?.aborted)stop();
@@ -2921,11 +3076,11 @@ document.addEventListener("DOMContentLoaded", () => {
     signal?.addEventListener('abort',lifetimeAbort,{once:true});if(signal?.aborted)lifetimeAbort();
     return Object.freeze({identity,snapshot,plan:frozenPlan,
       prepare:options=>{alive();return media.prepare([...needed.values()],options);}, acquire,
-      renderFrame(canvas,time){alive();io.plan.assertRenderable(frozenPlan);if(windowFrame&&io.plan.frameAt(frozenPlan,time).scene.id!==windowFrame.scene.id)throw error('FRAME_WINDOW','Подготовьте окно новой сцены.');if([...uses].some(use=>use.kind==='record'))throw error('BUSY','Canvas занят записью сессии.');const lease=acquire();try{return io.render(canvas,frozenPlan,time,lease.resources);}finally{lease.release();}},
+      renderFrame(canvas,time){alive();if(audioOnly)throw error('AUDIO_ONLY','Аудиосессия не подготавливает изображения.');io.plan.assertRenderable(frozenPlan);if(windowFrame&&io.plan.frameAt(frozenPlan,time).scene.id!==windowFrame.scene.id)throw error('FRAME_WINDOW','Подготовьте окно новой сцены.');if([...uses].some(use=>use.kind==='record'))throw error('BUSY','Canvas занят записью сессии.');const lease=acquire();try{return io.render(canvas,frozenPlan,time,lease.resources);}finally{lease.release();}},
       playAudio,record,cancel,dispose:()=>close(false),
       status(){const s=media.status();return Object.freeze({...s,state:s.state==='ready'&&s.consumers?'use':s.state,identity,renderable,disposed,dataBytes:budget.bytes,neededMedia:needed.size,previewSceneId:windowFrame?.scene.id||null,ownedConsumers:uses.size,error:cleanupFailure?{code:cleanupFailure.code,message:cleanupFailure.message}:s.error});},toJSON:noJSON});
   }
-  return Object.freeze({create,snapshotData:(project,plan)=>{const budget={bytes:0};const data=Object.freeze({project:immutable(project,budget),plan:immutable(plan,budget)});if(!data.project||typeof data.project!=='object'||!data.plan||typeof data.plan!=='object')throw error('DATA','Снимок проекта и план должны быть JSON-объектами.');receipts.set(data.project,new WeakMap([[data.plan,budget.bytes]]));return data;},createPreview:options=>{if(!Number.isFinite(options?.timeMs)||options.timeMs<0)throw error('OFFSET','Укажите позицию кадра в миллисекундах.');return create({...options,previewTimeMs:options.timeMs});},MAX_DATA_BYTES});
+  return Object.freeze({create,createAudio:options=>create({...options,audioOnly:true}),snapshotData:(project,plan)=>{const budget={bytes:0};const data=Object.freeze({project:immutable(project,budget),plan:immutable(plan,budget)});if(!data.project||typeof data.project!=='object'||!data.plan||typeof data.plan!=='object')throw error('DATA','Снимок проекта и план должны быть JSON-объектами.');receipts.set(data.project,new WeakMap([[data.plan,budget.bytes]]));return data;},createPreview:options=>{if(!Number.isFinite(options?.timeMs)||options.timeMs<0)throw error('OFFSET','Укажите позицию кадра в миллисекундах.');return create({...options,previewTimeMs:options.timeMs});},MAX_DATA_BYTES});
 });
 
 }, { once: true });
@@ -3055,6 +3210,129 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+(function(root,factory){
+ 'use strict';
+ if(typeof module==='object'&&module.exports)module.exports=factory;
+ else root.ShortsEditorAudio=factory({core:root.ShortsCore,media:root.ShortsMediaSessions,runtime:root.ShortsRenderSessions,storage:root.ShortsStorage});
+})(typeof globalThis!=='undefined'?globalThis:this,function(io){
+ 'use strict';
+ const fail=(code,message)=>Object.assign(new Error(message),{code});
+ const MAX_FILE=25*1048576,MAX_PENDING=64*1048576;
+ async function checkType(file){
+  const b=new Uint8Array(await file.slice(0,16).arrayBuffer()),text=(at,n)=>String.fromCharCode(...b.slice(at,at+n));
+  const type=file.type.toLowerCase().split(';')[0];
+  const allowed=text(0,4)==='RIFF'&&text(8,4)==='WAVE'?['audio/wav','audio/wave','audio/x-wav','audio/vnd.wave']:
+    text(0,4)==='fLaC'?['audio/flac','audio/x-flac']:text(0,4)==='OggS'?['audio/ogg','application/ogg']:
+    text(4,4)==='ftyp'?['audio/mp4','audio/x-m4a','audio/m4a','video/mp4']:
+    text(0,3)==='ID3'?['audio/mpeg','audio/mp3']:null;
+  if(type&&type!=='application/octet-stream'&&allowed&&!allowed.includes(type))throw fail('MEDIA_TYPE','MIME аудио не совпадает с его содержимым. Выберите исходный файл с корректным типом.');
+ }
+ function fadeMs(raw){
+  const value=String(raw).trim();
+  if(!/^(?:\d+(?:[.,]\d{1,3})?|[.,]\d{1,3})$/.test(value))throw fail('AUDIO_INPUT','Введите время затухания от 0 секунд, до трёх знаков после запятой.');
+  const [whole,fraction='']=value.replace(',','.').split('.'),ms=BigInt(whole||'0')*1000n+BigInt(fraction.padEnd(3,'0'));
+  if(ms>BigInt(Number.MAX_SAFE_INTEGER))throw fail('AUDIO_INPUT','Время затухания не помещается в целые миллисекунды.');return Number(ms);
+ }
+ function edit(project,role,patch){
+  if(!['voice','music'].includes(role))throw fail('AUDIO_ROLE','Неизвестная звуковая дорожка.');
+  const next=io.core.upgradeProject(project);
+  next.audio[role]={...next.audio[role],...patch};
+  return io.core.parseProject(next);
+ }
+ // Same storage staging and bounded native decoder as runtime preparation.
+ // Only a successfully decoded original may become a saved DTO reference.
+ function createUploads({owner,valid,accept,requirements=()=>null,onState=()=>{}}){
+  let generation=0,tail=Promise.resolve();const current=new Map(),accepted=new Map();
+  function cancel(role){const requests=role?[current.get(role)].filter(Boolean):[...current.values()];for(const request of requests){current.delete(request.role);request.session?.cancel().catch(()=>{});onState(request.role,'cancelled');}return Promise.all(requests.map(r=>r.session?.dispose()));}
+  function load(role,file){
+   cancel(role);const token=++generation,projectId=owner(),request={role,session:null};current.set(role,request);onState(role,'loading');
+   const operation=async()=>{
+    if(current.get(role)!==request)return false;let session,id,attached=false;
+    try{
+     if(!['voice','music'].includes(role))throw fail('AUDIO_ROLE','Неизвестная звуковая дорожка.');
+     if(!file?.size||file.size>MAX_FILE)throw fail('FILE_SIZE','Выберите непустой аудиофайл размером до 25 МиБ.');
+     if(!file.name||file.name.length>200||/[\\/\u0000-\u001f\u007f]/.test(file.name))throw fail('MEDIA_NAME','Имя аудио должно содержать до 200 символов без разделителей пути и управляющих знаков.');
+     if(file.type&&!/^audio\//.test(file.type)&&!['application/octet-stream','video/mp4','video/webm','application/ogg'].includes(file.type))throw fail('MEDIA_TYPE','Тип файла не подходит для аудио. Выберите WAV, MP3, M4A, OGG или другой поддерживаемый браузером аудиофайл.');
+     await checkType(file);if(current.get(role)!==request)return false;
+     let pending=0;for(const [key,size] of accepted){if(!io.storage.pending(key))accepted.delete(key);else pending+=size;}
+     if(pending+file.size>MAX_PENDING)throw fail('PENDING_BUDGET','Несохранённые аудиооригиналы превышают 64 МиБ. Дождитесь сохранения; прежние файлы не удалены.');
+     if(!valid(projectId))return false;
+     id=io.core.id();io.storage.stage(id,file,file.name,role);
+     const config=requirements(role,id);
+     session=io.media.create({owner:{slot:'editor',projectId,contentRevision:token},audioDurationMs:config?.durationMs??null});request.session=session;
+     await session.prepare([{id,kind:'audio'},...(config?.otherIds||[]).map(id=>({id,kind:'audio'}))]);
+     if(JSON.stringify(config)!==JSON.stringify(requirements(role,id)))throw fail('CANCELLED','Звуковой состав или длительность проекта изменились во время подготовки. Выберите файл повторно.');
+     if(current.get(role)!==request||!valid(projectId))return false;
+     const acceptedResult=accept(role,{assetId:id,name:file.name});
+     attached=acceptedResult===true||acceptedResult?.accepted===true;
+     if(attached){accepted.set(id,file.size);await acceptedResult?.ready;if(current.get(role)===request&&valid(projectId))onState(role,'ready');}return attached;
+    }catch(error){if(current.get(role)===request)onState(role,'error',error);return false;}
+    finally{await session?.dispose();if(id&&!attached)io.storage.discard(id);if(current.get(role)===request)current.delete(role);}
+   };
+   tail=tail.then(operation,operation);return tail;
+  }
+  return Object.freeze({load,cancel,retain(ids){for(const id of accepted.keys())if(!ids.has(id)){io.storage.discard(id);accepted.delete(id);}},async dispose(){await cancel();await tail;},status:()=>({loading:current.size>0,generation})});
+ }
+ function createPlayback({onState=()=>{}}={}){
+  let active=null,key=null,generation=0,operation=0,tail=Promise.resolve(),failure=null,preparing=false;
+  function close(){
+   generation++;operation++;key=null;preparing=false;
+   // Cancel synchronously, but do not admit a new owner until cleanup succeeds.
+   active?.session.cancel().catch(()=>{});
+   tail=tail.catch(()=>{}).then(async()=>{
+    const old=active;await old?.session.dispose();if(active===old)active=null;failure=null;
+   }).catch(e=>{failure=e;onState('error',e);throw e;});
+   tail.catch(()=>{});return tail;
+  }
+  function update(project,plan,revision){
+   const next=JSON.stringify([project.id,revision]);if(key===next)return tail;
+   close();key=next;const token=generation;
+   if(!plan||!['voice','music'].some(r=>plan.audio[r].assetId)){
+    if(active){preparing=true;onState('loading');tail=tail.then(()=>{if(token===generation){preparing=false;onState('silent');}});tail.catch(()=>{});}
+    else onState('silent');return tail;
+   }
+   let data;try{data=io.runtime.snapshotData(project,plan);}catch(e){tail=tail.then(()=>{if(token===generation){failure=e;onState('error',e);}});tail.catch(()=>{});return tail;}
+   preparing=true;onState('loading');
+   tail=tail.then(async()=>{
+    if(token!==generation)return;
+    if(failure)throw failure;
+    const session=io.runtime.createAudio({slot:'editor',projectId:project.id,...data,contentRevision:revision,savedRevision:null});
+    const item={session,handle:null};active=item;
+    try{await session.prepare();if(token!==generation)return;preparing=false;onState('ready');}
+    catch(e){if(token===generation){preparing=false;failure=e;onState('error',e);}await session.dispose();if(active===item)active=null;}
+   });tail.catch(e=>{if(token===generation){failure=e;preparing=false;onState('error',e);}});return tail;
+  }
+  async function start(ms,{paused=false}={}){
+   const item=active,token=generation,request=++operation;if(!item||preparing||failure)throw failure||fail('AUDIO_LOADING','Дождитесь подготовки аудио.');
+   try{
+   if(!item.handle){
+    if(!item.starting){const pending=item.session.playAudio({offsetSeconds:ms/1000,startPaused:true});item.starting=pending;pending.then(()=>{if(item.starting===pending)item.starting=null;},()=>{if(item.starting===pending)item.starting=null;});}
+    item.handle=await item.starting;
+   }
+   if(token!==generation){await item.handle.stop();throw fail('CANCELLED','Запуск аудио устарел.');}
+   const current=()=>{if(token!==generation||request!==operation)throw fail('CANCELLED','Позиция запуска аудио устарела.');};
+   current();if(paused)await item.handle.pause();current();await item.handle.seek(Math.floor(ms));current();if(!paused)await item.handle.resume();current();
+   }catch(e){
+    if(token===generation&&request===operation&&e.code!=='CANCELLED'&&item.handle){
+     try{await item.handle.stop();item.handle=null;}catch(cleanup){failure=cleanup;onState('error',cleanup);throw cleanup;}
+    }
+    throw e;
+   }
+  }
+  return Object.freeze({update,start,close,settled:()=>tail,
+   pause(){operation++;return active?.handle?.pause()||Promise.resolve();},
+   positionMs(){return active?.handle?.positionMs()??null;},
+   status(){return {ready:!!active&&!preparing&&!failure,preparing,error:failure?{code:failure.code,message:failure.message}:null,active:active?.session.status()||null};},
+   retry(){failure=null;key=null;}
+  });
+ }
+ return Object.freeze({edit,fadeMs,createUploads,createPlayback,MAX_FILE,MAX_PENDING});
+});
+
+}, { once: true });
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
 window.ShortsEditorReady = (async function () {
   'use strict';
   const C = window.ShortsCore, T = window.ShortsEditorTiming, P = window.ShortsRenderPlan;
@@ -3072,7 +3350,15 @@ window.ShortsEditorReady = (async function () {
   const sceneNodes = new Map(), durationErrors = new Map();
   let timing = { plan: null, byId: new Map(), error: null }, lastGoodProject = null, commandError = null;
   let subtitlesDirty = true, lastSelectedSceneId = null, previewRevision = 0, playEpoch = 0, editorVisible = true;
-  const imageStates = new Map();
+  const imageStates = new Map(), audioStates = new Map(), audioErrors = new Map();
+  let audioState = 'silent', audioFailure = null;
+  const audioPlayback = window.ShortsEditorAudio.createPlayback({ onState: (state, error) => { audioState = state; audioFailure = error || null; renderAudio(); } });
+  const audioUploads = window.ShortsEditorAudio.createUploads({
+    owner: () => project.id, valid: owner => owner === project.id && editorVisible && !timing.error,
+    requirements: role => ({durationMs: timing.plan?.durationMs??0, otherIds: ['voice','music'].filter(r=>r!==role).map(r=>project.audio?.[r]?.assetId).filter(Boolean)}),
+    accept: (role, patch) => updateAudio(role, patch) ? {accepted:true,ready:audioPlayback.settled()} : false,
+    onState: (role, state, error) => { audioStates.set(role, { state, message: error?.message || (state === 'loading' ? 'Проверяем и декодируем оригинал…' : state === 'ready' ? 'Оригинал принят. Состояние сохранения — в уведомлении.' : 'Загрузка отменена.') }); renderAudio(); }
+  });
   const livePreview = window.ShortsEditorPreview.create({ canvas: $('editorCanvas'), onState: previewState });
   const imageUploads = window.ShortsEditorImages.create({
     owner: () => project.id,
@@ -3080,6 +3366,37 @@ window.ShortsEditorReady = (async function () {
     accept: (id, image) => { if (timing.error) return false; T.edit(project, { type: 'image', id, value: image }); editScene({ type: 'image', id, value: image }, true); return true; },
     onState: (id, state, error) => { imageStates.set(id, { state, message: error?.message || (state === 'loading' ? 'Проверяем и загружаем оригинал…' : state === 'ready' ? 'Оригинал принят. Состояние сохранения — в уведомлении.' : 'Загрузка отменена.') }); updateSceneTimings(id); if (project.selectedSceneId === id && state === 'loading') { livePreview.suspend(); previewState({ state: 'loading' }); } else if (project.selectedSceneId === id && state === 'error') previewState({ state: 'error', error }); }
   });
+
+  function renderAudio() {
+    for (const role of ['voice', 'music']) {
+      const cap = role === 'voice' ? 'Voice' : 'Music', track = project.audio?.[role], state = audioStates.get(role);
+      $('editor' + cap + 'Name').textContent = track?.name || 'Файл не выбран';
+      $('editor' + cap + 'Remove').hidden = !track?.assetId;
+      $('editor' + cap + 'Upload').textContent = (track?.assetId ? 'Заменить ' : 'Добавить ') + (role === 'voice' ? 'озвучку' : 'музыку');
+      $('editor' + cap + 'Upload').disabled = !!timing.error;
+      $('editor' + cap + 'Remove').disabled = !!timing.error;
+      $('editor' + cap + 'Status').textContent = state?.message || '';
+      $('editor' + cap + 'Status').dataset.state = state?.state || 'idle';
+      const level = Math.round((track?.volume ?? (role === 'voice' ? .7 : .25)) * 100);
+      if (document.activeElement !== $('editor' + cap + 'Volume')) $('editor' + cap + 'Volume').value = String(level);
+      $('editor' + cap + 'VolumeValue').value = level + '%';
+    }
+    for (const edge of ['In', 'Out']) {
+      const input = $('editorMusicFade' + edge);
+      if (!audioErrors.has(input.id) && document.activeElement !== input) input.value = String((project.audio?.music['fade' + edge + 'Ms'] ?? 1000) / 1000).replace('.', ',');
+      input.setAttribute('aria-invalid', String(audioErrors.has(input.id)));
+    }
+    $('editorAudioState').dataset.state = audioState;
+    $('editorAudioState').textContent = audioFailure ? 'Звук недоступен: ' + audioFailure.message : audioState === 'loading' ? 'Подготавливаем звук…' : audioState === 'ready' ? 'Звук готов. Play запускает звук и Canvas вместе; короткие дорожки не повторяются.' : 'Без звуковых дорожек. Добавьте файлы; оригиналы сохраняются на устройстве и в ZIP. JSON не содержит медиа.';
+    $('playPreview').disabled = !timing.plan?.durationMs || audioState === 'loading';
+  }
+
+  function updateAudio(role, patch) {
+    if (timing.error) return false;
+    let next; try { next = window.ShortsEditorAudio.edit(project, role, patch); T.compile(next); }
+    catch (error) { toast(error.message); return false; }
+    pausePlayback(); project = next; audioPlayback.retry(); recalculate(); renderAudio(); renderPreview(); changed(); return true;
+  }
 
   function previewState({ state, error, timeMs, sceneId }) {
     $('portrait').dataset.previewState = state;
@@ -3100,13 +3417,15 @@ window.ShortsEditorReady = (async function () {
 
   function recalculate() {
     try {
-      const inputError = commandError || durationErrors.values().next().value;
+      const inputError = commandError || durationErrors.values().next().value || audioErrors.values().next().value;
       if (inputError) throw inputError;
       timing = { ...T.compile(project), error: null };
       lastGoodProject = project;
     } catch (error) { timing = { plan: null, byId: new Map(), error }; }
     subtitlesDirty = true; previewRevision++;
-    if (timing.error) imageUploads.cancel();
+    if (timing.error) { imageUploads.cancel(); audioUploads.cancel(); }
+    audioUploads.retain(new Set([project,lastGoodProject].filter(Boolean).flatMap(p => [p.audio?.voice.assetId, p.audio?.music.assetId].filter(Boolean))));
+    if (editorVisible && !document.hidden) audioPlayback.update(project, timing.plan, previewRevision);
     imageUploads.retain(new Set([project,lastGoodProject].filter(Boolean).flatMap(p => p.scenes.map(s => s.imageId).filter(Boolean))));
   }
 
@@ -3271,7 +3590,7 @@ window.ShortsEditorReady = (async function () {
     $('splitScenes').disabled = words === 0;
     for (const id of ['exportSrt', 'exportSrtPanel']) $(id).disabled = !plan?.cues.length;
     for (const id of ['saveProject', 'saveProjectMobile']) $(id).disabled = !!timing.error;
-    $('playPreview').disabled = !plan?.durationMs;
+    $('playPreview').disabled = !plan?.durationMs || audioState === 'loading';
     $('scriptChanged').hidden = !project.scenes.length || project.script === project.sourceScript;
     $('sceneFootnote').hidden = !project.scenes.length;
     $('editorSubtitleHint').textContent = !plan ? 'Исправьте ошибку расчёта.' : plan.subtitles.enabled === false ? 'Субтитры отключены: SRT не содержит реплик.' :
@@ -3461,6 +3780,9 @@ window.ShortsEditorReady = (async function () {
 
   function pausePlayback() {
     playEpoch++;
+    const epoch = playEpoch, revision = previewRevision;
+    if (playing && audioPlayback.status().ready) { try { const position = audioPlayback.positionMs(); if (position !== null) elapsedMs = Math.floor(position); } catch (_) {} }
+    audioPlayback.pause().catch(error => { if (epoch === playEpoch && revision === previewRevision && error.code !== 'CANCELLED') { audioFailure = error; audioState = 'error'; renderAudio(); } });
     if (!playing) return;
     playing = false;
     cancelAnimationFrame(animationFrame);
@@ -3468,28 +3790,59 @@ window.ShortsEditorReady = (async function () {
     changed();
   }
 
-  function play() {
+  async function play() {
     if (playing) { pausePlayback(); return; }
-    const plan = timing.plan; if (!plan?.timeline.length || !editorVisible) return;
-    const total = plan.durationMs;
+    const plan = timing.plan; if (!plan?.timeline.length || !editorVisible || document.hidden || audioState === 'loading') return;
+    const total = plan.durationMs, withAudio = ['voice','music'].some(role => plan.audio[role].assetId);
+    if (withAudio && !audioPlayback.status().ready) { audioFailure ||= new Error('Аудио не подготовлено. Проверьте исходные файлы.'); renderAudio(); return; }
     if (elapsedMs >= total) elapsedMs = 0;
-    playing = true; const epoch = ++playEpoch; playbackAnchor = performance.now() - elapsedMs;
+    playing = true; const epoch = ++playEpoch;
     updatePlaybackUI();
+    try {
+      // Activate the owned context in this trusted click, but produce no sound
+      // until the selected Canvas window has actually rendered its first frame.
+      if (withAudio) await audioPlayback.start(Math.floor(elapsedMs), { paused: true });
+      if (!playing || epoch !== playEpoch) return;
+      project = { ...project, selectedSceneId: P.frameAt(plan, elapsedMs).scene.id }; updateSelectedScene();
+      const ready = await renderPreview();
+      if (!playing || epoch !== playEpoch) return;
+      if (!ready) { pausePlayback(); return; }
+      if (withAudio) { await audioPlayback.start(Math.floor(elapsedMs)); if (!playing || epoch !== playEpoch) return; audioFailure = null; audioState = 'ready'; renderAudio(); }
+    }
+    catch (error) { if (epoch === playEpoch) { pausePlayback(); audioFailure = error; audioState = 'error'; renderAudio(); } return; }
+    if (!playing || epoch !== playEpoch) return; // A stale completion cannot pause the current owner.
+    playbackAnchor = performance.now() - elapsedMs;
     async function frame(now) {
       if (!playing || epoch !== playEpoch) return;
-      elapsedMs = Math.min(total, Math.max(0, Math.floor(now - playbackAnchor)));
-      const value = P.frameAt(plan, elapsedMs);
-      project = { ...project, selectedSceneId: value.scene.id }; updateSelectedScene();
-      const prepared = livePreview.status().active;
-      const reusable = prepared?.state === 'ready' && prepared.previewSceneId === value.scene.id && prepared.identity.contentRevision === previewRevision;
-      const before = performance.now(), ready = await renderPreview();
-      if (!playing || epoch !== playEpoch) return;
-      // Resource preparation pauses the preview clock instead of skipping scenes.
-      if (!reusable) playbackAnchor += performance.now() - before;
-      if (!ready) { pausePlayback(); return; }
-      updatePlaybackUI();
-      if (elapsedMs >= total) { pausePlayback(); return; }
-      animationFrame = requestAnimationFrame(frame);
+      try {
+        while (true) {
+          elapsedMs = Math.min(total, Math.max(0, Math.floor(withAudio ? audioPlayback.positionMs() : now - playbackAnchor)));
+          const value = P.frameAt(plan, elapsedMs);
+          project = { ...project, selectedSceneId: value.scene.id }; updateSelectedScene();
+          const prepared = livePreview.status().active;
+          const reusable = prepared?.state === 'ready' && prepared.previewSceneId === value.scene.id && prepared.identity.contentRevision === previewRevision;
+          const before = performance.now();
+          // Scene preparation owns images only. Continuous audio never stops or
+          // seeks for an automatic scene boundary, including a cold image window.
+          const ready = await renderPreview();
+          if (!playing || epoch !== playEpoch) return;
+          if (!ready) { pausePlayback(); return; }
+          if (withAudio && !reusable) {
+            const current = Math.min(total, Math.max(0, Math.floor(audioPlayback.positionMs())));
+            // Native decode can finish after this scene has already ended.
+            // Prepare the current window instead of presenting an obsolete time.
+            if (P.frameAt(plan, current).scene.id !== value.scene.id) continue;
+            elapsedMs = current;
+            const caughtUp = await renderPreview();
+            if (!playing || epoch !== playEpoch) return;
+            if (!caughtUp) { pausePlayback(); return; }
+          } else if (!withAudio && !reusable) playbackAnchor += performance.now() - before;
+          break;
+        }
+        updatePlaybackUI();
+        if (elapsedMs >= total) { pausePlayback(); return; }
+        animationFrame = requestAnimationFrame(frame);
+      } catch (error) { if (epoch === playEpoch) { pausePlayback(); audioFailure = error; audioState = 'error'; renderAudio(); } }
     }
     animationFrame = requestAnimationFrame(frame);
   }
@@ -3518,6 +3871,7 @@ window.ShortsEditorReady = (async function () {
     renderScenes();
     renderSubtitles();
     renderAppearance();
+    renderAudio();
     renderPreview();
     setView(view);
   }
@@ -3525,7 +3879,7 @@ window.ShortsEditorReady = (async function () {
   function replaceProject(nextProject) {
     pausePlayback();
     try { T.compile(nextProject); } catch (error) { toast('Проект не заменён: ' + error.message); return false; }
-    imageUploads.cancel(); imageStates.clear(); livePreview.suspend();
+    imageUploads.cancel(); imageStates.clear(); audioUploads.cancel(); audioStates.clear(); audioErrors.clear(); audioPlayback.close().catch(()=>{}); livePreview.suspend();
     project = nextProject; durationErrors.clear(); commandError = null; lastGoodProject = null;
     view = 'script';
     renderAll();
@@ -3614,12 +3968,12 @@ window.ShortsEditorReady = (async function () {
   document.querySelector('.brand').addEventListener('click', event => { event.preventDefault(); setView('script'); });
   $('scriptText').maxLength = 1000000;
   $('scriptText').addEventListener('input', event => {
-    project = { ...project, script: event.target.value }; previewRevision++;
+    pausePlayback(); project = { ...project, script: event.target.value }; previewRevision++;
     renderStats();
     changed();
   });
   $('projectName').addEventListener('input', event => {
-    project = { ...project, name: event.target.value }; recalculate();
+    pausePlayback(); project = { ...project, name: event.target.value }; recalculate();
     $('sidebarProjectName').textContent = project.name || 'Без названия';
     document.title = (project.name || 'Без названия') + ' — Shorts Studio';
     changed();
@@ -3637,8 +3991,8 @@ window.ShortsEditorReady = (async function () {
   $('editorSubtitlesEnabled').addEventListener('change', event => editScene({ type: 'subtitle-enabled', value: event.target.checked }));
   $('editorResetTiming').addEventListener('click', () => {
     if (!lastGoodProject) return;
-    pausePlayback(); project = lastGoodProject; durationErrors.clear(); commandError = null;
-    renderAll(); changed();
+    pausePlayback(); project = lastGoodProject; durationErrors.clear(); audioErrors.clear(); commandError = null;
+    document.activeElement?.blur(); renderAll(); changed();
   });
   $('exportSrt').addEventListener('click', exportSrt);
   $('exportSrtPanel').addEventListener('click', exportSrt);
@@ -3650,30 +4004,51 @@ window.ShortsEditorReady = (async function () {
     const index = project.scenes.findIndex(scene => scene.id === project.selectedSceneId);
     if (index < project.scenes.length - 1) selectScene(project.scenes[index + 1].id);
   });
+  for (const role of ['voice','music']) {
+    const cap = role === 'voice' ? 'Voice' : 'Music';
+    $('editor' + cap + 'Upload').addEventListener('click', () => { if (!timing.error) $('editor' + cap + 'File').click(); });
+    $('editor' + cap + 'File').addEventListener('change', event => {
+      const file = event.target.files?.[0]; event.target.value = ''; if (!file || timing.error) return;
+      pausePlayback(); audioUploads.load(role, file);
+    });
+    $('editor' + cap + 'Remove').addEventListener('click', () => { if (timing.error) return; audioUploads.cancel(role); if (updateAudio(role, { assetId: null, name: '' })) { audioStates.delete(role); renderAudio(); } });
+    $('editor' + cap + 'Volume').addEventListener('input', event => updateAudio(role, { volume: Number(event.target.value) / 100 }));
+  }
+  for (const edge of ['In','Out']) {
+    const input = $('editorMusicFade' + edge);
+    input.addEventListener('input', () => {
+      pausePlayback();
+      try {
+        const value = window.ShortsEditorAudio.fadeMs(input.value), next = window.ShortsEditorAudio.edit(project, 'music', { ['fade' + edge + 'Ms']: value });
+        audioErrors.delete(input.id); project = next;
+      } catch (error) { audioErrors.set(input.id, error); }
+      recalculate(); changed(); refreshTimingViews(); renderAudio();
+    });
+  }
   $('playPreview').addEventListener('click', play);
   $('editorSeek').addEventListener('input', event => {
-    if (!timing.plan?.durationMs) return; pausePlayback(); imageUploads.cancel();
-    elapsedMs = Math.min(timing.plan.durationMs, Number(event.target.value));
-    project = { ...project, selectedSceneId: P.frameAt(timing.plan, elapsedMs).scene.id }; updateSelectedScene(); renderPreview(); changed();
+    if (!timing.plan?.durationMs) return; const resume = playing, targetMs = Number(event.target.value); pausePlayback(); imageUploads.cancel();
+    elapsedMs = Math.min(timing.plan.durationMs, targetMs);
+    project = { ...project, selectedSceneId: P.frameAt(timing.plan, elapsedMs).scene.id }; updateSelectedScene(); const epoch = playEpoch; renderPreview().then(() => { if (resume && epoch === playEpoch) play(); }); changed();
   });
   const modeObserver = new MutationObserver(() => {
     const visible = document.querySelector('.workspace').dataset.mode !== 'video'; if (visible === editorVisible) return;
     editorVisible = visible;
-    if (!visible) { pausePlayback(); imageUploads.cancel(); livePreview.suspend(); } else renderPreview();
+    if (!visible) { pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); } else { audioPlayback.update(project, timing.plan, previewRevision); renderPreview(); }
   });
   modeObserver.observe(document.querySelector('.workspace'), { attributes: true, attributeFilter: ['data-mode'] });
-  window.addEventListener('pagehide', () => { imageUploads.cancel(); livePreview.suspend(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { imageUploads.cancel(); livePreview.suspend(); } else if (editorVisible) renderPreview(); });
+  window.addEventListener('pagehide', () => { pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); } else if (editorVisible) { audioPlayback.update(project, timing.plan, previewRevision); renderPreview(); } });
   document.querySelectorAll('[data-caption]').forEach(button => button.addEventListener('click', () => {
-    project = { ...project, style: { ...project.style, caption: button.dataset.caption } }; recalculate();
+    pausePlayback(); project = { ...project, style: { ...project.style, caption: button.dataset.caption } }; recalculate();
     renderAppearance(); renderPreview(); changed();
   }));
   document.querySelectorAll('[data-theme]').forEach(button => button.addEventListener('click', () => {
-    project = { ...project, style: { ...project.style, theme: button.dataset.theme } }; recalculate();
+    pausePlayback(); project = { ...project, style: { ...project.style, theme: button.dataset.theme } }; recalculate();
     renderAppearance(); renderPreview(); changed();
   }));
   $('captionSize').addEventListener('change', event => {
-    project = { ...project, style: { ...project.style, size: event.target.value } }; recalculate();
+    pausePlayback(); project = { ...project, style: { ...project.style, size: event.target.value } }; recalculate();
     renderPreview(); changed();
   });
   $('saveProject').addEventListener('click', () => {

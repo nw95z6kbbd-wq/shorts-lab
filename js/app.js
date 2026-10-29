@@ -15,7 +15,15 @@ window.ShortsEditorReady = (async function () {
   const sceneNodes = new Map(), durationErrors = new Map();
   let timing = { plan: null, byId: new Map(), error: null }, lastGoodProject = null, commandError = null;
   let subtitlesDirty = true, lastSelectedSceneId = null, previewRevision = 0, playEpoch = 0, editorVisible = true;
-  const imageStates = new Map();
+  const imageStates = new Map(), audioStates = new Map(), audioErrors = new Map();
+  let audioState = 'silent', audioFailure = null;
+  const audioPlayback = window.ShortsEditorAudio.createPlayback({ onState: (state, error) => { audioState = state; audioFailure = error || null; renderAudio(); } });
+  const audioUploads = window.ShortsEditorAudio.createUploads({
+    owner: () => project.id, valid: owner => owner === project.id && editorVisible && !timing.error,
+    requirements: role => ({durationMs: timing.plan?.durationMs??0, otherIds: ['voice','music'].filter(r=>r!==role).map(r=>project.audio?.[r]?.assetId).filter(Boolean)}),
+    accept: (role, patch) => updateAudio(role, patch) ? {accepted:true,ready:audioPlayback.settled()} : false,
+    onState: (role, state, error) => { audioStates.set(role, { state, message: error?.message || (state === 'loading' ? 'Проверяем и декодируем оригинал…' : state === 'ready' ? 'Оригинал принят. Состояние сохранения — в уведомлении.' : 'Загрузка отменена.') }); renderAudio(); }
+  });
   const livePreview = window.ShortsEditorPreview.create({ canvas: $('editorCanvas'), onState: previewState });
   const imageUploads = window.ShortsEditorImages.create({
     owner: () => project.id,
@@ -23,6 +31,37 @@ window.ShortsEditorReady = (async function () {
     accept: (id, image) => { if (timing.error) return false; T.edit(project, { type: 'image', id, value: image }); editScene({ type: 'image', id, value: image }, true); return true; },
     onState: (id, state, error) => { imageStates.set(id, { state, message: error?.message || (state === 'loading' ? 'Проверяем и загружаем оригинал…' : state === 'ready' ? 'Оригинал принят. Состояние сохранения — в уведомлении.' : 'Загрузка отменена.') }); updateSceneTimings(id); if (project.selectedSceneId === id && state === 'loading') { livePreview.suspend(); previewState({ state: 'loading' }); } else if (project.selectedSceneId === id && state === 'error') previewState({ state: 'error', error }); }
   });
+
+  function renderAudio() {
+    for (const role of ['voice', 'music']) {
+      const cap = role === 'voice' ? 'Voice' : 'Music', track = project.audio?.[role], state = audioStates.get(role);
+      $('editor' + cap + 'Name').textContent = track?.name || 'Файл не выбран';
+      $('editor' + cap + 'Remove').hidden = !track?.assetId;
+      $('editor' + cap + 'Upload').textContent = (track?.assetId ? 'Заменить ' : 'Добавить ') + (role === 'voice' ? 'озвучку' : 'музыку');
+      $('editor' + cap + 'Upload').disabled = !!timing.error;
+      $('editor' + cap + 'Remove').disabled = !!timing.error;
+      $('editor' + cap + 'Status').textContent = state?.message || '';
+      $('editor' + cap + 'Status').dataset.state = state?.state || 'idle';
+      const level = Math.round((track?.volume ?? (role === 'voice' ? .7 : .25)) * 100);
+      if (document.activeElement !== $('editor' + cap + 'Volume')) $('editor' + cap + 'Volume').value = String(level);
+      $('editor' + cap + 'VolumeValue').value = level + '%';
+    }
+    for (const edge of ['In', 'Out']) {
+      const input = $('editorMusicFade' + edge);
+      if (!audioErrors.has(input.id) && document.activeElement !== input) input.value = String((project.audio?.music['fade' + edge + 'Ms'] ?? 1000) / 1000).replace('.', ',');
+      input.setAttribute('aria-invalid', String(audioErrors.has(input.id)));
+    }
+    $('editorAudioState').dataset.state = audioState;
+    $('editorAudioState').textContent = audioFailure ? 'Звук недоступен: ' + audioFailure.message : audioState === 'loading' ? 'Подготавливаем звук…' : audioState === 'ready' ? 'Звук готов. Play запускает звук и Canvas вместе; короткие дорожки не повторяются.' : 'Без звуковых дорожек. Добавьте файлы; оригиналы сохраняются на устройстве и в ZIP. JSON не содержит медиа.';
+    $('playPreview').disabled = !timing.plan?.durationMs || audioState === 'loading';
+  }
+
+  function updateAudio(role, patch) {
+    if (timing.error) return false;
+    let next; try { next = window.ShortsEditorAudio.edit(project, role, patch); T.compile(next); }
+    catch (error) { toast(error.message); return false; }
+    pausePlayback(); project = next; audioPlayback.retry(); recalculate(); renderAudio(); renderPreview(); changed(); return true;
+  }
 
   function previewState({ state, error, timeMs, sceneId }) {
     $('portrait').dataset.previewState = state;
@@ -43,13 +82,15 @@ window.ShortsEditorReady = (async function () {
 
   function recalculate() {
     try {
-      const inputError = commandError || durationErrors.values().next().value;
+      const inputError = commandError || durationErrors.values().next().value || audioErrors.values().next().value;
       if (inputError) throw inputError;
       timing = { ...T.compile(project), error: null };
       lastGoodProject = project;
     } catch (error) { timing = { plan: null, byId: new Map(), error }; }
     subtitlesDirty = true; previewRevision++;
-    if (timing.error) imageUploads.cancel();
+    if (timing.error) { imageUploads.cancel(); audioUploads.cancel(); }
+    audioUploads.retain(new Set([project,lastGoodProject].filter(Boolean).flatMap(p => [p.audio?.voice.assetId, p.audio?.music.assetId].filter(Boolean))));
+    if (editorVisible && !document.hidden) audioPlayback.update(project, timing.plan, previewRevision);
     imageUploads.retain(new Set([project,lastGoodProject].filter(Boolean).flatMap(p => p.scenes.map(s => s.imageId).filter(Boolean))));
   }
 
@@ -214,7 +255,7 @@ window.ShortsEditorReady = (async function () {
     $('splitScenes').disabled = words === 0;
     for (const id of ['exportSrt', 'exportSrtPanel']) $(id).disabled = !plan?.cues.length;
     for (const id of ['saveProject', 'saveProjectMobile']) $(id).disabled = !!timing.error;
-    $('playPreview').disabled = !plan?.durationMs;
+    $('playPreview').disabled = !plan?.durationMs || audioState === 'loading';
     $('scriptChanged').hidden = !project.scenes.length || project.script === project.sourceScript;
     $('sceneFootnote').hidden = !project.scenes.length;
     $('editorSubtitleHint').textContent = !plan ? 'Исправьте ошибку расчёта.' : plan.subtitles.enabled === false ? 'Субтитры отключены: SRT не содержит реплик.' :
@@ -404,6 +445,9 @@ window.ShortsEditorReady = (async function () {
 
   function pausePlayback() {
     playEpoch++;
+    const epoch = playEpoch, revision = previewRevision;
+    if (playing && audioPlayback.status().ready) { try { const position = audioPlayback.positionMs(); if (position !== null) elapsedMs = Math.floor(position); } catch (_) {} }
+    audioPlayback.pause().catch(error => { if (epoch === playEpoch && revision === previewRevision && error.code !== 'CANCELLED') { audioFailure = error; audioState = 'error'; renderAudio(); } });
     if (!playing) return;
     playing = false;
     cancelAnimationFrame(animationFrame);
@@ -411,28 +455,59 @@ window.ShortsEditorReady = (async function () {
     changed();
   }
 
-  function play() {
+  async function play() {
     if (playing) { pausePlayback(); return; }
-    const plan = timing.plan; if (!plan?.timeline.length || !editorVisible) return;
-    const total = plan.durationMs;
+    const plan = timing.plan; if (!plan?.timeline.length || !editorVisible || document.hidden || audioState === 'loading') return;
+    const total = plan.durationMs, withAudio = ['voice','music'].some(role => plan.audio[role].assetId);
+    if (withAudio && !audioPlayback.status().ready) { audioFailure ||= new Error('Аудио не подготовлено. Проверьте исходные файлы.'); renderAudio(); return; }
     if (elapsedMs >= total) elapsedMs = 0;
-    playing = true; const epoch = ++playEpoch; playbackAnchor = performance.now() - elapsedMs;
+    playing = true; const epoch = ++playEpoch;
     updatePlaybackUI();
+    try {
+      // Activate the owned context in this trusted click, but produce no sound
+      // until the selected Canvas window has actually rendered its first frame.
+      if (withAudio) await audioPlayback.start(Math.floor(elapsedMs), { paused: true });
+      if (!playing || epoch !== playEpoch) return;
+      project = { ...project, selectedSceneId: P.frameAt(plan, elapsedMs).scene.id }; updateSelectedScene();
+      const ready = await renderPreview();
+      if (!playing || epoch !== playEpoch) return;
+      if (!ready) { pausePlayback(); return; }
+      if (withAudio) { await audioPlayback.start(Math.floor(elapsedMs)); if (!playing || epoch !== playEpoch) return; audioFailure = null; audioState = 'ready'; renderAudio(); }
+    }
+    catch (error) { if (epoch === playEpoch) { pausePlayback(); audioFailure = error; audioState = 'error'; renderAudio(); } return; }
+    if (!playing || epoch !== playEpoch) return; // A stale completion cannot pause the current owner.
+    playbackAnchor = performance.now() - elapsedMs;
     async function frame(now) {
       if (!playing || epoch !== playEpoch) return;
-      elapsedMs = Math.min(total, Math.max(0, Math.floor(now - playbackAnchor)));
-      const value = P.frameAt(plan, elapsedMs);
-      project = { ...project, selectedSceneId: value.scene.id }; updateSelectedScene();
-      const prepared = livePreview.status().active;
-      const reusable = prepared?.state === 'ready' && prepared.previewSceneId === value.scene.id && prepared.identity.contentRevision === previewRevision;
-      const before = performance.now(), ready = await renderPreview();
-      if (!playing || epoch !== playEpoch) return;
-      // Resource preparation pauses the preview clock instead of skipping scenes.
-      if (!reusable) playbackAnchor += performance.now() - before;
-      if (!ready) { pausePlayback(); return; }
-      updatePlaybackUI();
-      if (elapsedMs >= total) { pausePlayback(); return; }
-      animationFrame = requestAnimationFrame(frame);
+      try {
+        while (true) {
+          elapsedMs = Math.min(total, Math.max(0, Math.floor(withAudio ? audioPlayback.positionMs() : now - playbackAnchor)));
+          const value = P.frameAt(plan, elapsedMs);
+          project = { ...project, selectedSceneId: value.scene.id }; updateSelectedScene();
+          const prepared = livePreview.status().active;
+          const reusable = prepared?.state === 'ready' && prepared.previewSceneId === value.scene.id && prepared.identity.contentRevision === previewRevision;
+          const before = performance.now();
+          // Scene preparation owns images only. Continuous audio never stops or
+          // seeks for an automatic scene boundary, including a cold image window.
+          const ready = await renderPreview();
+          if (!playing || epoch !== playEpoch) return;
+          if (!ready) { pausePlayback(); return; }
+          if (withAudio && !reusable) {
+            const current = Math.min(total, Math.max(0, Math.floor(audioPlayback.positionMs())));
+            // Native decode can finish after this scene has already ended.
+            // Prepare the current window instead of presenting an obsolete time.
+            if (P.frameAt(plan, current).scene.id !== value.scene.id) continue;
+            elapsedMs = current;
+            const caughtUp = await renderPreview();
+            if (!playing || epoch !== playEpoch) return;
+            if (!caughtUp) { pausePlayback(); return; }
+          } else if (!withAudio && !reusable) playbackAnchor += performance.now() - before;
+          break;
+        }
+        updatePlaybackUI();
+        if (elapsedMs >= total) { pausePlayback(); return; }
+        animationFrame = requestAnimationFrame(frame);
+      } catch (error) { if (epoch === playEpoch) { pausePlayback(); audioFailure = error; audioState = 'error'; renderAudio(); } }
     }
     animationFrame = requestAnimationFrame(frame);
   }
@@ -461,6 +536,7 @@ window.ShortsEditorReady = (async function () {
     renderScenes();
     renderSubtitles();
     renderAppearance();
+    renderAudio();
     renderPreview();
     setView(view);
   }
@@ -468,7 +544,7 @@ window.ShortsEditorReady = (async function () {
   function replaceProject(nextProject) {
     pausePlayback();
     try { T.compile(nextProject); } catch (error) { toast('Проект не заменён: ' + error.message); return false; }
-    imageUploads.cancel(); imageStates.clear(); livePreview.suspend();
+    imageUploads.cancel(); imageStates.clear(); audioUploads.cancel(); audioStates.clear(); audioErrors.clear(); audioPlayback.close().catch(()=>{}); livePreview.suspend();
     project = nextProject; durationErrors.clear(); commandError = null; lastGoodProject = null;
     view = 'script';
     renderAll();
@@ -557,12 +633,12 @@ window.ShortsEditorReady = (async function () {
   document.querySelector('.brand').addEventListener('click', event => { event.preventDefault(); setView('script'); });
   $('scriptText').maxLength = 1000000;
   $('scriptText').addEventListener('input', event => {
-    project = { ...project, script: event.target.value }; previewRevision++;
+    pausePlayback(); project = { ...project, script: event.target.value }; previewRevision++;
     renderStats();
     changed();
   });
   $('projectName').addEventListener('input', event => {
-    project = { ...project, name: event.target.value }; recalculate();
+    pausePlayback(); project = { ...project, name: event.target.value }; recalculate();
     $('sidebarProjectName').textContent = project.name || 'Без названия';
     document.title = (project.name || 'Без названия') + ' — Shorts Studio';
     changed();
@@ -580,8 +656,8 @@ window.ShortsEditorReady = (async function () {
   $('editorSubtitlesEnabled').addEventListener('change', event => editScene({ type: 'subtitle-enabled', value: event.target.checked }));
   $('editorResetTiming').addEventListener('click', () => {
     if (!lastGoodProject) return;
-    pausePlayback(); project = lastGoodProject; durationErrors.clear(); commandError = null;
-    renderAll(); changed();
+    pausePlayback(); project = lastGoodProject; durationErrors.clear(); audioErrors.clear(); commandError = null;
+    document.activeElement?.blur(); renderAll(); changed();
   });
   $('exportSrt').addEventListener('click', exportSrt);
   $('exportSrtPanel').addEventListener('click', exportSrt);
@@ -593,30 +669,51 @@ window.ShortsEditorReady = (async function () {
     const index = project.scenes.findIndex(scene => scene.id === project.selectedSceneId);
     if (index < project.scenes.length - 1) selectScene(project.scenes[index + 1].id);
   });
+  for (const role of ['voice','music']) {
+    const cap = role === 'voice' ? 'Voice' : 'Music';
+    $('editor' + cap + 'Upload').addEventListener('click', () => { if (!timing.error) $('editor' + cap + 'File').click(); });
+    $('editor' + cap + 'File').addEventListener('change', event => {
+      const file = event.target.files?.[0]; event.target.value = ''; if (!file || timing.error) return;
+      pausePlayback(); audioUploads.load(role, file);
+    });
+    $('editor' + cap + 'Remove').addEventListener('click', () => { if (timing.error) return; audioUploads.cancel(role); if (updateAudio(role, { assetId: null, name: '' })) { audioStates.delete(role); renderAudio(); } });
+    $('editor' + cap + 'Volume').addEventListener('input', event => updateAudio(role, { volume: Number(event.target.value) / 100 }));
+  }
+  for (const edge of ['In','Out']) {
+    const input = $('editorMusicFade' + edge);
+    input.addEventListener('input', () => {
+      pausePlayback();
+      try {
+        const value = window.ShortsEditorAudio.fadeMs(input.value), next = window.ShortsEditorAudio.edit(project, 'music', { ['fade' + edge + 'Ms']: value });
+        audioErrors.delete(input.id); project = next;
+      } catch (error) { audioErrors.set(input.id, error); }
+      recalculate(); changed(); refreshTimingViews(); renderAudio();
+    });
+  }
   $('playPreview').addEventListener('click', play);
   $('editorSeek').addEventListener('input', event => {
-    if (!timing.plan?.durationMs) return; pausePlayback(); imageUploads.cancel();
-    elapsedMs = Math.min(timing.plan.durationMs, Number(event.target.value));
-    project = { ...project, selectedSceneId: P.frameAt(timing.plan, elapsedMs).scene.id }; updateSelectedScene(); renderPreview(); changed();
+    if (!timing.plan?.durationMs) return; const resume = playing, targetMs = Number(event.target.value); pausePlayback(); imageUploads.cancel();
+    elapsedMs = Math.min(timing.plan.durationMs, targetMs);
+    project = { ...project, selectedSceneId: P.frameAt(timing.plan, elapsedMs).scene.id }; updateSelectedScene(); const epoch = playEpoch; renderPreview().then(() => { if (resume && epoch === playEpoch) play(); }); changed();
   });
   const modeObserver = new MutationObserver(() => {
     const visible = document.querySelector('.workspace').dataset.mode !== 'video'; if (visible === editorVisible) return;
     editorVisible = visible;
-    if (!visible) { pausePlayback(); imageUploads.cancel(); livePreview.suspend(); } else renderPreview();
+    if (!visible) { pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); } else { audioPlayback.update(project, timing.plan, previewRevision); renderPreview(); }
   });
   modeObserver.observe(document.querySelector('.workspace'), { attributes: true, attributeFilter: ['data-mode'] });
-  window.addEventListener('pagehide', () => { imageUploads.cancel(); livePreview.suspend(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { imageUploads.cancel(); livePreview.suspend(); } else if (editorVisible) renderPreview(); });
+  window.addEventListener('pagehide', () => { pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { pausePlayback(); imageUploads.cancel(); audioUploads.cancel(); audioPlayback.close().catch(()=>{}); livePreview.suspend(); } else if (editorVisible) { audioPlayback.update(project, timing.plan, previewRevision); renderPreview(); } });
   document.querySelectorAll('[data-caption]').forEach(button => button.addEventListener('click', () => {
-    project = { ...project, style: { ...project.style, caption: button.dataset.caption } }; recalculate();
+    pausePlayback(); project = { ...project, style: { ...project.style, caption: button.dataset.caption } }; recalculate();
     renderAppearance(); renderPreview(); changed();
   }));
   document.querySelectorAll('[data-theme]').forEach(button => button.addEventListener('click', () => {
-    project = { ...project, style: { ...project.style, theme: button.dataset.theme } }; recalculate();
+    pausePlayback(); project = { ...project, style: { ...project.style, theme: button.dataset.theme } }; recalculate();
     renderAppearance(); renderPreview(); changed();
   }));
   $('captionSize').addEventListener('change', event => {
-    project = { ...project, style: { ...project.style, size: event.target.value } }; recalculate();
+    pausePlayback(); project = { ...project, style: { ...project.style, size: event.target.value } }; recalculate();
     renderPreview(); changed();
   });
   $('saveProject').addEventListener('click', () => {

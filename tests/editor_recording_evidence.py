@@ -26,6 +26,12 @@ def inspect_recording(path, editor_progress=True):
             values.append((t, duration, f))
         return values
     video, audio = frames('video'), frames('audio')
+    times=sorted(f[0] for f in video)
+    held={}
+    for target in [.5,1.5,2.5]:
+        previous=max((t for t in times if t<=target),default=None)
+        following=min((t for t in times if t>target),default=None)
+        held[str(target)]={'pts':previous,'until':following}
     def bounds(values):
         return {'count':len(values), 'firstPts':min((v[0] for v in values),default=None),
                 'lastPts':max((v[0] for v in values),default=None), 'end':max((v[0]+v[1] for v in values),default=None),
@@ -47,7 +53,29 @@ def inspect_recording(path, editor_progress=True):
         return values
     progress={'first':filled(strip[:stride]),'last':filled(strip[-stride:])} if len(strip)>=stride else None
     return {'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'bytes':path.stat().st_size,
-            'format':info['format'],'streams':info['streams'],'video':{**bounds(video),'dimensions':sorted({(f[2].get('width'),f[2].get('height')) for f in video}),'progressPixels':progress},'audio':bounds(audio),'fullDecode':True}
+            'format':info['format'],'streams':info['streams'],'video':{**bounds(video),'dimensions':sorted({(f[2].get('width'),f[2].get('height')) for f in video}),'progressPixels':progress,
+            'heldSeekFrames':held,'nearestSeekFrames':{str(t):min((f[0] for f in video),key=lambda pts:abs(pts-t),default=None) for t in [.5,1.5,2.5,2.7,4.8]}},'audio':bounds(audio),'fullDecode':True}
+
+
+def editor_frame_expectations(evidence):
+    """PTS of the actual held frame, independently decoded from these exact bytes.
+
+    A VFR video legitimately holds its preceding frame until the next sample.
+    This does not relax the browser callback tolerance or replace its RGB checks.
+    """
+    assert_complete_recording(evidence)
+    result=[]
+    for index,target in enumerate([.5,1.5,2.5]):
+        value=evidence['video']['heldSeekFrames'][str(target)]
+        assert isinstance(value['pts'],(int,float)) and 0<=value['pts']<=target, ('Invalid preceding frame',target,value)
+        assert isinstance(value['until'],(int,float)) and value['until']>target, ('Unproven held frame interval',target,value)
+        if value['pts']>=index:result.append(value['pts'])
+        else:
+            # The original sampler also accepts the next presented frame up to
+            # 100 ms after Seek. Keep that existing rule, never widen it.
+            assert index<=value['until']<index+1 and value['until']-target<=.1, ('Missing scene frame at requested time',target,value)
+            result.append(value['until'])
+    return result
 
 
 def assert_complete_recording(evidence):
@@ -92,7 +120,7 @@ def save_recording_evidence(root, script, command, label, kind='editor'):
     except Exception as error:
         result['inspectionError']={'name':type(error).__name__,'message':str(error)[:800]}
     (folder/'evidence.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
-    if evidence and any(label.endswith('-'+str(i)) for i in range(3)) and not label.startswith('safari-recording-failure'):
+    if evidence and label.startswith('safari-recording-') and any(label.endswith('-'+str(i)) for i in range(3)) and not label.startswith('safari-recording-failure'):
         summary={k:evidence.get(k) for k in ['entry','video','audioAtFirstFrame','audioAtLastFrame','formatAtMs','completedWallMs']}
         summary['encodedVideo']=result.get('encoded',{}).get('video')
         summary['encodedAudio']=result.get('encoded',{}).get('audio')

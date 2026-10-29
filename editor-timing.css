@@ -33,3 +33,17 @@
    from the same used width. Scope this to Editor; Video flex stays frozen. */
 .preview-column .portrait-wrap{display:block}
 .editor-canvas-frame{margin-inline:auto}
+
+/* Independent project audio, in the scrollable editing column. */
+.editor-audio-panels{display:grid;gap:16px;margin-top:22px;min-width:0}
+.editor-audio-panel{padding:22px;min-width:0}
+.editor-audio-panel h2{margin:0 0 15px;font-size:17px}
+.editor-audio-files{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
+.editor-audio-files>span{font-size:13px;color:var(--muted);overflow-wrap:anywhere;min-width:0}
+.editor-audio-panel [data-state="error"],.editor-audio-panel [aria-invalid="true"]{color:#ffadba}
+.editor-audio-panel input[aria-invalid="true"]{border-color:#ffadba}
+.editor-audio-panel .music-fades{margin-top:16px}
+@media(max-width:600px){.editor-audio-panel{padding:16px}.editor-audio-files .button{white-space:normal}}
+@media(max-width:600px){.editor-audio-panels{order:4;width:100%}.editor-bottom{order:5}}
+/* Informational text has no actions: it must never intercept Play/Pause. */
+#toast{pointer-events:none}
