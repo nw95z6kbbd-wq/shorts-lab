@@ -45,6 +45,13 @@ def check_native_editor_export(root,script,command,click):
        {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','noSlice':True},
        {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','fresh':True},
        {'type':'video/mp4'},
+       {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','captureFirst':True},
+       {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','lateAudio':True},
+       {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','opaque':True},
+       {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','mixer':True,'monitor':False},
+       {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','mixer':True,'monitor':True},
+       {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True},
+       {'type':'video/mp4;codecs=avc1.42001F,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True},
       ]:
        script('window.exportMatrixConfig=arguments[0];',[config]);click('#exportMatrix');row=execute('return await exportMatrixPromise;');print('::notice title=Failure-only native codec matrix::'+json.dumps(row),flush=True)
      except Exception as diagnostic:print('::warning title=Native matrix failure::'+str(diagnostic)[:800],flush=True)

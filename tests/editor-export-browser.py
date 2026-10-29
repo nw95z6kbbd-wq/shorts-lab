@@ -39,8 +39,8 @@ def run():
     if mode=='webm':assert result['container']=='webm'
     if audio:assert page.evaluate('exerciseEditorExportErrors()')==['missing image','overflow','resource count']
     # Cancel a real native encoder, then prepare again; no successful partial file.
-    page.evaluate('async()=>{await exportJob.prepare({project:exportOriginal,canvas:exportCanvas});exportStates=[];}');page.locator('#editorExportStart').click()
-    page.evaluate('async()=>{const stopped=exportPromise.catch(e=>e);await exportJob.cancel();await stopped;exportCheck(!exportJob.status().hasResult,"cancel returned a partial video");exportCheck(ShortsMediaSessions.statistics().sessions===0,"cancel leak");}')
+    page.evaluate('async()=>{await exportJob.prepare({project:exportOriginal,canvas:exportCanvas});exportStates=[];exportProgress=[];}');page.locator('#editorExportStart').click()
+    page.evaluate('async()=>{const stopped=exportPromise.catch(e=>e);await editorLiveUntil(()=>exportProgress.some(p=>p.timeMs>=200),'native encoder advanced before cancellation');await exportJob.cancel();await stopped;exportCheck(!exportJob.status().hasResult,"cancel returned a partial video");exportCheck(ShortsMediaSessions.statistics().sessions===0,"cancel leak");}')
     page.evaluate('disposeEditorExportFixture()')
    assert not errors,errors;browser.close();print(f'PASS [{engine} {entry}]: real Editor PNG/JPG/WebP, voice+music, byte codecs, full FFmpeg decode, scene pixels/frequencies, cancel/restart/errors and unchanged persisted DTO/media; '+json.dumps(outcomes),flush=True)
  finally:server.shutdown();server.server_close()

@@ -23,6 +23,10 @@ window.finishEditorExportFixture=async function(){
  exportCheck(ShortsMediaSessions.statistics().sessions===0&&ShortsMediaSessions.statistics().residentBytes===0,'all export media released');
  exportCheck(JSON.stringify(await studioUiSnapshot())===JSON.stringify(exportBefore),'persisted projects and SHA-256 originals unchanged');
  exportCheck(JSON.stringify(ShortsEditor.backupSnapshot())===JSON.stringify(exportOriginal),'DTO did not change');
+ const projects=ShortsBackupFormat.states({editor:exportBefore.editor,video:exportBefore.video}),assets=await ShortsStorage.captureBackup(projects,ShortsZip.LIMITS.archive),zip=await ShortsBackupFormat.exportArchive(projects,assets,ShortsProduct.version),roundtrip=await ShortsBackupFormat.importArchive(zip);
+ exportCheck(JSON.stringify(roundtrip.projects)===JSON.stringify(projects),'ZIP project round-trip');
+ for(const [id,file] of roundtrip.assets){const original=assets.get(id);exportCheck(file.blob.type===original.blob.type&&await ShortsBackupFormat.sha256(new Uint8Array(await file.blob.arrayBuffer()))===await ShortsBackupFormat.sha256(new Uint8Array(await original.blob.arrayBuffer())),'ZIP original bytes/MIME '+id);}
+
  const {blob,...info}=result;return{...info,states:exportStates.map(s=>s.state),pool:ShortsMediaSessions.statistics()};
 };
 window.disposeEditorExportFixture=async function(){await exportJob?.dispose();if(window.exportNativeRecord){ShortsVideoRecorder.record=exportNativeRecord;window.exportNativeRecord=null;}document.getElementById('editorExportStart')?.remove();exportCanvas?.remove();};
