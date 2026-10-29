@@ -163,6 +163,8 @@ body{overflow:hidden}
 .editor-audio-panel .music-fades{margin-top:16px}
 @media(max-width:600px){.editor-audio-panel{padding:16px}.editor-audio-files .button{white-space:normal}}
 @media(max-width:600px){.editor-audio-panels{order:4;width:100%}.editor-bottom{order:5}}
+/* Informational text has no actions: it must never intercept Play/Pause. */
+#toast{pointer-events:none}
 
 </style>
 </head>

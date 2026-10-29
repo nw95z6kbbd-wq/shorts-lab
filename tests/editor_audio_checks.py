@@ -8,7 +8,7 @@ def check_editor_audio(execute,click,payload):
         assert execute('return await editorAudioUpload(arguments[0],arguments[1]);',[role,payload[index]])=='ready'
     execute('editorAudioSettings();await editorAudioReady();audioCheck(editorAudioState.dataset.state==="ready",editorAudioState.textContent);return true;')
     offline=execute('return await editorAudioOffline();')
-    execute('editorAudioTap();return true;');click('#playPreview')
+    execute('editorAudioTap();await editorAudioNoticeOverPlay();return true;');click('#playPreview');execute('restoreAudioNotice();return true;')
     signal=execute('return await editorAudioPlaying();');assert signal['rms']>.0001,signal
     assert signal['voiceVolume']==.4 and signal['musicVolume']==.25 and signal['fadeIn']==.25 and signal['fadeOut']==.5,signal
     click('#playPreview')

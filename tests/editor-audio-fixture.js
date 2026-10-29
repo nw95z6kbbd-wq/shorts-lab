@@ -16,6 +16,16 @@ window.editorAudioTap=function(){
   return {start(when){tap.when=when;mix.start(when);},stop(){tap.stopped=true;mix.stop();analyser.disconnect();}};
  };
 };
+window.editorAudioNoticeOverPlay=async function(){
+ const button=document.getElementById('playPreview');button.scrollIntoView({block:'center'});
+ await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+ const notice=document.getElementById('toast'),old={style:notice.getAttribute('style'),hidden:notice.hidden,text:notice.textContent},r=button.getBoundingClientRect();
+ notice.style=`position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;bottom:auto;transform:none;z-index:10000;padding:0`;
+ notice.textContent='Информация';notice.hidden=false;
+ const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+ audioCheck(hit===button||button.contains(hit),'informational toast intercepts the actual Play hit target');
+ window.restoreAudioNotice=()=>{old.style===null?notice.removeAttribute('style'):notice.setAttribute('style',old.style);notice.hidden=old.hidden;notice.textContent=old.text;};
+};
 window.editorAudioSignal=()=>{
  const tap=editorAudioTaps.at(-1);audioCheck(tap&&!tap.stopped,'active actual mixer');
  const samples=new Float32Array(tap.analyser.fftSize);tap.analyser.getFloatTimeDomainData(samples);
