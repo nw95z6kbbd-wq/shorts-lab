@@ -3,14 +3,15 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const C=require('../js/core.js'),A=require('../js/render-adapters.js'),P=require('../js/render-plan.js'),V=require('../js/video-core.js');
 // A deterministic model of the browser's independent media clock. This tests
 // clocks/cancellation in the real recorder source; FFmpeg tests inspect real bytes.
-async function simulate({dropTailMs=0,flushDelay=0,pauseNever=false,flushNever=false,stopBeforeFlush=false,audioDelay=0,audioRate=1,stalled=false,invalid=false,rewind=false,interruptAt,source='js/video-recorder.js',abortAt,earlyStop,withAudio=false,rejectFirst=false}={}){
+// JSON packets model encoder delivery only; WebM serialization is tested separately.
+async function simulate({container='mp4',dropTailMs=0,flushDelay=0,pauseNever=false,flushNever=false,stopBeforeFlush=false,audioDelay=0,audioRate=1,stalled=false,invalid=false,rewind=false,interruptAt,source='js/video-recorder.js',abortAt,earlyStop,withAudio=false,rejectFirst=false}={}){
  let clock=0,seq=0,encoderStart,encoderStop,mediaOrigin,pausedMediaTime,flushed=false,flushRequestedAt,pauseRequestedAt,settled=false,result,error,created=0,contextInstance;
  const audioTime=()=>invalid&&clock>=800?NaN:rewind&&clock>=800?0:Math.max(0,clock-audioDelay)/1000*audioRate;
  const tasks=new Map(),rendered=[],recorders=[],mixStarts=[];
  const schedule=(fn,ms)=>{const id=++seq;tasks.set(id,{fn,at:clock+ms});return id;};
  const track={kind:'video',stop(){this.stopped=true;}},tracks=[track],stream={getVideoTracks:()=>[track],getTracks:()=>tracks,addTrack:t=>tracks.push(t)};
  class Recorder{
-  static isTypeSupported(type){return type.startsWith('video/mp4');}
+  static isTypeSupported(type){return type.startsWith('video/'+container);}
   constructor(_stream,options){this.mimeType=options.mimeType;this.state='inactive';this.listeners=new Map();this.order=++created;recorders.push(this);}
   addEventListener(event,fn){let a=this.listeners.get(event);if(!a)this.listeners.set(event,a=[]);a.push(fn);}
   removeEventListener(event,fn){this.listeners.set(event,(this.listeners.get(event)||[]).filter(f=>f!==fn));}
@@ -31,11 +32,11 @@ async function simulate({dropTailMs=0,flushDelay=0,pauseNever=false,flushNever=f
   createMediaStreamDestination(){return{stream:{getAudioTracks:()=>[{kind:'audio',stop(){this.stopped=true;}}]}};}
  }
  const listeners=new Map(),document={hidden:false,addEventListener:(e,fn)=>listeners.set(e,fn),removeEventListener:e=>listeners.delete(e)};
- const context=vm.createContext({MediaRecorder:Recorder,HTMLCanvasElement:{prototype:{captureStream(){}}},AudioContext:Audio,ShortsVideoAudio:{connectMix:()=>({start:t=>mixStarts.push(t),stop(){}})},ShortsVideoCore:V,ShortsRenderPlan:P,ShortsVideoRenderer:{render:(_c,_p,ms)=>rendered.push({wall:clock,ms})},performance:{now:()=>clock},document,Blob,Uint8Array,DOMException,Error,setTimeout:(fn,ms)=>schedule(fn,ms),clearTimeout:id=>tasks.delete(id),requestAnimationFrame:fn=>schedule(()=>fn(clock),1000/30),cancelAnimationFrame:id=>tasks.delete(id)});context.window=context;
+ const context=vm.createContext({MediaRecorder:Recorder,HTMLCanvasElement:{prototype:{captureStream(){}}},AudioContext:Audio,ShortsVideoAudio:{connectMix:()=>({start:t=>mixStarts.push(t),stop(){}})},ShortsVideoCore:{...V,patchWebmDuration:bytes=>bytes},ShortsRenderPlan:P,ShortsVideoRenderer:{render:(_c,_p,ms)=>rendered.push({wall:clock,ms})},performance:{now:()=>clock},document,Blob,Uint8Array,DOMException,Error,setTimeout:(fn,ms)=>schedule(fn,ms),clearTimeout:id=>tasks.delete(id),requestAnimationFrame:fn=>schedule(()=>fn(clock),1000/30),cancelAnimationFrame:id=>tasks.delete(id)});context.window=context;
  vm.runInContext(fs.readFileSync(source,'utf8'),context);
  const p=C.upgradeProject(C.createProject(true));p.timing='manual';p.scenes=p.scenes.slice(0,3);p.scenes.forEach(s=>{s.durationMs=1000;s.transition='none';});
  const plan=A.fromEditor(p),controller=new AbortController();if(interruptAt!=null)schedule(()=>contextInstance.state='interrupted',interruptAt);if(abortAt!=null)schedule(()=>controller.abort(new DOMException('test abort','AbortError')),abortAt);
- const pending=context.ShortsVideoRecorder.record({canvas:{captureStream:()=>stream},plan,format:'mp4',signal:controller.signal,...(withAudio?{voiceBuffer:{}}:{})});pending.then(r=>{result=r;settled=true;},e=>{error=e;settled=true;});
+ const pending=context.ShortsVideoRecorder.record({canvas:{captureStream:()=>stream},plan,format:container,signal:controller.signal,...(withAudio?{voiceBuffer:{}}:{})});pending.then(r=>{result=r;settled=true;},e=>{error=e;settled=true;});
  for(let i=0;!settled&&i<3000;i++){
   for(let m=0;m<12;m++)await Promise.resolve();if(settled)break;
   const next=[...tasks].sort((a,b)=>a[1].at-b[1].at||a[0]-b[0])[0];if(!next)throw Error('scheduler exhausted');tasks.delete(next[0]);clock=next[1].at;next[1].fn();
@@ -65,19 +66,22 @@ test('stalled, interrupted, non-finite, backwards clocks and cancellation fail w
  }
 });
 test('the exact clock bridge rejects changes while all original eight runtime guard counterexamples remain mandatory',()=>{
- const cp=require('node:child_process');const proof=cp.execFileSync('python',['tests/recorder_clock_guard.py','--self-test'],{encoding:'utf8'});assert.match(proof,/3 audio clock mutations rejected/);assert.match(proof,/4 finalization mutations rejected/);
+ const cp=require('node:child_process');const proof=cp.execFileSync('python',['tests/recorder_clock_guard.py','--self-test'],{encoding:'utf8'});assert.match(proof,/3 audio clock mutations rejected/);assert.match(proof,/5 finalization mutations rejected/);
  assert.match(cp.execFileSync('python',['tests/render_guard.py'],{encoding:'utf8'}),/8 counterexamples/);
 });
 test('frozen immediate stop loses pending tail; explicit pause/flush keeps it without padding the movie',async()=>{
- const before=await simulate({withAudio:true,dropTailMs:750,source:'tests/fixtures/render-plan/video-recorder-before.js'});assert.ifError(before.error);assert.ok(before.encoded.duration<2700);
+ const before=await simulate({container:'webm',withAudio:true,dropTailMs:750,source:'tests/fixtures/render-plan/video-recorder-before.js'});assert.ifError(before.error);assert.ok(before.encoded.duration<2700);
  for(const flushDelay of [0,500]){
-  const after=await simulate({withAudio:true,dropTailMs:750,flushDelay});assert.ifError(after.error);
+  const after=await simulate({container:'webm',withAudio:true,dropTailMs:750,flushDelay});assert.ifError(after.error);
   assert.ok(after.encoded.duration>=3000&&after.encoded.duration<3100);assert.ok(after.encoderStop>=after.flushRequestedAt+flushDelay);
   assert.equal(after.rendered.at(-1).ms,3000);assert.equal(after.track.stopped,true);
  }
 });
 test('missing pause/flush acknowledgement or an unsolicited stop cannot produce a partial success',async()=>{
  for(const options of [{pauseNever:true},{flushNever:true},{stopBeforeFlush:true}]){
-  const r=await simulate(options);assert.ok(r.error,JSON.stringify(options));assert.equal(r.result,undefined);assert.equal(r.track.stopped,true);assert.equal(r.listeners.size,0);
+  const r=await simulate({container:'webm',...options});assert.ok(r.error,JSON.stringify(options));assert.equal(r.result,undefined);assert.equal(r.track.stopped,true);assert.equal(r.listeners.size,0);
  }
+});
+test('MP4 keeps its original single-stop finalization; WebM-only drain cannot double MP4 duration',async()=>{
+ const r=await simulate({container:'mp4',withAudio:true,pauseNever:true,flushNever:true});assert.ifError(r.error);assert.equal(r.pauseRequestedAt,undefined);assert.equal(r.flushRequestedAt,undefined);assert.ok(r.encoded.duration>=3000&&r.encoded.duration<3100);
 });

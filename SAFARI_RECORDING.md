@@ -45,7 +45,8 @@ audio stream. Silent Canvas recording retains the exact old `now - start` path.
 The plan remains 3000 ms; it is not stretched to match source audio length.
 A slow device can take longer wall time to prepare/record those media seconds.
 Codec selection, bitrates, audio graph, fades and renderer are unchanged.
-Finalization now explicitly pauses input, requests/drains pending data, then stops.
+WebM finalization explicitly pauses input, requests/drains pending data, then stops.
+MP4 keeps its original single-stop finalization.
 An interrupted, invalid/backwards, or non-advancing audio clock fails explicitly.
 A clock that stops advancing for 10 s fails instead of leaving an endless capture.
 Cancellation and visibility handling retain the existing cleanup path.
@@ -62,7 +63,7 @@ chunk covered only 2.244 s; FFmpeg decoded 53 video frames and 901 audio frames.
 The browser duration was 2.26 s, and the last-frame progress was [205,204,44],
 confirming loss of the end of the third scene (not just inaccurate metadata).
 
-At the existing final-frame capture boundary the recorder now pauses gathering
+For WebM, at the existing final-frame capture boundary the recorder pauses gathering
 new samples, waits for `pause`, calls `requestData()`, waits for `dataavailable`,
 and only then calls `stop()`. This is an event barrier, not an added fixed delay.
 Pausing input prevents a slow flush from padding/extending voice or video. The
@@ -70,6 +71,15 @@ existing 10 s completion watchdog remains; missing pause/data acknowledgements,
 errors or unsolicited stops reject instead of returning a partial successful file.
 A controlled writer model reproduces stop dropping a 750 ms pending tail; both
 immediate and delayed flush acknowledgement preserve the complete media interval.
+
+### Container-specific boundary
+
+The explicit drain is restricted by the actual/requested MIME to WebM. Applying
+pause/requestData to Safari's MP4 writer made the existing 3 s no-audio probe
+report 6.103333 s, which the unchanged native test rejected. MP4 therefore retains
+the original single-stop path. A dedicated model test rejects accidental MP4
+routing through the WebM drain. Both real formats remain tested; no MIME is hidden
+or reclassified, and no duration tolerance is enlarged.
 
 ## Strict validation and source protection
 
@@ -84,7 +94,7 @@ immediate and delayed flush acknowledgement preserve the complete media interval
 - `recorder_clock_guard.py` removes only the exact reviewed clock extension.
   The original recorder/source hashes and pinned `ad1ca0a701605af6d80c8de8983ec5ebeb9e8905`
   remain unchanged. The original eight mutation checks remain mandatory; three
-  additional clock mutations and four finalization mutations are rejected. No moving baseline is used.
+  additional clock mutations and five finalization mutations are rejected. No moving baseline is used.
 - Controlled clock tests execute the actual old/new recorder source. They reproduce
   the old short recording under 600 ms audio startup lag and cover slower/faster,
   stalled/interrupted/invalid/backwards audio clocks, cancellation, and exact

@@ -32,6 +32,7 @@ DATA_NEW='''            candidate.ondataavailable = event => {
 FLUSH_OLD="                flushTimer = setTimeout(() => { if (!settled && recorder.state !== 'inactive') recorder.stop(); }, Math.ceil(1000 / V.FPS));\n"
 FLUSH_NEW='''                flushTimer = setTimeout(() => {
                   if (settled || recorder.state === 'inactive') return;
+                  if (!drainRequired) { try { recorder.stop(); } catch (error) { fail(error); } return; }
                   recorder.onpause = () => {
                     if (settled || flushRequested) return;
                     flushRequested = true; finalFlushPending = true;
@@ -45,9 +46,10 @@ FLUSH_NEW='''                flushTimer = setTimeout(() => {
                 }, Math.ceil(1000 / V.FPS));
 '''
 DRAIN=[(DATA_NEW,DATA_OLD),(FLUSH_NEW,FLUSH_OLD),
-       ('let settled = false, stopping = false, flushRequested = false, finalFlushPending = false;','let settled = false, stopping = false;'),
+       ('let settled = false, stopping = false, flushRequested = false, finalFlushPending = false, drainRequired = false;','let settled = false, stopping = false;'),
        ('recorder.onstop = null; recorder.onpause = null;','recorder.onstop = null;'),
-       ('if (!stopping || !flushRequested || finalFlushPending)','if (!stopping)')]
+       ('if (!stopping || (drainRequired && (!flushRequested || finalFlushPending)))','if (!stopping)'),
+       ("            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm';\n",'')]
 GUARD_NEW="    # Strip only exact, audited media-clock/finalization corrections before legacy proof.\n    recorder=__import__('recorder_clock_guard').strip_clock((root/'js/video-recorder.js').read_text())\n"
 GUARD_OLD="    recorder=(root/'js/video-recorder.js').read_text()\n"
 
@@ -82,12 +84,12 @@ def verify_clock_guard():
 
 def verify_drain_guard():
     source=(Path(__file__).resolve().parents[1]/'js/video-recorder.js').read_text()
-    for old,new in [('recorder.requestData()','recorder.stop()'),('!settled && finalFlushPending','!settled'),("recorder.state === 'paused'","recorder.state !== 'paused'"),('if (!stopping || !flushRequested || finalFlushPending)','if (!stopping)')]:
+    for old,new in [('recorder.requestData()','recorder.stop()'),('!settled && finalFlushPending','!settled'),("recorder.state === 'paused'","recorder.state !== 'paused'"),('if (!stopping || (drainRequired && (!flushRequested || finalFlushPending)))','if (!stopping)'),("V.extensionFor(candidate.mimeType || type) === 'webm'","V.extensionFor(candidate.mimeType || type) === 'mp4'")]:
         assert source.count(old)==1
         try:strip_clock(source.replace(old,new,1))
         except AssertionError:pass
         else:raise AssertionError('Finalization guard accepted: '+old)
-    return 4
+    return 5
 
 
 if __name__=='__main__':

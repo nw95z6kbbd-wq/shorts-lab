@@ -85,7 +85,7 @@
       signal?.throwIfAborted();
       return await new Promise((resolve, reject) => {
         const chunks = [];
-        let settled = false, stopping = false, flushRequested = false, finalFlushPending = false;
+        let settled = false, stopping = false, flushRequested = false, finalFlushPending = false, drainRequired = false;
         function fail(error) {
           if (settled) return;
           settled = true; cancelAnimationFrame(animationFrame);
@@ -93,7 +93,7 @@
         }
         async function finish() {
           if (settled) return;
-          if (!stopping || !flushRequested || finalFlushPending) { fail(new Error('Браузер завершил запись раньше времени. Попробуйте ещё раз или выберите WebM.')); return; }
+          if (!stopping || (drainRequired && (!flushRequested || finalFlushPending))) { fail(new Error('Браузер завершил запись раньше времени. Попробуйте ещё раз или выберите WebM.')); return; }
           try {
             const mimeType = recorder.mimeType || chunks.find(chunk => chunk.type)?.type;
             const extension = V.extensionFor(mimeType);
@@ -120,6 +120,7 @@
             candidate.onerror = () => fail(new Error('Ошибка видеокодека браузера. Попробуйте формат WebM или уберите аудиодорожку.'));
             candidate.onstop = finish;
             recorder = candidate;
+            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm';
             candidate.start(250);
             break;
           } catch (_) {
@@ -164,6 +165,7 @@
                 // Allow the last drawn frame to reach the canvas capture track before flushing.
                 flushTimer = setTimeout(() => {
                   if (settled || recorder.state === 'inactive') return;
+                  if (!drainRequired) { try { recorder.stop(); } catch (error) { fail(error); } return; }
                   recorder.onpause = () => {
                     if (settled || flushRequested) return;
                     flushRequested = true; finalFlushPending = true;
