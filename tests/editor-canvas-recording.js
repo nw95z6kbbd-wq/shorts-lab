@@ -98,6 +98,6 @@ window.prepareEditorCanvasRecording = async function(payload){
    for(const time of [.5,1.5,2.5]){await seekRuntimeVideoFrame(video,time);x.drawImage(video,300,350,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
    const [r,b,g]=colors;if(!(r[0]>r[2]*1.5&&b[2]>b[0]*1.5&&g[1]>g[0]*1.5))throw Error('Editor image order '+JSON.stringify(colors));
    evidence.video=probe();return {width:video.videoWidth,height:video.videoHeight,duration:video.duration,type:result.mimeType,images:3,audio:'voice+music',source:plan.source.mode};
-  }catch(error){const failure=new Error(error.message+' '+JSON.stringify(evidence));failure.name=error.name;failure.code=error.code;throw failure;}finally{stopTrace();unmount?.();for(const r of images.values())r.dispose();canvas.remove();button.remove();}
+  }catch(error){const failure=new Error(error.message+' '+JSON.stringify({video:evidence.video,blob:evidence.blob,canvas:evidence.canvas,plan:evidence.plan,render:evidence.render,entry:evidence.entry,audioAtFirstFrame:evidence.audioAtFirstFrame,audioAtLastFrame:evidence.audioAtLastFrame,formatAtMs:evidence.formatAtMs,completedWallMs:evidence.completedWallMs}));failure.name=error.name;failure.code=error.code;failure.cause=error;throw failure;}finally{stopTrace();unmount?.();for(const r of images.values())r.dispose();canvas.remove();button.remove();}
  };
 };

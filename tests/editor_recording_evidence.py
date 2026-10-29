@@ -32,8 +32,22 @@ def inspect_recording(path):
                 'maxGap':max((b[0]-a[0] for a,b in zip(values,values[1:])),default=0)}
     # Decode the entire file with errors fatal, rather than accepting one frame.
     subprocess.run(['ffmpeg','-v','error','-xerror','-i',str(path),'-f','null','-'],check=True,capture_output=True,timeout=40)
+    # Diagnostic only: locate how far the canonical scene-progress bar had
+    # advanced in the first and last actual frames (leading/trailing loss).
+    strip=subprocess.check_output(['ffmpeg','-v','error','-xerror','-i',str(path),'-an','-vf','format=rgb24,crop=634:1:43:107','-pix_fmt','rgb24','-f','rawvideo','-'],timeout=40) if video and all((f[2].get('width'),f[2].get('height'))==(720,1280) for f in video) else b''
+    stride=634*3
+    def filled(row):
+        values=[]
+        for start,end in [(0,205),(215,420),(430,634)]:
+            count=0
+            for x in range(start,end):
+                r,g,b=row[x*3:x*3+3]
+                count+=r>130 and g>100 and b>r+10 and b>g+20
+            values.append(count)
+        return values
+    progress={'first':filled(strip[:stride]),'last':filled(strip[-stride:])} if len(strip)>=stride else None
     return {'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'bytes':path.stat().st_size,
-            'format':info['format'],'streams':info['streams'],'video':{**bounds(video),'dimensions':sorted({(f[2].get('width'),f[2].get('height')) for f in video})},'audio':bounds(audio),'fullDecode':True}
+            'format':info['format'],'streams':info['streams'],'video':{**bounds(video),'dimensions':sorted({(f[2].get('width'),f[2].get('height')) for f in video}),'progressPixels':progress},'audio':bounds(audio),'fullDecode':True}
 
 
 def assert_complete_recording(evidence):
@@ -76,6 +90,13 @@ def save_recording_evidence(root, script, command, label):
     except Exception as error:
         result['inspectionError']={'name':type(error).__name__,'message':str(error)[:800]}
     (folder/'evidence.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+    if evidence and any(label.endswith('-'+str(i)) for i in range(3)) and not label.startswith('safari-recording-failure'):
+        summary={k:evidence.get(k) for k in ['entry','video','audioAtFirstFrame','audioAtLastFrame','formatAtMs','completedWallMs']}
+        summary['encodedVideo']=result.get('encoded',{}).get('video')
+        summary['encodedAudio']=result.get('encoded',{}).get('audio')
+        summary['render']=evidence.get('render')
+        summary['recorderEvents']=[r.get('events',[])[:2]+r.get('events',[])[-2:] for r in evidence.get('recorders',[])]
+        print('::warning title=Native Editor clock summary::'+json.dumps(summary,ensure_ascii=False),flush=True)
     # Split evidence below GitHub's 4 KiB per-annotation truncation boundary.
     # Never print recorded media bytes, source paths, or data URLs.
     for kind, value in result.items():
