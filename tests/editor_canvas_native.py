@@ -10,7 +10,7 @@ from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
 from editor_canvas_diagnostics import save_editor_diagnostics
 from runtime_session_native import command_result
-from editor_recording_evidence import save_recording_evidence, assert_complete_recording
+from editor_recording_evidence import save_recording_evidence, assert_complete_recording, editor_frame_expectations
 
 def check_native_editor_canvas(root,script,command,click):
     class Handler(SimpleHTTPRequestHandler):
@@ -25,7 +25,14 @@ def check_native_editor_canvas(root,script,command,click):
         for name in ['runtime-session-fixture.js','editor-canvas-recording.js']:script((root/'tests'/name).read_text())
         execute('await prepareEditorCanvasRecording(arguments[0],{shortAudio:arguments[1]});return true;',[media_payload(),attempt==1]);click('#editorRecordProbe')
         try:
-            recording=execute('return await finishEditorCanvasRecording();')
+            execute('const r=await editorRecordingPromise;if(r.skipped)throw Error("Native Editor recording unavailable");window.editorRecordedBlob=r.blob;return true;')
+            # VFR capture may hold a scene image across >100 ms. Decode the
+            # actual file first; compare the browser callback with that frame's
+            # true PTS while retaining the same seek target, RGB and tolerance.
+            decoded=save_recording_evidence(root,script,command,'safari-frame-oracle-'+str(attempt))
+            assert not decoded.get('inspectionError'),decoded
+            expected=editor_frame_expectations(decoded['encoded'])
+            recording=execute('return await finishEditorCanvasRecording(arguments[0]);',[expected])
         except Exception:
             try:
                 save_recording_evidence(root,script,command,'safari-recording-failure-'+str(attempt))

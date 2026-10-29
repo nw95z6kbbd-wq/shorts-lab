@@ -79,7 +79,7 @@ window.prepareEditorCanvasRecording = async function(payload,{shortAudio=false}=
   window.editorRecordingPromise=window.editorRecordingPromise.finally(()=>{evidence.completedWallMs=performance.now()-started;if(TrackedRecorder&&window.MediaRecorder===TrackedRecorder)window.MediaRecorder=NativeRecorder;for(const {key,Native,Tracked} of audioGlobals)if(window[key]===Tracked)window[key]=Native;});
   window.editorRecordingPromise.catch(()=>{});
  };
- window.finishEditorCanvasRecording=async()=>{
+ window.finishEditorCanvasRecording=async(expectedFrameTimes=null)=>{
   let video,unmount,stopTrace=()=>{};
   try{
    const result=await editorRecordingPromise;if(result.skipped)return{skipped:true};window.editorRecordedBlob=result.blob;
@@ -101,7 +101,9 @@ window.prepareEditorCanvasRecording = async function(payload,{shortAudio=false}=
    evidence.video=probe();
    if(video.videoWidth!==720||video.videoHeight!==1280||video.duration<2.7||video.duration>4)throw Error('Incomplete Editor recording');
    const sample=document.createElement('canvas');sample.width=sample.height=1;const x=sample.getContext('2d'),colors=[];
-   for(const time of [.5,1.5,2.5]){await seekRuntimeVideoFrame(video,time);x.drawImage(video,300,350,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
+   const targets=[.5,1.5,2.5];
+   if(expectedFrameTimes!==null&&(!Array.isArray(expectedFrameTimes)||expectedFrameTimes.length!==3||expectedFrameTimes.some((t,i)=>!Number.isFinite(t)||t<i||t>targets[i])))throw Error('Invalid independent frame expectations');
+   for(const [i,time] of targets.entries()){await seekRuntimeVideoFrame(video,time,4000,expectedFrameTimes?.[i]??time);x.drawImage(video,300,350,100,100,0,0,1,1);colors.push([...x.getImageData(0,0,1,1).data].slice(0,3));}
    const [r,b,g]=colors;if(!(r[0]>r[2]*1.5&&b[2]>b[0]*1.5&&g[1]>g[0]*1.5))throw Error('Editor image order '+JSON.stringify(colors));
    evidence.video=probe();return {width:video.videoWidth,height:video.videoHeight,duration:video.duration,type:result.mimeType,images:3,audio:'voice+music',source:plan.source.mode};
   }catch(error){const failure=new Error(error.message+' '+JSON.stringify({video:evidence.video,blob:evidence.blob,canvas:evidence.canvas,plan:evidence.plan,render:evidence.render,entry:evidence.entry,audioAtFirstFrame:evidence.audioAtFirstFrame,audioAtLastFrame:evidence.audioAtLastFrame,formatAtMs:evidence.formatAtMs,completedWallMs:evidence.completedWallMs}));failure.name=error.name;failure.code=error.code;failure.cause=error;throw failure;}finally{stopTrace();unmount?.();for(const r of images.values())r.dispose();canvas.remove();button.remove();}
