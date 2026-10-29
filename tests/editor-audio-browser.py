@@ -6,6 +6,7 @@ from playwright.sync_api import sync_playwright,expect
 from backup_assets import media_payload
 from editor_audio_checks import check_editor_audio,audio_helpers
 from editor_audio_long_checks import check_editor_long_audio
+from editor_audio_continuity import check_editor_audio_continuity
 ROOT=Path(__file__).resolve().parents[1]
 class Handler(SimpleHTTPRequestHandler):
  def log_message(self,*a):pass
@@ -25,6 +26,7 @@ def run():
     except Exception:
      state=page.evaluate('''()=>({audio:editorAudioState.textContent,preview:portrait.dataset.previewState,hidden:document.hidden,mode:document.querySelector(".workspace").dataset.mode,controls:window.editorAudioContexts?.slice(-3).map(t=>t.events.slice(-8)),label:playPreview.getAttribute('aria-label'),seek:editorSeek.value,time:editorCanvas.dataset.timeMs,scene:editorCanvas.dataset.sceneId,taps:window.editorAudioTaps?.slice(-8).map(t=>({offset:t.options.offsetSeconds,when:t.when,now:t.context.currentTime,context:t.context.state,stopped:t.stopped})),errors:document.getElementById('editorTimingErrorText').textContent,media:ShortsMediaSessions.statistics()})''')
      print('::error title=Editor audio state::'+json.dumps({'engine':engine,'mobile':mobile,'phase':code[:120],'state':state}).replace('%','%25'),flush=True);raise
+   continuity=check_editor_audio_continuity(ROOT,execute,lambda selector:page.locator(selector).click(),media_payload()[:3]);print('PASS continuity: '+json.dumps(continuity),flush=True)
    result=check_editor_audio(execute,lambda selector:page.locator(selector).click(),media_payload());result.pop('saved');long=check_editor_long_audio(ROOT,execute,lambda selector:page.locator(selector).click());saved=long.pop('saved');result['longMusic']=long;print('PASS actual audio: '+json.dumps(result),flush=True)
    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
    context.close();context=launch();page=context.new_page();open_app(page);page.evaluate('editorLiveReady()');page.evaluate('editorAudioReady()');assert page.evaluate('studioUiSnapshot()')==saved

@@ -3815,20 +3815,30 @@ window.ShortsEditorReady = (async function () {
     async function frame(now) {
       if (!playing || epoch !== playEpoch) return;
       try {
-        elapsedMs = Math.min(total, Math.max(0, Math.floor(withAudio ? audioPlayback.positionMs() : now - playbackAnchor)));
-        const value = P.frameAt(plan, elapsedMs);
-        project = { ...project, selectedSceneId: value.scene.id }; updateSelectedScene();
-        const prepared = livePreview.status().active;
-        const reusable = prepared?.state === 'ready' && prepared.previewSceneId === value.scene.id && prepared.identity.contentRevision === previewRevision;
-        const before = performance.now();
-        // A cold image window buffers BOTH consumers at the same project offset.
-        if (withAudio && !reusable) await audioPlayback.pause();
-        const ready = await renderPreview();
-        if (!playing || epoch !== playEpoch) return;
-        if (!ready) { pausePlayback(); return; }
-        if (withAudio && !reusable && elapsedMs < total) await audioPlayback.start(elapsedMs);
-        else if (!withAudio && !reusable) playbackAnchor += performance.now() - before;
-        if (!playing || epoch !== playEpoch) return;
+        while (true) {
+          elapsedMs = Math.min(total, Math.max(0, Math.floor(withAudio ? audioPlayback.positionMs() : now - playbackAnchor)));
+          const value = P.frameAt(plan, elapsedMs);
+          project = { ...project, selectedSceneId: value.scene.id }; updateSelectedScene();
+          const prepared = livePreview.status().active;
+          const reusable = prepared?.state === 'ready' && prepared.previewSceneId === value.scene.id && prepared.identity.contentRevision === previewRevision;
+          const before = performance.now();
+          // Scene preparation owns images only. Continuous audio never stops or
+          // seeks for an automatic scene boundary, including a cold image window.
+          const ready = await renderPreview();
+          if (!playing || epoch !== playEpoch) return;
+          if (!ready) { pausePlayback(); return; }
+          if (withAudio && !reusable) {
+            const current = Math.min(total, Math.max(0, Math.floor(audioPlayback.positionMs())));
+            // Native decode can finish after this scene has already ended.
+            // Prepare the current window instead of presenting an obsolete time.
+            if (P.frameAt(plan, current).scene.id !== value.scene.id) continue;
+            elapsedMs = current;
+            const caughtUp = await renderPreview();
+            if (!playing || epoch !== playEpoch) return;
+            if (!caughtUp) { pausePlayback(); return; }
+          } else if (!withAudio && !reusable) playbackAnchor += performance.now() - before;
+          break;
+        }
         updatePlaybackUI();
         if (elapsedMs >= total) { pausePlayback(); return; }
         animationFrame = requestAnimationFrame(frame);

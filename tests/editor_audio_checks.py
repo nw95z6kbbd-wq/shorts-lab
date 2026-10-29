@@ -62,5 +62,5 @@ def check_editor_audio(execute,click,payload):
     return {'offlineSignal':offline,'liveSignal':signal,'shortSourceSilence':short_signal,'pauseMs':paused,'resumed':resumed,'automaticCrossing':crossing,'forwardSeek':forward,'backwardSeek':backward,'sceneNavigation':scene,'resourcesOutsideEditor':resources,'saved':saved}
 
 def audio_helpers(root,script):
-    for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js','editor-audio-fixture.js','editor-audio-long-fixture.js']:
+    for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js','editor-audio-fixture.js','editor-audio-long-fixture.js','editor-audio-continuity.js']:
         script((root/'tests'/name).read_text())

@@ -52,7 +52,7 @@ window.editorAudioOffline=async function(){
  const rms=(buffer,a,b)=>{const data=buffer.getChannelData(0).slice(Math.floor(a*buffer.sampleRate),Math.floor(b*buffer.sampleRate));return Math.sqrt(data.reduce((n,v)=>n+v*v,0)/data.length);};
  async function render({voiceVolume=0,musicVolume=0,fadeIn=0,fadeOut=0,musicDuration=4,voiceDuration=4,offsetSeconds=0}={}){
   const context=new Offline(1,16000*4,16000),tone=(hz,seconds)=>{const b=context.createBuffer(1,16000*seconds,16000),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=.08*Math.sin(2*Math.PI*hz*i/16000);return b;};
-  const mix=ShortsVideoAudio.connectMix(context,{voiceBuffer:tone(440,voiceDuration),musicBuffer:tone(880,musicDuration),voiceVolume,musicVolume,fadeIn,fadeOut,durationSeconds:4,offsetSeconds,destination:context.destination});mix.start(0);const out=await context.startRendering();mix.stop();return out;
+  const mix=(window.editorAudioUnobservedMix||ShortsVideoAudio.connectMix)(context,{voiceBuffer:tone(440,voiceDuration),musicBuffer:tone(880,musicDuration),voiceVolume,musicVolume,fadeIn,fadeOut,durationSeconds:4,offsetSeconds,destination:context.destination});mix.start(0);const out=await context.startRendering();mix.stop();return out;
  }
  const long=await render({voiceVolume:.4,voiceDuration:8,musicVolume:.25,musicDuration:8}),voiceShort=await render({voiceVolume:.4,voiceDuration:1});
  const voiceLow=await render({voiceVolume:.2}),voiceHigh=await render({voiceVolume:.4}),musicLow=await render({musicVolume:.2}),musicHigh=await render({musicVolume:.4}),fade=await render({musicVolume:.4,fadeIn:1,fadeOut:1}),short=await render({musicVolume:.4,musicDuration:2,fadeOut:1}),seek=await render({musicVolume:.4,fadeIn:1,fadeOut:1,offsetSeconds:2});
