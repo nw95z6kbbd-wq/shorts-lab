@@ -58,7 +58,7 @@ def check_native_editor_live(root,script,command):
    for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js']:script((root/'tests'/name).read_text())
    execute('document.getElementById("tab-scenes").click();return true;');assert execute('return await editorLiveThumbnails(arguments[0]);',[payload])==3
    assert execute('return await studioUiSnapshot();')==saved
-   execute('await editorLiveImport(arguments[0]);return true;',[saved['editor']]);assert execute('return await editorLiveThumbnails(arguments[0]);',[payload])==3
+   execute('const p=arguments[0];p.id=ShortsCore.id();p.name="Reopened thumbnail JSON";await editorLiveImport(p);return true;',[saved['editor']]);assert execute('return await editorLiveThumbnails(arguments[0]);',[payload])==3
   finally:grant.unlink(missing_ok=True)
   print('::notice title=Native Safari live Editor UI::'+json.dumps({'profiles':profiles,'images':['PNG','JPEG','WebP'],'frames':'UI exactly matches recorder path','camera':5,'transitions':4,'reload':'DTO and original SHA-256 identical','modeCleanup':'zero runtime owners outside Editor'}),flush=True)
  finally:server.shutdown();server.server_close()
