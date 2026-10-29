@@ -1,5 +1,5 @@
 """Native Safari acceptance of real Editor audio, HTTP and file:// standalone."""
-import functools,json,threading
+import functools,json,threading,time
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
 from editor_audio_checks import check_editor_audio,audio_helpers
@@ -31,7 +31,16 @@ def check_native_editor_audio(root,script,command,click):
    try:
     command('POST','/url',{'url':f'http://127.0.0.1:{fresh.server_port}/index.html'});ready()
     execute('''const dt=new DataTransfer();dt.items.add(new File([Uint8Array.from(atob(arguments[0]),c=>c.charCodeAt(0))],'editor.shorts.zip',{type:'application/zip'}));backupFile.files=dt.files;backupFile.dispatchEvent(new Event('change',{bubbles:true}));await editorLiveUntil(()=>!backupConfirm.hidden,'ZIP validation');return true;''',[archive])
-    click('#backupConfirm');ready();execute('await editorAudioReady();await editorLiveReady();return true;')
+    previous=script('window.audioRestoreDocument=ShortsCore.id();return window.audioRestoreDocument;')
+    click('#backupConfirm')
+    # The click may return before the atomic restore's location.reload().
+    # Poll the real document boundary, never inject helpers into the inert old
+    # app or substitute a fixed navigation delay.
+    deadline=time.monotonic()+30
+    while not script('return window.audioRestoreDocument!==arguments[0]&&!!window.ShortsEditor&&!!window.ShortsVideoRestored&&!document.body.inert;',[previous]):
+     if time.monotonic()>deadline:raise AssertionError('ZIP restore did not open a new ready document')
+     time.sleep(.1)
+    ready();execute('await editorAudioReady();await editorLiveReady();return true;')
     restored=execute('return await studioUiSnapshot();')
     assert sorted(restored['hashes'].values())==sorted(saved['hashes'].values())
     for role in ['voice','music']:
