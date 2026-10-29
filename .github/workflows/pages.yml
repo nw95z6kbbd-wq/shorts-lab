@@ -44,6 +44,7 @@ jobs:
           node --test tests/*.test.cjs
           python tests/render_guard.py
           python tests/safari-baseline-test.py
+          python tests/safari-file-entry-test.py
           node scripts/release.cjs check
       - name: Install browser test dependencies
         run: python -m pip install -r requirements-dev.txt

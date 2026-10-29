@@ -4,6 +4,7 @@ from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
 from editor_audio_checks import check_editor_audio,audio_helpers
 from runtime_session_native import command_result
+from safari_file_entry import prepare_native_file_entry
 def check_native_editor_audio(root,script,command,click):
  class Handler(SimpleHTTPRequestHandler):
   def log_message(self,*args):pass
@@ -18,8 +19,10 @@ def check_native_editor_audio(root,script,command,click):
  def ready(expected):
   execute((root/'tests/editor-audio-startup.js').read_text()+'\nreturn await editorAudioStartup(arguments[0]);',[expected])
   audio_helpers(root,script)
+ grants=[]
  try:
   for entry in [f'http://127.0.0.1:{server.server_port}/index.html',(root/'downloads/Shorts-Studio.html').as_uri()]:
+   if entry.startswith('file:'):grants.append(prepare_native_file_entry(entry,command))
    command('POST','/url',{'url':entry});ready(entry)
    evidence=check_editor_audio(execute,click,media_payload());saved=evidence.pop('saved')
    command('POST','/url',{'url':entry});ready(entry);execute('await editorAudioReady();await editorLiveReady();return true;');assert execute('return await studioUiSnapshot();')==saved
@@ -51,4 +54,6 @@ def check_native_editor_audio(root,script,command,click):
     evidence['zip']='ZIP2 actual UI into isolated origin; all original SHA-256 values and audio parameters match; actual restored sound'
    finally:fresh.shutdown();fresh.server_close()
    print('::notice title=Native Safari Editor audio verified::'+json.dumps({'entry':entry,**evidence}),flush=True)
- finally:server.shutdown();server.server_close()
+ finally:
+  for grant in grants:grant.unlink(missing_ok=True)
+  server.shutdown();server.server_close()

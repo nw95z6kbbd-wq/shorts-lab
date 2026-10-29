@@ -2,15 +2,13 @@
 import functools
 import json
 import os
-import subprocess
 import threading
-import tempfile
-from pathlib import Path
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
 from editor_canvas_diagnostics import save_editor_diagnostics
 from runtime_session_native import command_result
 from editor_recording_evidence import save_recording_evidence, assert_complete_recording, editor_frame_expectations
+from safari_file_entry import prepare_native_file_entry
 
 def check_native_editor_canvas(root,script,command,click):
     class Handler(SimpleHTTPRequestHandler):
@@ -51,22 +49,7 @@ def check_native_editor_canvas(root,script,command,click):
         for entry in [f'http://127.0.0.1:{server.server_port}/index.html',(root/'index.html').as_uri(),(root/'downloads/Shorts-Studio.html').as_uri()]:
             print('::notice title=Native Safari Editor Canvas entry::'+entry,flush=True)
             if entry.startswith('file:'):
-                # A cold file open must not inherit the previous HTTP/file page's
-                # BFCache, suspended tasks or live IDB connections.
-                previous=command('GET','/window')
-                fresh=command('POST','/window/new',{'type':'window'})['handle']
-                command('POST','/window',{'handle':previous})
-                command('DELETE','/window')
-                command('POST','/window',{'handle':fresh})
-                # A script-free sibling document obtains normal native folder
-                # access without launching a second app or requiring AppleScript.
-                # The actual app remains unmodified and is loaded by WebDriver.
-                from urllib.parse import unquote, urlparse
-                folder=Path(unquote(urlparse(entry).path)).parent
-                with tempfile.NamedTemporaryFile(dir=folder,prefix='.shorts-ci-file-grant-',suffix='.html',delete=False) as file:
-                    grant=Path(file.name);grants.append(grant)
-                    file.write(b'<!doctype html><meta charset="utf-8"><title>Shorts Studio local test access</title><p>Native file access for the adjacent Shorts Studio test document.</p>')
-                subprocess.run(['/usr/bin/open','-g','-a','Safari',str(grant)],check=True)
+                grants.append(prepare_native_file_entry(entry,command))
             command('POST','/url',{'url':entry})
             startup=execute('''const errors=[];addEventListener('error',e=>errors.push(e.message||e.target?.src||'script error'),true);addEventListener('unhandledrejection',e=>errors.push(ShortsRuntimeDiagnostics.failure(e.reason)));
               let editorReady='absent',observed;const observe=()=>{if(window.ShortsEditorReady&&observed!==window.ShortsEditorReady){observed=window.ShortsEditorReady;editorReady='pending';Promise.resolve(observed).then(()=>editorReady='ready',e=>{editorReady='rejected';errors.push(ShortsRuntimeDiagnostics.failure(e));});}};observe();
