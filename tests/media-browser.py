@@ -103,10 +103,10 @@ def run():
                     page.locator(f'#video-scene-image-{index}').set_input_files({'name': name, 'mimeType': images[name]['type'], 'buffer': base64.b64decode(images[name]['data'])})
                     expect(page.locator(f'#video-scene-visual-{index}')).to_have_value('image')
                     expect(page.locator('#recordVideo')).to_be_enabled()
-                expect(page.locator('.scene-image-thumb')).to_have_count(2)
+                expect(page.locator('#videoScenes .scene-image-thumb')).to_have_count(2)
                 page.locator('#video-scene-image-1').set_input_files({'name': 'broken.png', 'mimeType': 'image/png', 'buffer': b'not a PNG'})
                 expect(page.locator('#videoError')).to_contain_text('PNG, JPG и WebP')
-                expect(page.locator('.scene-image-thumb')).to_have_count(2)
+                expect(page.locator('#videoScenes .scene-image-thumb')).to_have_count(2)
                 page.locator('#video-scene-duration-0').fill('2')
                 page.locator('#video-scene-duration-1').fill('3')
                 page.locator('#video-scene-camera-0').select_option('zoom-in')
@@ -115,7 +115,7 @@ def run():
                 expect(page.locator('#videoTotalTime')).to_contain_text('5 сек')
                 expect(page.locator('#videoDraftStatus')).to_contain_text('Сохранено')
                 page.reload(); page.locator('#createVideoMode').click()
-                expect(page.locator('.scene-image-thumb')).to_have_count(2)
+                expect(page.locator('#videoScenes .scene-image-thumb')).to_have_count(2)
                 expect(page.locator('#recordVideo')).to_be_enabled()
                 expect(page.locator('#video-scene-duration-0')).to_have_value('2')
                 assert page.evaluate('localStorage.getItem("shorts-studio.project.v1")') == original
@@ -184,7 +184,7 @@ def run():
                 other.reload();other.locator('#createVideoMode').click()
                 # No split localStorage write: unavailable IDB leaves the prior legacy
                 # animated draft intact, rather than saving a dangling image reference.
-                expect(other.locator('.scene-image-thumb')).to_have_count(0)
+                expect(other.locator('#videoScenes .scene-image-thumb')).to_have_count(0)
                 expect(other.locator('#video-scene-visual-0')).to_have_value('animated')
                 blocked.close()
                 assert not errors, errors

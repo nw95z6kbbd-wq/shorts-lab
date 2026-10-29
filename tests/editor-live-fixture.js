@@ -44,3 +44,33 @@ window.editorLiveFrameReference=async function(payload){
   }return true;
  }finally{for(const image of cleanup)image.dispose();}
 };
+
+/* Thumbnails use the same card style as Video, but own only a small PNG.
+ * Compare decoded thumbnail pixels against an independently cropped fixture. */
+window.editorLiveThumbnail=async function(index,file){
+ const row=document.querySelectorAll('.studio-image-controls')[index],image=row.querySelector('img.scene-image-thumb');
+ row.scrollIntoView({block:'center'});
+ await editorLiveUntil(()=>image&&!image.hidden&&image.complete&&image.naturalWidth>0,'thumbnail '+index+' '+row.querySelector('.studio-thumbnail-state').textContent);
+ if(image.naturalWidth!==116||image.naturalHeight!==144)throw Error('Thumbnail retained full original dimensions');
+ const blob=new Blob([Uint8Array.from(atob(file.base64),c=>c.charCodeAt(0))],{type:file.type}),original=await ShortsVideoMedia.decodeImage(blob);
+ const expected=document.createElement('canvas'),actual=document.createElement('canvas');expected.width=actual.width=116;expected.height=actual.height=144;
+ try{
+  const scale=Math.max(116/original.width,144/original.height),w=original.width*scale,h=original.height*scale;
+  expected.getContext('2d').drawImage(original.image,(116-w)/2,(144-h)/2,w,h);actual.getContext('2d').drawImage(image,0,0);
+  const a=actual.getContext('2d').getImageData(0,0,116,144).data,b=expected.getContext('2d').getImageData(0,0,116,144).data;
+  if(a.some((value,i)=>value!==b[i]))throw Error('Thumbnail pixels do not match source of scene '+index);
+  if(!image.alt.startsWith('Изображение сцены '+(index+1)))throw Error('Thumbnail alternative text/order mismatch');
+  const rect=image.getBoundingClientRect();if(Math.abs(rect.width-58)>1||Math.abs(rect.height-72)>1)throw Error('Shared thumbnail geometry changed');
+  await editorLiveUntil(()=>ShortsMediaSessions.statistics().sessions<=1,'thumbnail decoder released');
+  return {sceneId:ShortsEditor.backupSnapshot().scenes[index].id,natural:[image.naturalWidth,image.naturalHeight],size:[rect.width,rect.height],pixels:'source matches'};
+ }finally{original.dispose();}
+};
+window.editorLiveThumbnails=async function(payload){
+ const snapshot=ShortsEditor.backupSnapshot();let count=0;
+ for(let index=0;index<snapshot.scenes.length;index++){
+  const scene=snapshot.scenes[index];if(!scene.imageId)continue;
+  const file=payload.find(f=>f.name===scene.imageName);if(!file)throw Error('No fixture source for '+scene.id);
+  await editorLiveThumbnail(index,file);count++;
+ }
+ return count;
+};

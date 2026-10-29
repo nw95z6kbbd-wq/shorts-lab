@@ -56,12 +56,12 @@ def run():
                 expect(page.locator('#scriptText')).to_have_value('Сохранённый сценарий редактора.')
                 page.locator('#createVideoMode').click()
                 expect(page.locator('#videoTitle')).to_have_value('Восстановленный ролик')
-                expect(page.locator('.scene-image-thumb')).to_have_count(1)
+                expect(page.locator('#videoScenes .scene-image-thumb')).to_have_count(1)
                 assert page.evaluate('localStorage.getItem("shorts-studio.project.v1")')==legacy['editor']
                 assert page.evaluate('localStorage.getItem("shorts-studio.video.v1")')==legacy['video']
                 blue=page.evaluate('''async()=>{const c=document.createElement('canvas');c.width=800;c.height=1200;const x=c.getContext('2d');x.fillStyle='#286cdd';x.fillRect(0,0,800,1200);return c.toDataURL('image/png').split(',')[1];}''')
                 page.locator('#video-scene-image-1').set_input_files({'name':'blue.png','mimeType':'image/png','buffer':base64.b64decode(blue)})
-                expect(page.locator('.scene-image-thumb')).to_have_count(2)
+                expect(page.locator('#videoScenes .scene-image-thumb')).to_have_count(2)
                 expect(page.locator('#videoDraftStatus')).to_contain_text('Сохранено')
                 assert all('только в этой вкладке' not in label for label in page.locator('.scene-image-name').all_text_contents())
                 for role,frequency,input_id in [('voice',440,'videoAudio'),('music',880,'videoMusic')]:
@@ -86,7 +86,7 @@ def run():
                 context=launch();page=page_for(context);page.goto(url);page.wait_for_function('window.ShortsVideoRestored')
                 expect(page.locator('#projectName')).to_have_value('Отдельный текстовый проект')
                 page.locator('#createVideoMode').click()
-                expect(page.locator('.scene-image-thumb')).to_have_count(2)
+                expect(page.locator('#videoScenes .scene-image-thumb')).to_have_count(2)
                 expect(page.locator('#videoAudioInfo')).to_contain_text('voice.wav')
                 expect(page.locator('#videoMusicInfo')).to_contain_text('music.wav')
                 restored=page.evaluate('async()=>await ShortsProjectDB.createRepository().read("video")')

@@ -1,0 +1,11 @@
+name: Check Editor image thumbnails branch
+on:
+  push:
+    branches: [feat/editor-image-thumbnails]
+permissions:
+  contents: read
+jobs:
+  checks:
+    uses: ./.github/workflows/pages.yml
+    with:
+      upload_pages: false

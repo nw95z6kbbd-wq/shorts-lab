@@ -230,7 +230,7 @@ def run():
             restored=command('POST','/execute/async',{'script':'const done=arguments[arguments.length-1];persistenceFixtureSnapshot().then(done,e=>done({error:e.message}));','args':[]})
             assert restored==saved, {'saved':saved,'restored':restored}
             prepare_canvas()
-            assert script('return document.querySelectorAll(".scene-image-thumb").length;')==2
+            assert script('return document.querySelectorAll("#videoScenes .scene-image-thumb").length;')==2
             assert 'voice.wav' in script('return document.getElementById("videoAudioInfo").textContent;')
             assert 'music.wav' in script('return document.getElementById("videoMusicInfo").textContent;')
             if script('return ShortsVideoRecorder.capabilities(true).supported;'):

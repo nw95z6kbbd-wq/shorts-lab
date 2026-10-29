@@ -1,7 +1,7 @@
 (function(root,factory){
  'use strict';
  if(typeof module==='object'&&module.exports)module.exports=factory;
- else root.ShortsEditorImages=factory({media:root.ShortsMediaSessions,storage:root.ShortsStorage,id:()=>root.ShortsCore.id(),crc32:bytes=>root.ShortsZip.crc32(bytes)});
+ else root.ShortsEditorImages=factory({media:root.ShortsMediaSessions,storage:root.ShortsStorage,id:()=>root.ShortsCore.id(),crc32:bytes=>root.ShortsZip.crc32(bytes),observer:callback=>new root.IntersectionObserver(callback),canvas:()=>root.document.createElement('canvas'),urls:root.URL});
 })(typeof globalThis!=='undefined'?globalThis:this,function(io){
  'use strict';
  const failure=(code,message)=>Object.assign(new Error(message),{code});
@@ -56,5 +56,60 @@
   }
   return Object.freeze({load,cancel,retain(ids){for(const key of accepted.keys())if(!ids.has(key)){io.storage.discard(key);accepted.delete(key);}},dispose:async()=>{await cancel();await tail;},status:()=>({generation,loading:!!current,ownedPending:accepted.size})});
  }
- return Object.freeze({create,MAX_FILE,MAX_PENDING});
+ // A view-only projection of originals. Never stage/discard files or retain a
+ // full decoded original for each card: use the existing bounded media owner,
+ // downsample once, then release its lease before admitting the next source.
+ function createThumbnails(){
+  const entries=new Map(),MAX_VISIBLE=8;let active=true,closed=false,running=false,serial=0,loading=null,queued=false;
+  const current=request=>active&&!closed&&request.entry.visible&&entries.get(request.entry.target)===request.entry&&request.entry.generation===request.generation;
+  function clear(entry){
+   entry.generation=++serial;entry.state='idle';entry.image.hidden=true;entry.image.removeAttribute('src');entry.message.textContent='';
+   entry.image.onload=entry.image.onerror=null;
+   if(entry.url){io.urls.revokeObjectURL(entry.url);entry.url=null;}
+   if(loading?.entry===entry)loading.session?.cancel().catch(()=>{});
+  }
+  function kick(){if(!queued){queued=true;queueMicrotask(()=>{queued=false;void pump();});}}
+  async function pump(){
+   if(running||!active||closed)return;running=true;
+   try{while(active&&!closed){
+    if([...entries.values()].filter(e=>e.state==='ready').length>=MAX_VISIBLE)break;
+    const entry=[...entries.values()].find(e=>e.visible&&e.assetId&&e.state==='idle');if(!entry)break;
+    const request={entry,generation:entry.generation,session:null};loading=request;entry.state='loading';
+    let lease,canvas;
+    try{
+     const session=io.media.create({owner:{slot:'editor',projectId:entry.projectId,contentRevision:entry.generation},limits:{maxImages:1}});request.session=session;
+     await session.prepare([{id:entry.assetId,kind:'image'}]);if(!current(request))continue;
+     lease=session.acquire();const source=lease.resources.images.get(entry.assetId);
+     canvas=io.canvas();canvas.width=116;canvas.height=144;
+     const context=canvas.getContext('2d');if(!context)throw failure('CANVAS','Браузер не смог подготовить миниатюру.');
+     const width=source.width||source.naturalWidth,height=source.height||source.naturalHeight,scale=Math.max(canvas.width/width,canvas.height/height);
+     context.drawImage(source,(canvas.width-width*scale)/2,(canvas.height-height*scale)/2,width*scale,height*scale);
+     const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(failure('CANVAS','Не удалось создать миниатюру.')),'image/png'));
+     if(!current(request))continue;
+     const url=io.urls.createObjectURL(blob);entry.url=url;
+     // Completion also belongs to the same card/project/source generation.
+     entry.image.onload=()=>{if(current(request)){entry.image.hidden=false;entry.message.textContent='';}};
+     entry.image.onerror=()=>{if(current(request)){entry.image.hidden=true;entry.state='error';io.urls.revokeObjectURL(entry.url);entry.url=null;entry.image.removeAttribute('src');entry.message.textContent='Миниатюра недоступна. Оригинал не изменён.';kick();}};
+     entry.image.src=url;entry.state='ready';
+    }catch(error){if(current(request)){entry.state='error';entry.message.textContent='Миниатюра недоступна: '+(error.message||'ошибка изображения')+' Оригинал не изменён.';}}
+    finally{if(canvas){canvas.width=0;canvas.height=0;}lease?.release();await request.session?.dispose();if(loading===request)loading=null;}
+   }}finally{running=false;}
+  }
+  const observer=io.observer(changes=>{for(const change of changes){const entry=entries.get(change.target);if(!entry)continue;entry.visible=change.isIntersecting;if(!entry.visible)clear(entry);}kick();});
+  return Object.freeze({
+   track(target,image,message,{projectId,assetId,name,index}){
+    if(closed)return;let entry=entries.get(target);
+    if(!assetId){if(entry){clear(entry);entries.delete(target);observer.unobserve(target);kick();}return;}
+    if(!entry){entry={target,image,message,visible:false,url:null,generation:++serial,state:'idle'};entries.set(target,entry);observer.observe(target);}
+    if(entry.projectId!==projectId||entry.assetId!==assetId){clear(entry);entry.projectId=projectId;entry.assetId=assetId;}
+    image.alt='Изображение сцены '+(index+1)+(name?' — '+name:'');kick();
+   },
+   remove(target){const entry=entries.get(target);if(entry){clear(entry);entries.delete(target);observer.unobserve(target);}kick();},
+   suspend(){active=false;for(const entry of entries.values())clear(entry);},
+   resume(){if(!closed){active=true;kick();}},
+   dispose(){closed=true;active=false;observer.disconnect();for(const entry of entries.values())clear(entry);entries.clear();},
+   status:()=>({tracked:entries.size,ready:[...entries.values()].filter(e=>e.state==='ready').length,preparing:!!loading,maxVisible:MAX_VISIBLE})
+  });
+ }
+ return Object.freeze({create,createThumbnails,MAX_FILE,MAX_PENDING});
 });

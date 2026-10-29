@@ -180,7 +180,7 @@ def run():
             restored_repository=db_snapshot()
             assert [h['previous']['state'] for h in restored_repository['heads']]==[h['state'] for h in baseline['heads']]
             assert all(a in restored_repository['assets'] for a in baseline['assets']),'successful restore retains old recovery originals'
-            dest.locator('#openVideoMode').click();expect(dest.locator('.scene-image-thumb')).to_have_count(3)
+            dest.locator('#openVideoMode').click();expect(dest.locator('#videoScenes .scene-image-thumb')).to_have_count(3)
             dest.add_script_tag(content=(ROOT/'tests/render-plan-fixture.js').read_text());dest.evaluate('installRenderPlanProbe()')
             expect(dest.locator('#videoAudioInfo')).to_contain_text('voice.wav');expect(dest.locator('#videoMusicInfo')).to_contain_text('music.wav')
             for width,height in ((320,568),(390,844),(768,480),(1440,900)):
@@ -208,7 +208,7 @@ def run():
             checkpoint(engine+': full process restart')
             destination.close();destination=target();dest=destination.new_page();dest.on('pageerror',lambda e:errors.append(str(e)));dest.goto(url);dest.wait_for_function('window.ShortsVideoRestored');dest.add_script_tag(content=(ROOT/'tests/backup-fixture.js').read_text())
             assert dest.evaluate('backupFixtureSnapshot()')==expected
-            dest.locator('#openVideoMode').click();expect(dest.locator('.scene-image-thumb')).to_have_count(3)
+            dest.locator('#openVideoMode').click();expect(dest.locator('#videoScenes .scene-image-thumb')).to_have_count(3)
             dest.add_script_tag(content=(ROOT/'tests/render-plan-fixture.js').read_text());dest.evaluate('installRenderPlanProbe()')
             dest.locator('#playGeneratedPreview').click();dest.wait_for_function('document.getElementById("videoPreviewTime").textContent.startsWith("0:01")');dest.locator('#playGeneratedPreview').click()
             if dest.evaluate('ShortsVideoRecorder.capabilities(true,"webm").supported'):
