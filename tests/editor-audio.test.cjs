@@ -61,3 +61,8 @@ test('historical runtime proofs reverse only exact audio extensions and reject c
  const strip=require('./editor-audio-bridge.cjs'),current=fs.readFileSync('js/render-session.js','utf8');assert.equal(require('node:crypto').createHash('sha256').update(fs.readFileSync('tests/fixtures/editor-audio/render-session-before.js')).digest('hex'),'7f1ab2f81b822b43b9b5ff131dbe226d1892c6177cd217db2e50b23ccd72081e');assert.equal(strip('js/render-session.js',current),fs.readFileSync('tests/fixtures/editor-audio/render-session-before.js','utf8'));
  for(const [a,b] of [['context.currentTime+.02','context.currentTime+.2'],['if(audioOnly)throw','if(!audioOnly)throw'],['mix?.stop();mix=null','mix=null']]){assert.ok(current.includes(a));assert.throws(()=>strip('js/render-session.js',current.replace(a,b)));}
 });
+test('oversized snapshot is an explicit preparation error, never an uncaught UI startup failure',async()=>{
+ const problem=Object.assign(Error('JSON budget'),{code:'DATA_BUDGET'}),states=[],p=fixture().p;
+ const controller=audioFactory({runtime:{snapshotData(){throw problem;}}}).createPlayback({onState:(s,e)=>states.push({s,e})});
+ await controller.update(p,A.fromEditor(p),1);assert.equal(states.at(-1).s,'error');assert.equal(states.at(-1).e,problem);assert.equal(controller.status().ready,false);await controller.close();
+});
