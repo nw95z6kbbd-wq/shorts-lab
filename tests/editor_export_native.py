@@ -4,7 +4,7 @@ from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from backup_assets import media_payload
 from runtime_session_native import command_result
 from safari_file_entry import prepare_native_file_entry
-from editor_export_checks import verify_file
+from editor_export_checks import verify_file,component
 from editor_recording_evidence import inspect_recording
 
 def check_native_editor_export(root,script,command,click):
@@ -55,7 +55,12 @@ def check_native_editor_export(root,script,command,click):
      except Exception as diagnostic:print('::warning title=Native matrix failure::'+str(diagnostic)[:800],flush=True)
      finally:execute('window.exportMatrixLease?.release();await window.exportMatrixSession?.dispose();return true;')
      try:
-      data=encoded('exportRawBlob');failed=folder/('failed'+('.mp4' if data['type'].startswith('video/mp4') else '.webm'));failed.write_bytes(base64.b64decode(data['data']));actual=inspect_recording(failed);print('::error title=Native Editor export independent evidence::'+json.dumps({'failure':str(failure),'mime':data['type'],'formats':prepared['formats'],'streams':actual['streams'],'video':actual['video'],'audio':actual['audio'],'format':actual['format']}),flush=True)
+      data=encoded('exportRawBlob');failed=folder/('failed'+('.mp4' if data['type'].startswith('video/mp4') else '.webm'));failed.write_bytes(base64.b64decode(data['data']));actual=inspect_recording(failed)
+      colors=[]
+      for point in [.5,1.5,2.5]:
+       raw=subprocess.check_output(['ffmpeg','-v','error','-ss',str(point),'-i',str(failed),'-frames:v','1','-vf','crop=100:100:300:400,scale=1:1','-pix_fmt','rgb24','-f','rawvideo','-']);colors.append(list(raw[:3]))
+      print('::notice title=Rejected export actual content::'+json.dumps({'colors':colors,'voice':component(failed,440,1),'music':component(failed,880,1),'musicFade':[component(failed,880,.03),component(failed,880,2.9)]}),flush=True)
+      print('::error title=Native Editor export independent evidence::'+json.dumps({'failure':str(failure),'mime':data['type'],'formats':prepared['formats'],'streams':actual['streams'],'video':actual['video'],'audio':actual['audio'],'format':actual['format']}),flush=True)
       (folder/'state.json').write_text(json.dumps(script('return {states:window.exportStates,progress:window.exportProgress,status:window.exportJob?.status()};'),ensure_ascii=False,indent=2))
      except Exception as diagnostic:print('::warning title=Editor export evidence::'+str(diagnostic)[:500],flush=True)
      raise
