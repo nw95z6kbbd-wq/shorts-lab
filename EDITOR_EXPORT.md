@@ -28,7 +28,11 @@ complete, with error/cancelled/disposed. Progress reaches 1 only after validatio
 Job generation, project ID/contentRevision and savedRevision are separate.
 Latest prepare wins; stale progress/results cannot attach. Cancel/dispose are
 repeatable and await real cleanup, including uncancellable decode. Keep a failed
-cleanup owner for retry. UI observer exceptions are reported in status rather
+cleanup owner for retry. An extra media lease pins decoded buffers while the
+recorder owns an AudioContext. Only confirmed context closure releases that pin;
+a rejected close reports AUDIO_CLOSE and keeps the owner available for an explicit
+cleanup retry. No success or replacement preparation bypasses failed cleanup.
+UI observer exceptions are reported in status rather
 than owning the media lifecycle. No runtime object is added to project data.
 
 ## Formats and validation

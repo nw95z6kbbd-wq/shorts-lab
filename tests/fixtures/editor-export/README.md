@@ -7,6 +7,8 @@ Generated from solid purple video (720x1280, 24 fps, 1 second) and a 440 Hz sine
 - fragmented.mp4: same with +frag_keyframe+empty_moov+default_base_moof.
 - silent.mp4: lossless video stream copy of classic.mp4 with -an.
 - vp9-opus.webm: FFmpeg libvpx-vp9 + libopus.
+- h264-opus.mp4: AVC stream from classic.mp4 with Opus stream from vp9-opus.webm;
+  a real MP4 with compatible video but incompatible audio.
 - wrong-codecs.mp4: stream-copy of vp9-opus.webm into MP4 (-strict -2).
 
 Base command: `ffmpeg -f lavfi -i color=c=purple:s=720x1280:r=24:d=1 -f lavfi -i sine=frequency=440:sample_rate=48000:duration=1 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -profile:v baseline -c:a aac -movflags +faststart -shortest classic.mp4`.
