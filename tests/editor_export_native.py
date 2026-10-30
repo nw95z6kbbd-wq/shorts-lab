@@ -42,14 +42,14 @@ def check_native_editor_export(root,script,command,click):
       script('stopExportTrace();');execute('await setupEditorExportMatrix();return true;')
       matrix=[]
       for config in [
-       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True},
-       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True},
-       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'image':True},
        {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True},
+       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'frameRequest':True},
+       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'software':True},
+       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True},
       ]:
        script('window.exportMatrixConfig=arguments[0];',[config]);click('#exportMatrix');row=execute('return await exportMatrixPromise;')
        if row.get('bytes'):
-        data=encoded('exportMatrixBlob');path=folder/('matrix-'+str(len(list(folder.glob('matrix-*.mp4'))))+'.mp4');path.write_bytes(base64.b64decode(data['data']));row['independent']=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','stream=codec_name,codec_type,width,height:format=duration','-of','json',str(path)]))
+        data=encoded('exportMatrixBlob');path=folder/('matrix-'+str(len(list(folder.glob('matrix-*.mp4'))))+'.mp4');path.write_bytes(base64.b64decode(data['data']));row['independent']=json.loads(subprocess.check_output(['ffprobe','-v','error','-count_frames','-show_entries','stream=codec_name,codec_type,width,height,nb_read_frames,start_time,duration:format=duration','-of','json',str(path)]))
        matrix.append(row)
        print('::notice title=Failure-only native graph case::'+json.dumps(row),flush=True)
      except Exception as diagnostic:print('::warning title=Native matrix failure::'+str(diagnostic)[:800],flush=True)
