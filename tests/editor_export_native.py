@@ -16,6 +16,8 @@ def check_native_editor_export(root,script,command,click):
  def encoded(name):
   return execute('const blob=window[arguments[0]];if(!blob||blob.size>64*1048576)throw Error("Missing/big diagnostic recording");return await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve({type:blob.type,data:r.result.slice(r.result.lastIndexOf(",")+1)});r.onerror=reject;r.readAsDataURL(blob);});',[name])
  try:
+  print('::notice title=Native export initial window::'+json.dumps(command('GET','/window/rect')),flush=True)
+  command('POST','/window/rect',{'width':1440,'height':1000,'x':0,'y':0})
   evidence=[]
   for entry in [f'http://127.0.0.1:{server.server_port}/index.html',(root/'downloads/Shorts-Studio.html').as_uri()]:
    if entry.startswith('file:'):grants.append(prepare_native_file_entry(entry,command))
@@ -26,6 +28,7 @@ def check_native_editor_export(root,script,command,click):
     prepared=execute('return await prepareEditorExportFixture(arguments[0],arguments[1]);',[media_payload(),{'format':mode,'audio':audio}])
     if mode=='auto':assert any(t.startswith('video/mp4') for t in prepared['formats']), 'This Safari has no compatible H.264/AAC encoder: actual MP4 requirement not verified'
     script((root/'tests/editor-export-safari-diagnostics.js').read_text());script('window.stopExportTrace=installEditorExportTrace();')
+    print('::notice title=Native export visible canvas::'+json.dumps(script('const r=exportCanvas.getBoundingClientRect();return {viewport:[innerWidth,innerHeight],rect:{x:r.x,y:r.y,width:r.width,height:r.height},visible:document.visibilityState,focus:document.hasFocus(),capture:typeof HTMLCanvasElement.prototype.captureStream};')),flush=True)
     click('#editorExportStart')
     try:
      result=execute('return await finishEditorExportFixture();');data=encoded('editorExportBlob');path=folder/('recording.'+result['extension']);path.write_bytes(base64.b64decode(data['data']));actual=verify_file(path,result,audio)

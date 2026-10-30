@@ -2,7 +2,7 @@
 window.installEditorExportTrace=function(){
  const Native=window.MediaRecorder,Original=ShortsVideoRecorder.record,trace=window.editorExportTrace={recorders:[],contexts:[],progress:[]};
  const Tracked=new Proxy(Native,{get:(target,key)=>key==='isTypeSupported'?target.isTypeSupported.bind(target):Reflect.get(target,key),construct:(target,args)=>{
-  const r=Reflect.construct(target,args),item={requested:args[1],actual:r.mimeType,tracks:args[0].getTracks().map(t=>({kind:t.kind,readyState:t.readyState,muted:t.muted,...t.getSettings()})),events:[]};trace.recorders.push(item);
+  const r=Reflect.construct(target,args),item={requested:args[1],actual:r.mimeType,tracks:args[0].getTracks().map(t=>({kind:t.kind,readyState:t.readyState,muted:t.muted,requestFrame:typeof t.requestFrame,...t.getSettings()})),events:[]};trace.recorders.push(item);
   for(const name of ['start','dataavailable','pause','stop','error'])r.addEventListener(name,e=>{item.events.push({name,type:e.data?.type,size:e.data?.size,error:e.error?.message,state:r.state,contexts:trace.contexts.map(c=>({rate:c.sampleRate,time:c.currentTime,state:c.state}))});});return r;
  }});window.MediaRecorder=Tracked;
  ShortsVideoRecorder.record=options=>{
