@@ -76,7 +76,13 @@
     const requestEditorFrame = ms => {
       if (!recordingPolicy) return;
       const track = stream?.getVideoTracks()[0], index = Math.floor(ms * V.FPS / 1000);
-      if (typeof track?.requestFrame === 'function' && index > captureFrameIndex) { track.requestFrame(); captureFrameIndex = index; }
+      if (typeof track?.requestFrame === 'function' && index > captureFrameIndex) {
+        track.requestFrame();
+        // Commit queued Canvas drawing before the capture/encoder boundary.
+        // One pixel is a read-only synchronization point, not a frame copy.
+        canvas.getContext('2d').getImageData(0, 0, 1, 1);
+        captureFrameIndex = index;
+      }
     };
     try {
       render(0);

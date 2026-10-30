@@ -22,6 +22,12 @@ validation, audio decoding/windowing, mixing and recording remain the existing
 implementations. Decoder contexts may be created/closed during prepare; no
 playback resume, mixer or recording is started by prepare. Start synchronously
 enters session.record before awaiting so Safari retains the trusted gesture.
+The Editor recorder waits for an actual audio render quantum, then anchors its
+existing media clock. Canvas capture uses explicit requestFrame where supported,
+at most one request per target frame index on that clock. A one-pixel read-only
+Canvas synchronization commits queued drawing; no frame copy is retained. Browsers
+without requestFrame use their native automatic 24 fps capture. Video defaults
+remain unchanged.
 
 States: idle -> preparing -> ready -> recording -> finalizing -> validating ->
 complete, with error/cancelled/disposed. Progress reaches 1 only after validation.

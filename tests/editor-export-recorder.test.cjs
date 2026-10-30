@@ -12,7 +12,7 @@ function harness({holdClock=false}={}){
   requestData(){events.push('requestData');queueMicrotask(()=>{events.push('flush acknowledged');this.ondataavailable?.({data:new Blob([new Uint8Array(16)],{type:this.mimeType})});});}
   stop(){events.push('stop');this.state='inactive';this.ondataavailable?.({data:new Blob([new Uint8Array(32)],{type:this.mimeType})});this.onstop?.();}
  }
- const stream={getVideoTracks:()=>tracks.filter(t=>t.kind==="video"),getTracks:()=>tracks,addTrack:t=>tracks.push(t)},canvas={captureStream(rate){rates.push(rate);captures++;return stream;}};
+ const stream={getVideoTracks:()=>tracks.filter(t=>t.kind==="video"),getTracks:()=>tracks,addTrack:t=>tracks.push(t)},canvas={getContext:()=>({getImageData:()=>new Uint8Array(4)}),captureStream(rate){rates.push(rate);captures++;return stream;}};
  const context=vm.createContext({AudioContext:Audio,ShortsVideoAudio:{connectMix:()=>({start(){},stop(){}})},HTMLCanvasElement:{prototype:{captureStream(){}}},MediaRecorder:Recorder,ShortsVideoCore:V,ShortsRenderPlan:P,ShortsVideoRenderer:{render:(_canvas,_plan,ms)=>frames.push(ms)},Blob,Uint8Array,DOMException,Error,Object,performance:{now:()=>0},document:{hidden:false,addEventListener(){},removeEventListener(){}},setTimeout,clearTimeout,requestAnimationFrame:fn=>{rafs++;return setTimeout(()=>{if(!holdClock)for(const c of contexts)if(c.state==="running")c.currentTime+=.5;fn(20000);},1);},cancelAnimationFrame:clearTimeout});context.window=context;vm.runInContext(fs.readFileSync('js/video-recorder.js','utf8'),context);
  return{requests,rates,scheduled:()=>rafs,contexts,events,record:context.ShortsVideoRecorder.record,canvas,tracks,instances,frames,captures:()=>captures};
 }

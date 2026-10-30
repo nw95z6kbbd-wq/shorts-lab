@@ -33,7 +33,11 @@ def run():
     assert result;print(f'PASS [{engine}]: actual recording unavailable; FORMAT refusal leaves DTO/media intact (no simulated recording)');browser.close();return
    outcomes=[]
    for mode,audio in [('auto',True),('webm',True),('auto',False)]:
-    prepared=page.evaluate('args=>prepareEditorExportFixture(...args)',[media_payload(),{'format':mode,'audio':audio}]);page.locator('#editorExportStart').click();result=page.evaluate('finishEditorExportFixture()')
+    prepared=page.evaluate('args=>prepareEditorExportFixture(...args)',[media_payload(),{'format':mode,'audio':audio}]);page.locator('#editorExportStart').click()
+    try:result=page.evaluate('finishEditorExportFixture()')
+    except Exception:
+     print('::error title=Editor export result diagnostics::'+json.dumps(page.evaluate('async()=>{const b=window.exportRawBlob;return {mode:exportOriginal.exportSettings.format,audio:!!exportOriginal.audio.voice.assetId,states:exportStates,streams:b?ShortsExportInspector.inspectBytes(new Uint8Array(await b.arrayBuffer())):null};}')),flush=True)
+     raise
     data=page.evaluate('async()=>{const r=new FileReader();const done=new Promise((resolve,reject)=>{r.onload=()=>resolve(r.result.slice(r.result.lastIndexOf(",")+1));r.onerror=reject;});r.readAsDataURL(editorExportBlob);return done;}');path=Path(folder)/('export.'+result['extension']);path.write_bytes(base64.b64decode(data));evidence=verify_file(path,result,audio);outcomes.append(evidence)
     if mode=='auto' and audio and not any(t.startswith('video/mp4') for t in prepared['formats']):assert result['container']=='webm' and result['fallback']
     if mode=='webm':assert result['container']=='webm'
