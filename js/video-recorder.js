@@ -79,8 +79,8 @@
       if (typeof track?.requestFrame === 'function' && index > captureFrameIndex) {
         track.requestFrame();
         // Commit queued Canvas drawing before the capture/encoder boundary.
-        // One pixel is a read-only synchronization point, not a frame copy.
-        canvas.getContext('2d').getImageData(0, 0, 1, 1);
+        // Materialize every tile; the temporary 720x1280 RGBA copy is not retained.
+        canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
         captureFrameIndex = index;
       }
     };

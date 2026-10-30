@@ -1,5 +1,13 @@
 [
   {
+    "old": "        // One pixel is a read-only synchronization point, not a frame copy.",
+    "new": "        // Materialize every tile; the temporary 720x1280 RGBA copy is not retained."
+  },
+  {
+    "old": "        canvas.getContext('2d').getImageData(0, 0, 1, 1);",
+    "new": "        canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);"
+  },
+  {
     "old": "    try {\n      render(0);",
     "new": "    try {\n      if (recordingPolicy && hasAudio) {\n        const Audio = AudioContextClass();\n        context = new Audio();\n        recordingPolicy.onContext?.(context);\n      }\n      render(0);"
   },

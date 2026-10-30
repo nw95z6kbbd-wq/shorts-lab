@@ -25,8 +25,8 @@ playback resume, mixer or recording is started by prepare. Start synchronously
 enters session.record before awaiting so Safari retains the trusted gesture.
 The Editor recorder waits for an actual audio render quantum, then anchors its
 existing media clock. Canvas capture uses explicit requestFrame where supported,
-at most one request per target frame index on that clock. A one-pixel read-only
-Canvas synchronization commits queued drawing; no frame copy is retained. Browsers
+at most one request per target frame index on that clock. A full-frame read-only
+Canvas snapshot materializes every tile; its 3.52 MiB RGBA copy is not retained. Browsers
 without requestFrame use their native automatic 24 fps capture. Video defaults
 remain unchanged.
 

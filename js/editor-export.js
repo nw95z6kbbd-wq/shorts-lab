@@ -74,7 +74,7 @@
      await job.session.prepare();check(job);job.session.renderFrame(canvas,0);
      // Canvas drawing may be queued in a separate GPU process. Complete its
      // first rasterization during preparation, before starting the media clock.
-     try{ctx.getImageData(0,0,1,1);}catch(cause){throw error('CANVAS','Не удалось завершить подготовку кадра Canvas.',{cause});}
+     try{ctx.getImageData(0,0,canvas.width,canvas.height);}catch(cause){throw error('CANVAS','Не удалось завершить подготовку кадра Canvas.',{cause});}
      check(job);publish(job,'ready');
      return Object.freeze({jobId:job.id,plan:data.plan,identity:job.session.identity,formats:mimeTypes,estimatedBytes:estimate,omittedScenes:data.plan.omittedScenes});
     }catch(cause){
