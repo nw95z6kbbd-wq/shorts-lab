@@ -72,18 +72,6 @@
     const render = ms => window.ShortsVideoRenderer.render(canvas, plan, ms, resources);
     let stream, context, mix, recorder, animationFrame, flushTimer, finalTimer;
     let abortListener, visibilityListener;
-    let captureFrameIndex = -1;
-    const requestEditorFrame = ms => {
-      if (!recordingPolicy) return;
-      const track = stream?.getVideoTracks()[0], index = Math.floor(ms * V.FPS / 1000);
-      if (typeof track?.requestFrame === 'function' && index > captureFrameIndex) {
-        track.requestFrame();
-        // Commit queued Canvas drawing before the capture/encoder boundary.
-        // Materialize every tile; the temporary 720x1280 RGBA copy is not retained.
-        canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-        captureFrameIndex = index;
-      }
-    };
     try {
       if (recordingPolicy && hasAudio) {
         const Audio = AudioContextClass();
@@ -91,11 +79,7 @@
         recordingPolicy.onContext?.(context);
       }
       render(0);
-      stream = canvas.captureStream(recordingPolicy ? 0 : V.FPS);
-      if (recordingPolicy && typeof stream.getVideoTracks()[0]?.requestFrame !== 'function') {
-        stream.getTracks().forEach(track => track.stop());
-        stream = canvas.captureStream(V.FPS);
-      }
+      stream = canvas.captureStream(V.FPS);
       if (!stream.getVideoTracks().length) throw new Error('Браузер не смог захватить изображение Canvas.');
       if (hasAudio) {
         const Audio = AudioContextClass();
@@ -104,19 +88,6 @@
           recordingPolicy?.onContext?.(context);
         }
         await resumeAudio(context);
-        if (recordingPolicy) {
-          // running is a control-state acknowledgement, not a rendered quantum.
-          // Anchor the Editor encoder only after the native audio clock advances.
-          const initial = context.currentTime;
-          await new Promise((resolve, reject) => {
-            let frame;
-            const finish = cause => { clearTimeout(deadline); cancelAnimationFrame(frame); signal?.removeEventListener('abort', abort); cause ? reject(cause) : resolve(); };
-            const abort = () => finish(signal.reason || new DOMException('Запись отменена.', 'AbortError'));
-            const deadline = setTimeout(() => finish(new Error('Аудиоустройство не начало обработку. Повторите запуск записи.')), 3000);
-            const poll = () => { if (context.state !== 'running' || document.hidden) return finish(new Error('Запуск аудиоустройства прерван.')); if (context.currentTime > initial) return finish(); frame = requestAnimationFrame(poll); };
-            signal?.addEventListener('abort', abort, { once: true }); if (signal?.aborted) abort(); else poll();
-          });
-        }
         signal?.throwIfAborted();
         const destination = context.createMediaStreamDestination();
         mix = window.ShortsVideoAudio.connectMix(context, { voiceBuffer, musicBuffer, voiceVolume, musicVolume, fadeIn, fadeOut, durationSeconds: plan.durationMs / 1000, destination, monitor: true });
@@ -167,7 +138,7 @@
             candidate.onerror = () => fail(new Error('Ошибка видеокодека браузера. Попробуйте формат WebM или уберите аудиодорожку.'));
             candidate.onstop = finish;
             recorder = candidate;
-            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm' || recordingPolicy !== null;
+            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm';
             candidate.start(250);
             break;
           } catch (_) {
@@ -200,17 +171,23 @@
             audioLast = time;
             return (time - audioStart) * 1000;
           };
-          if (recordingPolicy) { render(0); requestEditorFrame(0); }
           onProgress(0, 0);
           function frame(now) {
             if (settled) return;
             try {
               const elapsed = Math.min(plan.durationMs, Math.max(0, elapsedTime(now)));
               render(elapsed);
-              requestEditorFrame(elapsed);
               onProgress(Math.min(.99, elapsed / plan.durationMs), elapsed);
               if (elapsed >= plan.durationMs) {
                 stopping = true;
+                if (recordingPolicy && !drainRequired) {
+                  // Finish the prepared Editor MP4 in this capture task. A
+                  // complete read commits its last frame before stop.
+                  canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+                  finalTimer = setTimeout(() => fail(new Error('Браузер не смог завершить видеофайл. Попробуйте WebM.')), 10000);
+                  recorder.stop();
+                  return;
+                }
                 // Allow the last drawn frame to reach the canvas capture track before flushing.
                 flushTimer = setTimeout(() => {
                   if (settled || recorder.state === 'inactive') return;

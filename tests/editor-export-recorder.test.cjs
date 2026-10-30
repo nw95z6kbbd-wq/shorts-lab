@@ -34,22 +34,10 @@ test('historical guard still rejects changes to approved Editor options, codec s
  }}finally{fs.rmSync(folder,{recursive:true,force:true});}
 });
 
-test('Editor AVC finalization waits for acknowledged drain before stop; default Video keeps single-stop behavior',async()=>{
+test('Editor AVC commits and stops in the final render task; Video retains its original stop',async()=>{
  const e=harness();const result=await e.record({canvas:e.canvas,plan:editor(),recordingPolicy:policy(1000)});
- assert.deepEqual(e.events,['pause','requestData','flush acknowledged','stop']);assert.deepEqual(e.rates,[0]);assert.equal(e.requests.length,2);assert.equal(result.blob.size,112);assert.equal(result.extension,'mp4');
+ assert.deepEqual(e.events,['stop']);assert.deepEqual(e.rates,[24]);assert.equal(result.blob.size,96);assert.equal(result.extension,'mp4');
  const v=harness();await v.record({canvas:v.canvas,plan:A.fromVideo(V.demo())});assert.deepEqual(v.events,['stop']);assert.deepEqual(v.rates,[24]);assert.equal(v.requests.length,0);
-});
-
-test('Editor AAC waits for a real audio quantum, remains cancellable, and anchors all media after device warm-up',async()=>{
- const until=async check=>{for(let i=0;i<500;i++){if(check())return;await new Promise(r=>setTimeout(r,1));}throw Error('native clock condition timed out');};
- const f=harness({holdClock:true}),abort=new AbortController();const recording=f.record({canvas:f.canvas,plan:editor(),voiceBuffer:{duration:1},recordingPolicy:policy(1000),signal:abort.signal}),outcome=recording.catch(e=>e);
- try{
-  await until(()=>f.scheduled()>0);assert.equal(f.contexts[0].currentTime,0);assert.equal(f.instances.length,0,'running alone must not start the encoder');
-  f.contexts[0].currentTime=.01;await until(()=>f.instances.length===1);f.contexts[0].currentTime=1.1;
-  const result=await recording;assert.equal(result.extension,'mp4');assert.equal(f.contexts[0].state,'closed');assert.ok(f.tracks.every(t=>t.stopped));
- }finally{abort.abort();await outcome;}
- const cancelled=harness({holdClock:true}),stop=new AbortController(),pending=cancelled.record({canvas:cancelled.canvas,plan:editor(),voiceBuffer:{duration:1},recordingPolicy:policy(1000),signal:stop.signal});
- const rejection=assert.rejects(pending,{name:'AbortError'});await until(()=>cancelled.scheduled()>0);stop.abort();await rejection;assert.equal(cancelled.instances.length,0);assert.equal(cancelled.contexts[0].state,'closed');assert.ok(cancelled.tracks.every(t=>t.stopped));
 });
 
 test('Editor initializes its audio session before creating the capture source, while Video order stays unchanged',async()=>{

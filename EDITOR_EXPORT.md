@@ -23,12 +23,13 @@ validation, audio decoding/windowing, mixing and recording remain the existing
 implementations. Decoder contexts may be created/closed during prepare; no
 playback resume, mixer or recording is started by prepare. Start synchronously
 enters session.record before awaiting so Safari retains the trusted gesture.
-The Editor recorder waits for an actual audio render quantum, then anchors its
-existing media clock. Canvas capture uses explicit requestFrame where supported,
-at most one request per target frame index on that clock. A full-frame read-only
-Canvas snapshot materializes every tile; its 3.52 MiB RGBA copy is not retained. Browsers
-without requestFrame use their native automatic 24 fps capture. Video defaults
-remain unchanged.
+The Editor recorder creates its owned audio session before its capture source.
+Preparation exercises distinct media/camera/transition paths at scene boundaries
+and one target-frame offset, then restores frame zero. Repeated scene paths share
+these probes: 4000 repeated scenes use three probes and one final reset, rather
+than 4000 Canvas surfaces. Each probe commits a complete 3.52 MiB temporary RGBA
+snapshot; it is never retained. The same bounded commit occurs at MP4 completion,
+not on every recorded frame. Video defaults remain unchanged.
 
 States: idle -> preparing -> ready -> recording -> finalizing -> validating ->
 complete, with error/cancelled/disposed. Progress reaches 1 only after validation.
@@ -91,9 +92,8 @@ browser-owned. No WASM, servers, registration or runtime dependency is added.
 ## Legacy proof and tests
 
 Only explicit Editor recordingPolicy (MIME candidates/maxBytes) is forwarded.
-Editor policy requests an acknowledged pause/requestData drain for MP4 before
-stop; native single-stop probes lost pending samples, including empty recordings.
-Existing WebM retains that barrier. Default Video behavior, clocks,
+Editor MP4 commits its final frame and stops in that render task. WebM retains
+its acknowledged pause/requestData drain. Default Video behavior, clocks,
 container-specific finalization and mixer stay unchanged. Exact reversible additions precede the old clock/source proofs; no
 baseline hash/ref is moved and all eight original counterexamples remain.
 

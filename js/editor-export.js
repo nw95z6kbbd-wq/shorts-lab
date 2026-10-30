@@ -71,12 +71,18 @@
      }
      job.policy=Object.freeze({mimeTypes,maxBytes:maxOutputBytes,onContext:context=>job.contexts.add(context)});
      job.session=io.runtime.create({slot:'editor',projectId:data.project.id,...data,contentRevision,savedRevision,signal:job.abort.signal});
-     await job.session.prepare();check(job);job.session.renderFrame(canvas,0);
-     // Canvas drawing may be queued in a separate GPU process. Complete its
-     // first rasterization during preparation, before starting the media clock.
-     try{ctx.getImageData(0,0,canvas.width,canvas.height);}catch(cause){throw error('CANVAS','Не удалось завершить подготовку кадра Canvas.',{cause});}
-     check(job);publish(job,'ready');
-     return Object.freeze({jobId:job.id,plan:data.plan,identity:job.session.identity,formats:mimeTypes,estimatedBytes:estimate,omittedScenes:data.plan.omittedScenes});
+     await job.session.prepare();check(job);
+     // Exercise each media/camera/transition path before starting any media
+     // clock. Repeated scenes do not multiply GPU preparation or media owners.
+     const paths=new Set();job.frameProbes=0;
+     for(const scene of plan.timeline){
+      const key=JSON.stringify([scene.visual,scene.visual==='image'?scene.imageId:null,scene.camera,scene.transition]);if(paths.has(key))continue;paths.add(key);
+      const points=new Set([scene.startMs,Math.min(scene.endMs-1,scene.startMs+Math.ceil(1000/plan.output.fps)),scene.endMs-1]);
+      for(const time of points){check(job);try{job.session.renderFrame(canvas,time);ctx.getImageData(0,0,canvas.width,canvas.height);job.frameProbes++;}catch(cause){throw Object.assign(error(cause.code||'CANVAS',cause.message||'Не удалось подготовить кадр Canvas.',{cause}),{sceneId:scene.id});}}
+      await io.yield();check(job);
+     }
+     job.session.renderFrame(canvas,0);check(job);publish(job,'ready');
+     return Object.freeze({jobId:job.id,plan:data.plan,identity:job.session.identity,formats:mimeTypes,estimatedBytes:estimate,omittedScenes:data.plan.omittedScenes,frameProbes:job.frameProbes});
     }catch(cause){
      await job.session?.dispose();jobs.delete(job);unlisten(job);const reason=describe(job,cause);if(current(job))publish(job,'error',reason);throw reason;
     }

@@ -1,13 +1,5 @@
 [
   {
-    "old": "        // One pixel is a read-only synchronization point, not a frame copy.",
-    "new": "        // Materialize every tile; the temporary 720x1280 RGBA copy is not retained."
-  },
-  {
-    "old": "        canvas.getContext('2d').getImageData(0, 0, 1, 1);",
-    "new": "        canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);"
-  },
-  {
     "old": "    try {\n      render(0);",
     "new": "    try {\n      if (recordingPolicy && hasAudio) {\n        const Audio = AudioContextClass();\n        context = new Audio();\n        recordingPolicy.onContext?.(context);\n      }\n      render(0);"
   },
@@ -16,8 +8,8 @@
     "new": "        if (!context) {\n          context = new Audio();\n          recordingPolicy?.onContext?.(context);\n        }"
   },
   {
-    "old": "      if (typeof track?.requestFrame === 'function' && index > captureFrameIndex) { track.requestFrame(); captureFrameIndex = index; }",
-    "new": "      if (typeof track?.requestFrame === 'function' && index > captureFrameIndex) {\n        track.requestFrame();\n        // Commit queued Canvas drawing before the capture/encoder boundary.\n        // One pixel is a read-only synchronization point, not a frame copy.\n        canvas.getContext('2d').getImageData(0, 0, 1, 1);\n        captureFrameIndex = index;\n      }"
+    "old": "                stopping = true;\n                // Allow the last drawn frame to reach the canvas capture track before flushing.",
+    "new": "                stopping = true;\n                if (recordingPolicy && !drainRequired) {\n                  // Finish the prepared Editor MP4 in this capture task. A\n                  // complete read commits its last frame before stop.\n                  canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);\n                  finalTimer = setTimeout(() => fail(new Error('Браузер не смог завершить видеофайл. Попробуйте WebM.')), 10000);\n                  recorder.stop();\n                  return;\n                }\n                // Allow the last drawn frame to reach the canvas capture track before flushing."
   },
   {
     "old": "format = 'auto', signal,",
@@ -42,29 +34,5 @@
   {
     "old": "        context = new Audio();\n        await resumeAudio(context);",
     "new": "        context = new Audio();\n        recordingPolicy?.onContext?.(context);\n        await resumeAudio(context);"
-  },
-  {
-    "old": "            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm';",
-    "new": "            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm' || recordingPolicy !== null;"
-  },
-  {
-    "old": "        await resumeAudio(context);\n        signal?.throwIfAborted();",
-    "new": "        await resumeAudio(context);\n        if (recordingPolicy) {\n          // running is a control-state acknowledgement, not a rendered quantum.\n          // Anchor the Editor encoder only after the native audio clock advances.\n          const initial = context.currentTime;\n          await new Promise((resolve, reject) => {\n            let frame;\n            const finish = cause => { clearTimeout(deadline); cancelAnimationFrame(frame); signal?.removeEventListener('abort', abort); cause ? reject(cause) : resolve(); };\n            const abort = () => finish(signal.reason || new DOMException('Запись отменена.', 'AbortError'));\n            const deadline = setTimeout(() => finish(new Error('Аудиоустройство не начало обработку. Повторите запуск записи.')), 3000);\n            const poll = () => { if (context.state !== 'running' || document.hidden) return finish(new Error('Запуск аудиоустройства прерван.')); if (context.currentTime > initial) return finish(); frame = requestAnimationFrame(poll); };\n            signal?.addEventListener('abort', abort, { once: true }); if (signal?.aborted) abort(); else poll();\n          });\n        }\n        signal?.throwIfAborted();"
-  },
-  {
-    "old": "    let abortListener, visibilityListener;",
-    "new": "    let abortListener, visibilityListener;\n    let captureFrameIndex = -1;\n    const requestEditorFrame = ms => {\n      if (!recordingPolicy) return;\n      const track = stream?.getVideoTracks()[0], index = Math.floor(ms * V.FPS / 1000);\n      if (typeof track?.requestFrame === 'function' && index > captureFrameIndex) { track.requestFrame(); captureFrameIndex = index; }\n    };"
-  },
-  {
-    "old": "      stream = canvas.captureStream(V.FPS);",
-    "new": "      stream = canvas.captureStream(recordingPolicy ? 0 : V.FPS);\n      if (recordingPolicy && typeof stream.getVideoTracks()[0]?.requestFrame !== 'function') {\n        stream.getTracks().forEach(track => track.stop());\n        stream = canvas.captureStream(V.FPS);\n      }"
-  },
-  {
-    "old": "          onProgress(0, 0);",
-    "new": "          if (recordingPolicy) { render(0); requestEditorFrame(0); }\n          onProgress(0, 0);"
-  },
-  {
-    "old": "              render(elapsed);",
-    "new": "              render(elapsed);\n              requestEditorFrame(elapsed);"
   }
 ]
