@@ -72,9 +72,19 @@
     const render = ms => window.ShortsVideoRenderer.render(canvas, plan, ms, resources);
     let stream, context, mix, recorder, animationFrame, flushTimer, finalTimer;
     let abortListener, visibilityListener;
+    let captureFrameIndex = -1;
+    const requestEditorFrame = ms => {
+      if (!recordingPolicy) return;
+      const track = stream?.getVideoTracks()[0], index = Math.floor(ms * V.FPS / 1000);
+      if (typeof track?.requestFrame === 'function' && index > captureFrameIndex) { track.requestFrame(); captureFrameIndex = index; }
+    };
     try {
       render(0);
-      stream = canvas.captureStream(V.FPS);
+      stream = canvas.captureStream(recordingPolicy ? 0 : V.FPS);
+      if (recordingPolicy && typeof stream.getVideoTracks()[0]?.requestFrame !== 'function') {
+        stream.getTracks().forEach(track => track.stop());
+        stream = canvas.captureStream(V.FPS);
+      }
       if (!stream.getVideoTracks().length) throw new Error('Браузер не смог захватить изображение Canvas.');
       if (hasAudio) {
         const Audio = AudioContextClass();
@@ -177,12 +187,14 @@
             audioLast = time;
             return (time - audioStart) * 1000;
           };
+          if (recordingPolicy) { render(0); requestEditorFrame(0); }
           onProgress(0, 0);
           function frame(now) {
             if (settled) return;
             try {
               const elapsed = Math.min(plan.durationMs, Math.max(0, elapsedTime(now)));
               render(elapsed);
+              requestEditorFrame(elapsed);
               onProgress(Math.min(.99, elapsed / plan.durationMs), elapsed);
               if (elapsed >= plan.durationMs) {
                 stopping = true;
