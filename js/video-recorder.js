@@ -131,7 +131,7 @@
             candidate.onerror = () => fail(new Error('Ошибка видеокодека браузера. Попробуйте формат WebM или уберите аудиодорожку.'));
             candidate.onstop = finish;
             recorder = candidate;
-            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm';
+            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm' || recordingPolicy !== null;
             candidate.start(250);
             break;
           } catch (_) {

@@ -84,8 +84,10 @@ browser-owned. No WASM, servers, registration or runtime dependency is added.
 ## Legacy proof and tests
 
 Only explicit Editor recordingPolicy (MIME candidates/maxBytes) is forwarded.
-Default Video behavior, clocks, container-specific finalization and mixer stay
-unchanged. Exact reversible additions precede the old clock/source proofs; no
+Editor policy also requests an acknowledged pause/requestData drain for MP4
+before stop: native Safari single-stop probes lost pending samples (including an
+empty recording). Existing WebM uses the same barrier. Default Video behavior,
+clocks, container-specific finalization and mixer stay unchanged. Exact reversible additions precede the old clock/source proofs; no
 baseline hash/ref is moved and all eight original counterexamples remain.
 
 Node tests use independent FFmpeg-generated classic/fragmented/silent AVC/AAC

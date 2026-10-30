@@ -22,5 +22,9 @@
   {
     "old": "        context = new Audio();\n        await resumeAudio(context);",
     "new": "        context = new Audio();\n        recordingPolicy?.onContext?.(context);\n        await resumeAudio(context);"
+  },
+  {
+    "old": "            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm';",
+    "new": "            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm' || recordingPolicy !== null;"
   }
 ]
