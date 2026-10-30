@@ -53,7 +53,7 @@ def check_native_editor_export(root,script,command,click):
        matrix.append(row)
        print('::notice title=Failure-only native graph case::'+json.dumps(row),flush=True)
      except Exception as diagnostic:print('::warning title=Native matrix failure::'+str(diagnostic)[:800],flush=True)
-     finally:execute('window.exportMatrixLease?.release();await window.exportMatrixSession?.dispose();return true;')
+     finally:execute('document.getElementById("exportMatrix")?.remove();window.exportMatrixLease?.release();await window.exportMatrixSession?.dispose();return true;')
      try:
       data=encoded('exportRawBlob');failed=folder/('failed'+('.mp4' if data['type'].startswith('video/mp4') else '.webm'));failed.write_bytes(base64.b64decode(data['data']));actual=inspect_recording(failed)
       colors=[]
