@@ -81,6 +81,19 @@
         context = new Audio();
         recordingPolicy?.onContext?.(context);
         await resumeAudio(context);
+        if (recordingPolicy) {
+          // running is a control-state acknowledgement, not a rendered quantum.
+          // Anchor the Editor encoder only after the native audio clock advances.
+          const initial = context.currentTime;
+          await new Promise((resolve, reject) => {
+            let frame;
+            const finish = cause => { clearTimeout(deadline); cancelAnimationFrame(frame); signal?.removeEventListener('abort', abort); cause ? reject(cause) : resolve(); };
+            const abort = () => finish(signal.reason || new DOMException('Запись отменена.', 'AbortError'));
+            const deadline = setTimeout(() => finish(new Error('Аудиоустройство не начало обработку. Повторите запуск записи.')), 3000);
+            const poll = () => { if (context.state !== 'running' || document.hidden) return finish(new Error('Запуск аудиоустройства прерван.')); if (context.currentTime > initial) return finish(); frame = requestAnimationFrame(poll); };
+            signal?.addEventListener('abort', abort, { once: true }); if (signal?.aborted) abort(); else poll();
+          });
+        }
         signal?.throwIfAborted();
         const destination = context.createMediaStreamDestination();
         mix = window.ShortsVideoAudio.connectMix(context, { voiceBuffer, musicBuffer, voiceVolume, musicVolume, fadeIn, fadeOut, durationSeconds: plan.durationMs / 1000, destination, monitor: true });
