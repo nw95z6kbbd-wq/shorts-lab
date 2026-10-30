@@ -37,6 +37,7 @@ def check_native_editor_export(root,script,command,click):
      print('::error title=Editor export native trace::'+json.dumps(script('return {states:exportStates,progress:exportProgress.slice(-6),trace:{recorders:editorExportTrace.recorders,contexts:editorExportTrace.contexts.map(c=>({rate:c.sampleRate,state:c.state,time:c.currentTime})),progress:editorExportTrace.progress.slice(-8)}};')),flush=True)
      try:
       script('stopExportTrace();setupEditorExportMatrix();')
+      matrix=[]
       for config in [
        {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2'},
        {'type':'video/mp4;codecs=avc1.42E01E,mp4a.40.2'},
@@ -56,7 +57,8 @@ def check_native_editor_export(root,script,command,click):
        script('window.exportMatrixConfig=arguments[0];',[config]);click('#exportMatrix');row=execute('return await exportMatrixPromise;')
        if row.get('bytes'):
         data=encoded('exportMatrixBlob');path=folder/('matrix-'+str(len(list(folder.glob('matrix-*.mp4'))))+'.mp4');path.write_bytes(base64.b64decode(data['data']));row['independent']=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','stream=codec_name,codec_type,width,height:format=duration','-of','json',str(path)]))
-       print('::notice title=Failure-only native codec matrix::'+json.dumps(row),flush=True)
+       matrix.append(row)
+      print('::notice title=Failure-only native codec matrix::'+json.dumps(matrix),flush=True)
      except Exception as diagnostic:print('::warning title=Native matrix failure::'+str(diagnostic)[:800],flush=True)
      try:
       data=encoded('exportRawBlob');failed=folder/('failed'+('.mp4' if data['type'].startswith('video/mp4') else '.webm'));failed.write_bytes(base64.b64decode(data['data']));actual=inspect_recording(failed);print('::error title=Native Editor export independent evidence::'+json.dumps({'failure':str(failure),'mime':data['type'],'formats':prepared['formats'],'streams':actual['streams'],'video':actual['video'],'audio':actual['audio'],'format':actual['format']}),flush=True)
