@@ -85,6 +85,11 @@
       }
     };
     try {
+      if (recordingPolicy && hasAudio) {
+        const Audio = AudioContextClass();
+        context = new Audio();
+        recordingPolicy.onContext?.(context);
+      }
       render(0);
       stream = canvas.captureStream(recordingPolicy ? 0 : V.FPS);
       if (recordingPolicy && typeof stream.getVideoTracks()[0]?.requestFrame !== 'function') {
@@ -94,8 +99,10 @@
       if (!stream.getVideoTracks().length) throw new Error('Браузер не смог захватить изображение Canvas.');
       if (hasAudio) {
         const Audio = AudioContextClass();
-        context = new Audio();
-        recordingPolicy?.onContext?.(context);
+        if (!context) {
+          context = new Audio();
+          recordingPolicy?.onContext?.(context);
+        }
         await resumeAudio(context);
         if (recordingPolicy) {
           // running is a control-state acknowledgement, not a rendered quantum.

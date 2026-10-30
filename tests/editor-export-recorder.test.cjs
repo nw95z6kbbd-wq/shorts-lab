@@ -2,7 +2,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 const C=require('../js/core.js'),A=require('../js/render-adapters.js'),V=require('../js/video-core.js'),P=require('../js/render-plan.js');
 function harness({holdClock=false}={}){
- const contexts=[];class Audio {constructor(){this.state="suspended";this.currentTime=0;contexts.push(this);}async resume(){this.state="running";}async close(){this.state="closed";}createMediaStreamDestination(){return{stream:{getAudioTracks:()=>[{kind:"audio",stopped:false,stop(){this.stopped=true;}}]}};}}
+ const lifecycle=[],contexts=[];class Audio {constructor(){lifecycle.push("audio context");this.state="suspended";this.currentTime=0;contexts.push(this);}async resume(){this.state="running";}async close(){this.state="closed";}createMediaStreamDestination(){return{stream:{getAudioTracks:()=>[{kind:"audio",stopped:false,stop(){this.stopped=true;}}]}};}}
  const requests=[],rates=[],events=[];const tracks=[{kind:'video',requestFrame(){requests.push(true);},stopped:false,stop(){this.stopped=true;}}],instances=[],frames=[];let captures=0,rafs=0;
  class Recorder{
   static isTypeSupported(type){return type.startsWith('video/mp4');}
@@ -12,9 +12,9 @@ function harness({holdClock=false}={}){
   requestData(){events.push('requestData');queueMicrotask(()=>{events.push('flush acknowledged');this.ondataavailable?.({data:new Blob([new Uint8Array(16)],{type:this.mimeType})});});}
   stop(){events.push('stop');this.state='inactive';this.ondataavailable?.({data:new Blob([new Uint8Array(32)],{type:this.mimeType})});this.onstop?.();}
  }
- const stream={getVideoTracks:()=>tracks.filter(t=>t.kind==="video"),getTracks:()=>tracks,addTrack:t=>tracks.push(t)},canvas={getContext:()=>({getImageData:()=>new Uint8Array(4)}),captureStream(rate){rates.push(rate);captures++;return stream;}};
+ const stream={getVideoTracks:()=>tracks.filter(t=>t.kind==="video"),getTracks:()=>tracks,addTrack:t=>tracks.push(t)},canvas={getContext:()=>({getImageData:()=>new Uint8Array(4)}),captureStream(rate){lifecycle.push("capture");rates.push(rate);captures++;return stream;}};
  const context=vm.createContext({AudioContext:Audio,ShortsVideoAudio:{connectMix:()=>({start(){},stop(){}})},HTMLCanvasElement:{prototype:{captureStream(){}}},MediaRecorder:Recorder,ShortsVideoCore:V,ShortsRenderPlan:P,ShortsVideoRenderer:{render:(_canvas,_plan,ms)=>frames.push(ms)},Blob,Uint8Array,DOMException,Error,Object,performance:{now:()=>0},document:{hidden:false,addEventListener(){},removeEventListener(){}},setTimeout,clearTimeout,requestAnimationFrame:fn=>{rafs++;return setTimeout(()=>{if(!holdClock)for(const c of contexts)if(c.state==="running")c.currentTime+=.5;fn(20000);},1);},cancelAnimationFrame:clearTimeout});context.window=context;vm.runInContext(fs.readFileSync('js/video-recorder.js','utf8'),context);
- return{requests,rates,scheduled:()=>rafs,contexts,events,record:context.ShortsVideoRecorder.record,canvas,tracks,instances,frames,captures:()=>captures};
+ return{lifecycle,requests,rates,scheduled:()=>rafs,contexts,events,record:context.ShortsVideoRecorder.record,canvas,tracks,instances,frames,captures:()=>captures};
 }
 function editor(){const p=C.upgradeProject(C.createProject(true));p.timing='manual';p.scenes=p.scenes.slice(0,1);p.scenes[0].durationMs=1000;return A.fromEditor(p);}
 const policy=maxBytes=>Object.freeze({mimeTypes:Object.freeze(['video/mp4;codecs=avc1.42001f']),maxBytes});
@@ -50,4 +50,9 @@ test('Editor AAC waits for a real audio quantum, remains cancellable, and anchor
  }finally{abort.abort();await outcome;}
  const cancelled=harness({holdClock:true}),stop=new AbortController(),pending=cancelled.record({canvas:cancelled.canvas,plan:editor(),voiceBuffer:{duration:1},recordingPolicy:policy(1000),signal:stop.signal});
  const rejection=assert.rejects(pending,{name:'AbortError'});await until(()=>cancelled.scheduled()>0);stop.abort();await rejection;assert.equal(cancelled.instances.length,0);assert.equal(cancelled.contexts[0].state,'closed');assert.ok(cancelled.tracks.every(t=>t.stopped));
+});
+
+test('Editor initializes its audio session before creating the capture source, while Video order stays unchanged',async()=>{
+ const e=harness();await e.record({canvas:e.canvas,plan:editor(),voiceBuffer:{duration:1},recordingPolicy:policy(1000)});assert.deepEqual(e.lifecycle,['audio context','capture']);
+ const v=harness();await v.record({canvas:v.canvas,plan:A.fromVideo(V.demo()),voiceBuffer:{duration:1}});assert.deepEqual(v.lifecycle,['capture','audio context']);
 });

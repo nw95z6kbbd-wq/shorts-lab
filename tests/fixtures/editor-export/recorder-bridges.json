@@ -1,5 +1,13 @@
 [
   {
+    "old": "    try {\n      render(0);",
+    "new": "    try {\n      if (recordingPolicy && hasAudio) {\n        const Audio = AudioContextClass();\n        context = new Audio();\n        recordingPolicy.onContext?.(context);\n      }\n      render(0);"
+  },
+  {
+    "old": "        context = new Audio();\n        recordingPolicy?.onContext?.(context);",
+    "new": "        if (!context) {\n          context = new Audio();\n          recordingPolicy?.onContext?.(context);\n        }"
+  },
+  {
     "old": "      if (typeof track?.requestFrame === 'function' && index > captureFrameIndex) { track.requestFrame(); captureFrameIndex = index; }",
     "new": "      if (typeof track?.requestFrame === 'function' && index > captureFrameIndex) {\n        track.requestFrame();\n        // Commit queued Canvas drawing before the capture/encoder boundary.\n        // One pixel is a read-only synchronization point, not a frame copy.\n        canvas.getContext('2d').getImageData(0, 0, 1, 1);\n        captureFrameIndex = index;\n      }"
   },
