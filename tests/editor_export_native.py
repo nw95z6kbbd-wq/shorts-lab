@@ -36,13 +36,13 @@ def check_native_editor_export(root,script,command,click):
     except Exception as failure:
      print('::error title=Editor export native trace::'+json.dumps(script('return {states:exportStates,progress:exportProgress.slice(-6),trace:{recorders:editorExportTrace.recorders,contexts:editorExportTrace.contexts.map(c=>({rate:c.sampleRate,state:c.state,time:c.currentTime})),progress:editorExportTrace.progress.slice(-8)}};')),flush=True)
      try:
-      script('stopExportTrace();setupEditorExportMatrix();')
+      script('stopExportTrace();');execute('await setupEditorExportMatrix();return true;')
       matrix=[]
       for config in [
-       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':False},
-       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True},
-       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True},
        {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True},
+       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True},
+       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'image':True},
+       {'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True},
       ]:
        script('window.exportMatrixConfig=arguments[0];',[config]);click('#exportMatrix');row=execute('return await exportMatrixPromise;')
        if row.get('bytes'):
@@ -50,6 +50,7 @@ def check_native_editor_export(root,script,command,click):
        matrix.append(row)
        print('::notice title=Failure-only native graph case::'+json.dumps(row),flush=True)
      except Exception as diagnostic:print('::warning title=Native matrix failure::'+str(diagnostic)[:800],flush=True)
+     finally:execute('exportMatrixLease?.release();await exportMatrixSession?.dispose();return true;')
      try:
       data=encoded('exportRawBlob');failed=folder/('failed'+('.mp4' if data['type'].startswith('video/mp4') else '.webm'));failed.write_bytes(base64.b64decode(data['data']));actual=inspect_recording(failed);print('::error title=Native Editor export independent evidence::'+json.dumps({'failure':str(failure),'mime':data['type'],'formats':prepared['formats'],'streams':actual['streams'],'video':actual['video'],'audio':actual['audio'],'format':actual['format']}),flush=True)
       (folder/'state.json').write_text(json.dumps(script('return {states:window.exportStates,progress:window.exportProgress,status:window.exportJob?.status()};'),ensure_ascii=False,indent=2))
