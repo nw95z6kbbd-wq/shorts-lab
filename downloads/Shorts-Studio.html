@@ -3135,6 +3135,25 @@ document.addEventListener("DOMContentLoaded", () => {
     if(io.playable&&!io.playable('video/mp4;codecs=avc1.42001f'+(audio?',mp4a.40.2':'')))return null;
     try{const v=await io.VideoEncoder.isConfigSupported(AVC),a=audio?await io.AudioEncoder.isConfigSupported(AAC):null;if(!v.supported||audio&&!a.supported)return null;return Object.freeze({video:Object.freeze({...AVC,avc:Object.freeze({format:'avc'})}),audio:audio?Object.freeze({...AAC}):null,mimeType:'video/mp4;codecs=avc1.42001f'+(audio?',mp4a.40.2':'')});}catch(_){return null;}
   }
+  function audioSpecificConfig(bytes) {
+    if(!(bytes instanceof Uint8Array)||bytes.length<2||bytes.length>65536)throw error('CODEC','Неверное описание AAC encoder.');
+    const bad=()=>{throw error('CODEC','Повреждён или не поддерживается AAC ES_Descriptor encoder.');};
+    if(bytes[0]===3){
+      // Older Cocoa AudioEncoder returns its MPEG-4 magic cookie rather than
+      // the AudioSpecificConfig. Parse descriptors; never search for a byte tag.
+      const descriptor=(at,end)=>{if(at+2>end)bad();const tag=bytes[at++];let length=0,done=false;for(let n=0;n<4;n++){if(at>=end)bad();const value=bytes[at++];length=length*128+(value&127);if(!(value&128)){done=true;break;}}if(!done||at+length>end)bad();return{tag,data:at,end:at+length};};
+      const es=descriptor(0,bytes.length);if(es.tag!==3||es.end!==bytes.length||es.data+3>es.end)bad();const flags=bytes[es.data+2];let at=es.data+3;
+      if(flags&128)at+=2;if(flags&64){if(at>=es.end)bad();at+=1+bytes[at];}if(flags&32)at+=2;
+      const dc=descriptor(at,es.end);if(dc.tag!==4||dc.data+13>dc.end||bytes[dc.data]!==64||(bytes[dc.data+1]>>>2)!==5)bad();
+      const asc=descriptor(dc.data+13,dc.end);if(asc.tag!==5||asc.end!==dc.end||asc.end-asc.data<2)bad();
+      if(dc.end<es.end){const sl=descriptor(dc.end,es.end);if(sl.tag!==6||sl.end!==es.end||sl.end-sl.data!==1||bytes[sl.data]!==2)bad();}
+      bytes=bytes.slice(asc.data,asc.end);
+    }
+    // This backend explicitly requests AAC-LC, 48 kHz stereo. Do not manufacture
+    // a config from that request or relabel another actual codec/rate/channel set.
+    if(bytes.length>64||bytes[0]>>>3!==2||((bytes[0]&7)<<1|bytes[1]>>>7)!==3||((bytes[1]>>>3)&15)!==2)throw error('CODEC','Encoder не вернул AAC-LC 48 кГц stereo.');
+    return bytes;
+  }
   const text=s=>Uint8Array.from(s,c=>c.charCodeAt(0));
   const uint=(n,size=4)=>{if(!Number.isSafeInteger(n)||n<0||n>=2**(size*8))throw error('MUX','Неверное число в MP4.');const b=new Uint8Array(size);for(let i=size-1;i>=0;i--){b[i]=n%256;n=Math.floor(n/256);}return b;};
   const zeros=n=>new Uint8Array(n),cat=(...arrays)=>{const out=new Uint8Array(arrays.reduce((n,a)=>n+a.length,0));let p=0;for(const a of arrays){out.set(a,p);p+=a.length;}return out;};
@@ -3183,7 +3202,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const wait=promise=>Promise.race([promise,failure]);
     const output=(target,kind)=>(chunk,metadata)=>{try{
       if(closed)return;check();if(outputBytes+chunk.byteLength>recordingPolicy.maxBytes)throw error('OUTPUT_BUDGET','Видео превышает рабочий предел результата.');budget.reserve(chunk.byteLength);outputBytes+=chunk.byteLength;
-      if(metadata?.decoderConfig?.description){const d=metadata.decoderConfig.description,next=(ArrayBuffer.isView(d)?new Uint8Array(d.buffer,d.byteOffset,d.byteLength):new Uint8Array(d)).slice();if(target.description&&(next.length!==target.description.length||next.some((v,i)=>v!==target.description[i])))throw error('CODEC','Encoder изменил конфигурацию дорожки во время записи.');target.description=next;}
+      if(metadata?.decoderConfig?.description){const d=metadata.decoderConfig.description,raw=(ArrayBuffer.isView(d)?new Uint8Array(d.buffer,d.byteOffset,d.byteLength):new Uint8Array(d)).slice(),next=kind==='audio'?audioSpecificConfig(raw):raw;if(target.description&&(next.length!==target.description.length||next.some((v,i)=>v!==target.description[i])))throw error('CODEC','Encoder изменил конфигурацию дорожки во время записи.');target.description=next;}
       const data=new Uint8Array(chunk.byteLength);chunk.copyTo(data);target.samples.push({data,timestamp:chunk.timestamp,duration:chunk.duration,key:chunk.type==='key'});
     }catch(cause){fail(cause);}};
     async function drain(encoder){while(encoder.encodeQueueSize>=2){check();let done;const pending=new Promise(resolve=>{done=resolve;encoder.addEventListener('dequeue',done,{once:true});if(encoder.encodeQueueSize<2)done();});try{await wait(pending);}finally{encoder.removeEventListener('dequeue',done);}}}

@@ -21,6 +21,8 @@ Editor policy additions. Source guards reverse them before the original frozen
 proof. Never regenerate the historical Video baseline with current code.
 
 `native-mux-reference.json` independently records FFprobe packet offsets, sizes,
-timestamps, key flags and codec extradata from classic.mp4, with its SHA-256.
+timestamps, key flags and codec extradata from native-stereo.mp4, with its SHA-256.
+That synthetic fixture copies classic.mp4 video and independently re-encodes its
+sine to 48 kHz stereo AAC (`-c:v copy -c:a aac -ac 2 -ar 48000 -b:a 128k`).
 The muxer test copies these exact packet bytes into new tables and verifies
 byte identity and AVC/AAC coverage; browser tests also perform full FFmpeg decode.

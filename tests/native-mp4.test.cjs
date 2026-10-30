@@ -3,7 +3,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const factory=require('../js/native-mp4.js'),mediaFactory=require('../js/media-session.js'),I=require('../js/export-inspector.js'),C=require('../js/core.js'),A=require('../js/render-adapters.js');
 const ref=require('./fixtures/editor-export/native-mux-reference.json'),original=fs.readFileSync('tests/fixtures/editor-export/'+ref.source);
 function track(kind){const list=ref[kind].samples;return{description:Buffer.from(ref[kind].description,'hex'),samples:list.map((s,i)=>({data:original.subarray(s.offset,s.offset+s.size),key:s.key,duration:kind==='video'?(i===list.length-1?1000000-s.timestamp:list[i+1].timestamp-s.timestamp):Math.round(s.duration*.048)}))};}
-function fake({dropVideo=false,gate=null,offlineGate=null,timestampShift=0}={}){
+function fake({dropVideo=false,gate=null,offlineGate=null,timestampShift=0,audioDescription=null}={}){
  const media=mediaFactory({}),events=[],frames=[],active=[],mixes=[],rendered=[];
  class Frame{constructor(_source,options){Object.assign(this,options);frames.push(this);}close(){assert.ok(!this.closed);this.closed=true;}}
  class Data{constructor(options){Object.assign(this,options);}close(){this.closed=true;}}
@@ -11,7 +11,7 @@ function fake({dropVideo=false,gate=null,offlineGate=null,timestampShift=0}={}){
   static async isConfigSupported(config){return{supported:true,config};}
   constructor(options){super();this.options=options;this.state='unconfigured';this.encodeQueueSize=0;this.index=0;active.push(this);}
   configure(config){this.state='configured';this.config=config;}
-  send(i,input){if(this.state==='closed'||dropVideo&&kind==='video'&&i===3)return;const spec=ref[kind].samples[i%ref[kind].samples.length],data=original.subarray(spec.offset,spec.offset+spec.size),metadata=i===0?{decoderConfig:{description:Buffer.from(ref[kind].description,'hex')}}:{};
+  send(i,input){if(this.state==='closed'||dropVideo&&kind==='video'&&i===3)return;const spec=ref[kind].samples[i%ref[kind].samples.length],data=original.subarray(spec.offset,spec.offset+spec.size),metadata=i===0?{decoderConfig:{description:kind==='audio'&&audioDescription?audioDescription:Buffer.from(ref[kind].description,'hex')}}:{};
    this.options.output({timestamp:input.timestamp+(kind==='video'&&i>0?timestampShift:0),duration:kind==='video'?input.duration:spec.duration,type:spec.key?'key':'delta',byteLength:data.length,copyTo:out=>out.set(data)},metadata);}
   encode(frame){assert.equal(this.state,'configured');const i=this.index++;this.encodeQueueSize++;const input={timestamp:frame.timestamp,duration:frame.duration};Promise.resolve(gate).then(()=>{this.send(i,input);this.encodeQueueSize--;this.dispatchEvent(new Event('dequeue'));});}
   async flush(){while(this.encodeQueueSize)await new Promise(r=>this.addEventListener('dequeue',r,{once:true}));if(kind==='audio'&&this.index===47)this.send(47,{timestamp:1000000});}
@@ -57,4 +57,12 @@ test('one microsecond native timestamp quantization preserves exact input timing
 });
 test('native MP4 admission requires actual browser AVC/AAC playback support before querying encoder APIs',async()=>{
  let queries=0;const api=factory({VideoEncoder:{isConfigSupported(){queries++;throw Error('decoder unavailable');}},VideoFrame:function(){},playable:()=>false});assert.equal(await api.support(false),null);assert.equal(queries,0);
+});
+
+test('Cocoa ES_Descriptor magic cookie is parsed structurally to its unchanged AAC config; malformed or non-LC cookies fail',async()=>{
+ // ISO 14496 descriptor hierarchy, padded length fields as captured in Safari.
+ const desc=(tag,payload)=>Buffer.concat([Buffer.from([tag,128,128,128,payload.length]),payload]),asc=Buffer.from(ref.audio.description,'hex').subarray(0,2),dc=desc(4,Buffer.concat([Buffer.from([64,20,0,24,0]),Buffer.alloc(8),desc(5,asc)])),cookie=desc(3,Buffer.concat([Buffer.alloc(3),dc,desc(6,Buffer.from([2]))]));
+ assert.equal(cookie.length,39);assert.equal(cookie.subarray(0,24).toString('hex'),'038080802200000004808080144014001800000000000000');
+ const f=fake({audioDescription:cookie}),result=await f.api.encode(await f.options()),info=I.inspectBytes(new Uint8Array(await result.blob.arrayBuffer()));assert.equal(info.audio.profile,'AAC-LC');assert.equal(info.audio.channels,2);assert.equal(info.audio.sampleRate,48000);assert.equal(info.audio.count,48);assert.equal(f.media.statistics().residentBytes,0);
+ for(const mutate of [b=>b.subarray(0,b.length-1),b=>{b[4]++;return b;},b=>{b[b.indexOf(5,13)]=7;return b;},b=>{b[31]=(5<<3)|(b[31]&7);return b;}]){const bad=fake({audioDescription:mutate(Buffer.from(cookie))});await assert.rejects(bad.api.encode(await bad.options()),{code:'CODEC'});assert.equal(bad.media.statistics().residentBytes,0);}
 });

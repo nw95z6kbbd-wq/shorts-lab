@@ -52,6 +52,10 @@ MediaTime rounding of at most one microsecond is normalized to the exact input
 duration. Missing, reordered or more-drifted packets fail. Playback capability
 is checked before querying encoders, since output must pass browser decoding.
 Its small ISO BMFF muxer packages encoded AVC/AAC bytes without transcoding.
+Older Cocoa AudioEncoder returns a full ES_Descriptor magic cookie. A bounded
+structural parser extracts its original AudioSpecificConfig (tag 0x05), validating
+actual AAC-LC/48 kHz/stereo; it never invents a config or changes encoded packets.
+Truncated, unknown or inconsistent descriptors fail closed.
 The existing mixer renders two-channel 48 kHz PCM in an OfflineAudioContext;
 this does not play sound or require a playback resume after preparation.
 There is no second renderer, mixer, WASM or runtime dependency.
