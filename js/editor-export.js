@@ -94,7 +94,7 @@
      const plan=job.data.plan,expected={durationMs:plan.durationMs,...plan.output,hasAudio:!!(plan.audio.voice.assetId||plan.audio.music.assetId)};
      const info=await io.inspector.inspect(raw.blob,expected,{signal:job.abort.signal});check(job);
      if(!job.policy.mimeTypes.some(type=>type.startsWith('video/'+info.container)))throw error('FORMAT','Записан незапрошенный контейнер.');
-     const declared=String(raw.mimeType||raw.blob.type).split(';')[0].toLowerCase();if(declared!=='video/'+info.container)throw error('CONTAINER','MIME и фактический контейнер записанного файла не совпадают.');
+     for(const value of [raw.mimeType,raw.blob.type].filter(Boolean)){const declared=String(value).split(';')[0].toLowerCase();if(declared!=='video/'+info.container)throw error('CONTAINER','MIME и фактический контейнер записанного файла не совпадают.');}
      const playback=await io.inspector.playback(raw.blob,info,expected,{signal:job.abort.signal});check(job);
      lastResult=Object.freeze({blob:raw.blob,container:info.container,extension:info.extension,mimeType:'video/'+info.container,videoCodec:info.video.codec,audioCodec:info.audio?.codec||null,width:playback.width,height:playback.height,durationMs:playback.durationMs,plannedDurationMs:plan.durationMs,bytes:raw.blob.size,streams:info,fallback:info.container==='webm'&&plan.exportSettings.format==='auto',jobId:job.id,identity:job.session.identity,validation:Object.freeze({sampleCoverage:true,browserMetadata:true,fullDecode:false})});
      publish(job,'complete');emit(onProgress,Object.freeze({jobId:job.id,state:'complete',fraction:1,timeMs:plan.durationMs}));unlisten(job);return lastResult;

@@ -28,7 +28,7 @@ def check_native_editor_export(root,script,command,click):
     prepared=execute('return await prepareEditorExportFixture(arguments[0],arguments[1]);',[media_payload(),{'format':mode,'audio':audio}])
     if mode=='auto':assert any(t.startswith('video/mp4') for t in prepared['formats']), 'This Safari has no compatible H.264/AAC encoder: actual MP4 requirement not verified'
     script((root/'tests/editor-export-safari-diagnostics.js').read_text());script('window.stopExportTrace=installEditorExportTrace();')
-    print('::notice title=Native export visible canvas::'+json.dumps(script('const r=exportCanvas.getBoundingClientRect();return {viewport:[innerWidth,innerHeight],rect:{x:r.x,y:r.y,width:r.width,height:r.height},visible:document.visibilityState,focus:document.hasFocus(),capture:typeof HTMLCanvasElement.prototype.captureStream};')),flush=True)
+    print('::notice title=Native export visible canvas::'+json.dumps(script('const r=exportCanvas.getBoundingClientRect();return {screen:[screen.availWidth,screen.availHeight,devicePixelRatio,screenX,screenY],hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===exportCanvas,viewport:[innerWidth,innerHeight],rect:{x:r.x,y:r.y,width:r.width,height:r.height},visible:document.visibilityState,focus:document.hasFocus(),capture:typeof HTMLCanvasElement.prototype.captureStream};')),flush=True)
     click('#editorExportStart')
     try:
      result=execute('return await finishEditorExportFixture();');data=encoded('editorExportBlob');path=folder/('recording.'+result['extension']);path.write_bytes(base64.b64decode(data['data']));actual=verify_file(path,result,audio)
