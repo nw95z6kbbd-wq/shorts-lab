@@ -160,7 +160,7 @@
             candidate.onerror = () => fail(new Error('Ошибка видеокодека браузера. Попробуйте формат WebM или уберите аудиодорожку.'));
             candidate.onstop = finish;
             recorder = candidate;
-            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm' || recordingPolicy !== null;
+            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm';
             candidate.start(250);
             break;
           } catch (_) {
@@ -204,6 +204,13 @@
               onProgress(Math.min(.99, elapsed / plan.durationMs), elapsed);
               if (elapsed >= plan.durationMs) {
                 stopping = true;
+                if (recordingPolicy && !drainRequired) {
+                  // The explicit Editor capture has committed this final frame.
+                  // Stop MP4 in this render task, before its input falls idle.
+                  finalTimer = setTimeout(() => fail(new Error('Браузер не смог завершить видеофайл. Попробуйте WebM.')), 10000);
+                  recorder.stop();
+                  return;
+                }
                 // Allow the last drawn frame to reach the canvas capture track before flushing.
                 flushTimer = setTimeout(() => {
                   if (settled || recorder.state === 'inactive') return;
