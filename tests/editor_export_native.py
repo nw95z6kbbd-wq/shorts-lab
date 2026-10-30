@@ -79,7 +79,7 @@ def check_native_editor_export(root,script,command,click):
        row['raw']=execute('return exportRawBlob?ShortsExportInspector.inspectBytes(new Uint8Array(await exportRawBlob.arrayBuffer())):null;');repeats.append(row)
        execute('await exportJob.cancel();return true;')
        if backend=='cpu-mirror':row['mirror']=script('return stopCpuMirror();')
-      print('::notice title=Failure-only controller decoder comparison::'+json.dumps(repeats),flush=True)
+       print('::notice title=Failure-only controller backend::'+json.dumps(row),flush=True)
      finally:script('window.createImageBitmap=window.exportOriginalBitmap;')
      raise
     script('stopExportTrace();');execute('await disposeEditorExportFixture();return true;')
