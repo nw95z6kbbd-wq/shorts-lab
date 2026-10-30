@@ -28,7 +28,7 @@ def check_native_editor_export(root,script,command,click):
     prepared=execute('return await prepareEditorExportFixture(arguments[0],arguments[1]);',[media_payload(),{'format':mode,'audio':audio}])
     if mode=='auto':assert any(t.startswith('video/mp4') for t in prepared['formats']), 'This Safari has no compatible H.264/AAC encoder: actual MP4 requirement not verified'
     script((root/'tests/editor-export-safari-diagnostics.js').read_text());script('window.stopExportTrace=installEditorExportTrace();')
-    print('::notice title=Native export visible canvas::'+json.dumps(script('const r=exportCanvas.getBoundingClientRect();return {screen:[screen.availWidth,screen.availHeight,devicePixelRatio,screenX,screenY],hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===exportCanvas,viewport:[innerWidth,innerHeight],rect:{x:r.x,y:r.y,width:r.width,height:r.height},visible:document.visibilityState,focus:document.hasFocus(),capture:typeof HTMLCanvasElement.prototype.captureStream};')),flush=True)
+    print('Native export visible canvas: '+json.dumps(script('const r=exportCanvas.getBoundingClientRect();return {screen:[screen.availWidth,screen.availHeight,devicePixelRatio,screenX,screenY],hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===exportCanvas,viewport:[innerWidth,innerHeight],rect:{x:r.x,y:r.y,width:r.width,height:r.height},visible:document.visibilityState,focus:document.hasFocus(),capture:typeof HTMLCanvasElement.prototype.captureStream};')),flush=True)
     click('#editorExportStart')
     try:
      result=execute('return await finishEditorExportFixture();');data=encoded('editorExportBlob');path=folder/('recording.'+result['extension']);path.write_bytes(base64.b64decode(data['data']));actual=verify_file(path,result,audio)
@@ -36,6 +36,7 @@ def check_native_editor_export(root,script,command,click):
      else:assert result['container']=='webm'
      if audio:assert execute('return await exerciseEditorExportErrors();')==['missing image','overflow','resource count']
      evidence.append({'entry':entry,'mode':mode,'actual':actual})
+     print('::notice title=Native Editor encoded file::'+json.dumps({'origin':'file' if entry.startswith('file:') else 'http','mode':mode,'audio':audio,'actual':actual}),flush=True)
     except Exception as failure:
      codec_api=execute('const result={VideoEncoder:typeof VideoEncoder,AudioEncoder:typeof AudioEncoder,VideoFrame:typeof VideoFrame,AudioData:typeof AudioData};if(typeof VideoEncoder==="function")try{result.avc=await VideoEncoder.isConfigSupported({codec:"avc1.42001f",width:720,height:1280,bitrate:2600000,framerate:24,avc:{format:"avc"},latencyMode:"realtime"});}catch(e){result.avcError=e.message;}if(typeof AudioEncoder==="function")try{result.aac=await AudioEncoder.isConfigSupported({codec:"mp4a.40.2",sampleRate:48000,numberOfChannels:2,bitrate:128000});}catch(e){result.aacError=e.message;}return result;')
      print('::warning title=Available native encoding APIs::'+json.dumps(codec_api),flush=True)
@@ -56,7 +57,7 @@ def check_native_editor_export(root,script,command,click):
 
      raise
     script('stopExportTrace();');execute('await disposeEditorExportFixture();return true;')
-  print('::notice title=Native Safari Editor export confirmed::'+json.dumps(evidence),flush=True)
+  print('::notice title=Native Safari Editor export confirmed::'+json.dumps({'cases':len(evidence),'origins':['http','file'],'completeIndependentDecode':True}),flush=True)
  finally:
   for grant in grants:grant.unlink(missing_ok=True)
   server.shutdown();server.server_close()

@@ -8,8 +8,8 @@ window.prepareEditorExportFixture=async function(payload,{format='auto',audio=tr
  if(audio){p.audio.voice={assetId:ids[3],name:'voice.wav',volume:.65};p.audio.music={assetId:ids[4],name:'music.wav',volume:.45,fadeInMs:300,fadeOutMs:400};}
  p.exportSettings.format=format;await editorLiveImport(p);await editorTimingWaitForSave();document.getElementById('openVideoMode').click();await editorLiveUntil(()=>ShortsMediaSessions.statistics().sessions===0,'old preview teardown');
  window.exportOriginal=ShortsEditor.backupSnapshot();window.exportBefore=await studioUiSnapshot();window.exportStates=[];window.exportProgress=[];
- const canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;canvas.style='position:fixed;left:0;bottom:0;width:360px;height:640px;z-index:24000';document.body.append(canvas);window.exportCanvas=canvas;
- const start=document.createElement('button');start.id='editorExportStart';start.textContent='Start test export';start.style='position:fixed;left:0;top:0;z-index:22000';document.body.append(start);
+ const canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;canvas.style='position:fixed;left:0;bottom:0;width:min(360px,40vw,45vh);height:auto;z-index:24000';document.body.append(canvas);window.exportCanvas=canvas;
+ const start=document.createElement('button');start.id='editorExportStart';start.textContent='Start test export';start.style='position:fixed;left:0;top:0;z-index:26000';document.body.append(start);
  window.exportNativeRecord=ShortsVideoRecorder.record;ShortsVideoRecorder.record=async options=>{window.exportRawBlob=null;const r=await exportNativeRecord(options);window.exportRawBlob=r.blob;return r;};
  window.exportJob=ShortsEditorExport.create({onState:s=>exportStates.push(s),onProgress:p=>exportProgress.push(p)});window.exportPrepared=await exportJob.prepare({project:exportOriginal,canvas,contentRevision:7,savedRevision:null});
  exportCheck(exportJob.status().state==='ready','prepare ready');exportCheck(!exportStates.some(s=>s.state==='recording'),'prepare must not record');
