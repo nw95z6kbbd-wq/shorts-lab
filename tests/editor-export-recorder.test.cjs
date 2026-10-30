@@ -29,7 +29,7 @@ test('Video cannot receive Editor-only recording limits or candidate overrides',
 });
 test('historical guard still rejects changes to approved Editor options, codec selection and output cap',()=>{
  const source=fs.readFileSync('js/video-recorder.js','utf8'),cp=require('node:child_process'),os=require('node:os'),path=require('node:path'),folder=fs.mkdtempSync(path.join(os.tmpdir(),'export-guard-'));
- try{for(const [old,next] of [["plan?.source?.mode !== 'editor'","plan?.source?.mode === 'editor'"],['recordingPolicy.maxBytes','recordingPolicy.maxBytes * 2'],['formats = recordingPolicy.mimeTypes.filter','formats = support.formats.filter'],['context.currentTime > initial','context.currentTime >= initial'],['requestEditorFrame(elapsed)','requestEditorFrame(0)']]){
+ try{for(const [old,next] of [["plan?.source?.mode !== 'editor'","plan?.source?.mode === 'editor'"],['recordingPolicy.maxBytes','recordingPolicy.maxBytes * 2'],['formats = recordingPolicy.mimeTypes.filter','formats = support.formats.filter'],['if (recordingPolicy && hasAudio)','if (recordingPolicy && !hasAudio)'],["canvas.getContext('2d').getImageData","canvas.getContext('2d').clearRect"]]){
   assert.ok(source.includes(old));const file=path.join(folder,'video-recorder.js');fs.writeFileSync(file,source.replace(old,next));assert.throws(()=>cp.execFileSync('python',['tests/recorder_clock_guard.py',file],{stdio:'pipe'}));
  }}finally{fs.rmSync(folder,{recursive:true,force:true});}
 });
