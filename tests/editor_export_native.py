@@ -42,10 +42,10 @@ def check_native_editor_export(root,script,command,click):
       script('stopExportTrace();');execute('await setupEditorExportMatrix();return true;')
       matrix=[]
       for config in [
-       {'mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True,'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2'},
-       {'mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True,'type':'video/mp4;codecs=avc1.42E01E,mp4a.40.2'},
-       {'mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True,'type':'video/mp4;codecs=avc1.4D401F,mp4a.40.2'},
-       {'mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True,'type':'video/mp4;codecs=avc1,mp4a.40.2'},
+       {'mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True,'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','cssWidth':90},
+       {'mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True,'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','cssWidth':180},
+       {'mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True,'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','cssWidth':270},
+       {'mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True,'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','cssWidth':360},
       ]:
        script('window.exportMatrixConfig=arguments[0];',[config]);click('#exportMatrix');row=execute('return await exportMatrixPromise;')
        if row.get('bytes'):

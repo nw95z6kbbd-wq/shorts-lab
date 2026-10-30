@@ -14,7 +14,7 @@ window.setupEditorExportMatrix=async function(){
  const button=document.createElement('button');button.id='exportMatrix';button.textContent='Codec diagnostics';button.style='position:fixed;top:0;left:0;z-index:25000';document.body.append(button);
  window.exportMatrixRows=[];
  button.onclick=()=>{window.exportMatrixPromise=(async()=>{
-  const config=window.exportMatrixConfig,Audio=window.AudioContext||window.webkitAudioContext,context=new Audio(config.rate?{sampleRate:config.rate}:undefined),canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;canvas.style='position:fixed;bottom:0;left:0;width:90px;height:160px;z-index:24000';document.body.append(canvas);
+  const config=window.exportMatrixConfig,Audio=window.AudioContext||window.webkitAudioContext,context=new Audio(config.rate?{sampleRate:config.rate}:undefined),canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;canvas.style='position:fixed;bottom:0;left:0;width:'+config.cssWidth+'px;height:'+(config.cssWidth*16/9)+'px;z-index:24000';document.body.append(canvas);
   let stream,osc,mix,recorder,frame,timer;const events=[],chunks=[],row={config,supported:MediaRecorder.isTypeSupported(config.type)};
   try{
    const duration=3,plan=exportMatrixSession.plan,resources=exportMatrixLease.resources;const paint=elapsed=>{if(config.renderer)ShortsVideoRenderer.render(canvas,plan,Math.min(2999,elapsed*1000),resources);else if(config.image)canvas.getContext('2d').drawImage(resources.images.values().next().value,0,0,720,1280);else{const x=canvas.getContext('2d');x.fillStyle=elapsed%1<.5?'#6633ee':'#331155';x.fillRect(0,0,720,1280);}};

@@ -28,6 +28,10 @@
     "new": "        context = new Audio();\n        recordingPolicy?.onContext?.(context);\n        await resumeAudio(context);"
   },
   {
+    "old": "            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm';",
+    "new": "            drainRequired = V.extensionFor(candidate.mimeType || type) === 'webm' || recordingPolicy !== null;"
+  },
+  {
     "old": "        await resumeAudio(context);\n        signal?.throwIfAborted();",
     "new": "        await resumeAudio(context);\n        if (recordingPolicy) {\n          // running is a control-state acknowledgement, not a rendered quantum.\n          // Anchor the Editor encoder only after the native audio clock advances.\n          const initial = context.currentTime;\n          await new Promise((resolve, reject) => {\n            let frame;\n            const finish = cause => { clearTimeout(deadline); cancelAnimationFrame(frame); signal?.removeEventListener('abort', abort); cause ? reject(cause) : resolve(); };\n            const abort = () => finish(signal.reason || new DOMException('Запись отменена.', 'AbortError'));\n            const deadline = setTimeout(() => finish(new Error('Аудиоустройство не начало обработку. Повторите запуск записи.')), 3000);\n            const poll = () => { if (context.state !== 'running' || document.hidden) return finish(new Error('Запуск аудиоустройства прерван.')); if (context.currentTime > initial) return finish(); frame = requestAnimationFrame(poll); };\n            signal?.addEventListener('abort', abort, { once: true }); if (signal?.aborted) abort(); else poll();\n          });\n        }\n        signal?.throwIfAborted();"
   },
@@ -46,9 +50,5 @@
   {
     "old": "              render(elapsed);",
     "new": "              render(elapsed);\n              requestEditorFrame(elapsed);"
-  },
-  {
-    "old": "                stopping = true;\n                // Allow the last drawn frame to reach the canvas capture track before flushing.",
-    "new": "                stopping = true;\n                if (recordingPolicy && !drainRequired) {\n                  // The explicit Editor capture has committed this final frame.\n                  // Stop MP4 in this render task, before its input falls idle.\n                  finalTimer = setTimeout(() => fail(new Error('Браузер не смог завершить видеофайл. Попробуйте WebM.')), 10000);\n                  recorder.stop();\n                  return;\n                }\n                // Allow the last drawn frame to reach the canvas capture track before flushing."
   }
 ]

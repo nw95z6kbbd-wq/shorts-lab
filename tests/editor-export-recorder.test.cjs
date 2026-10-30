@@ -34,9 +34,9 @@ test('historical guard still rejects changes to approved Editor options, codec s
  }}finally{fs.rmSync(folder,{recursive:true,force:true});}
 });
 
-test('Editor AVC stops in the final committed render task; default Video keeps its deferred stop',async()=>{
+test('Editor AVC finalization waits for acknowledged drain before stop; default Video keeps single-stop behavior',async()=>{
  const e=harness();const result=await e.record({canvas:e.canvas,plan:editor(),recordingPolicy:policy(1000)});
- assert.deepEqual(e.events,['stop']);assert.deepEqual(e.rates,[0]);assert.equal(e.requests.length,2);assert.equal(result.blob.size,96);assert.equal(result.extension,'mp4');
+ assert.deepEqual(e.events,['pause','requestData','flush acknowledged','stop']);assert.deepEqual(e.rates,[0]);assert.equal(e.requests.length,2);assert.equal(result.blob.size,112);assert.equal(result.extension,'mp4');
  const v=harness();await v.record({canvas:v.canvas,plan:A.fromVideo(V.demo())});assert.deepEqual(v.events,['stop']);assert.deepEqual(v.rates,[24]);assert.equal(v.requests.length,0);
 });
 
