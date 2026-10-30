@@ -91,6 +91,7 @@ jobs:
       - name: Check canonical Editor Canvas and real recording
         run: |
           python tests/editor-recording-evidence-test.py
+          python tests/editor-export-evidence-test.py
           python tests/check-errors.py tests/editor-canvas-browser.py
           EDITOR_MOBILE=1 python tests/check-errors.py tests/editor-canvas-browser.py
       - name: Check real browser video and audio recording
@@ -305,6 +306,7 @@ jobs:
           fi
           ffprobe -version
           python tests/editor-recording-evidence-test.py
+          python tests/editor-export-evidence-test.py
       - name: Enable Safari WebDriver
         run: sudo /usr/bin/safaridriver --enable
       - name: Check product UI and video smoke test in real Safari

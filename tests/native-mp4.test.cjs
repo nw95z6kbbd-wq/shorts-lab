@@ -3,7 +3,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const factory=require('../js/native-mp4.js'),mediaFactory=require('../js/media-session.js'),I=require('../js/export-inspector.js'),C=require('../js/core.js'),A=require('../js/render-adapters.js');
 const ref=require('./fixtures/editor-export/native-mux-reference.json'),original=fs.readFileSync('tests/fixtures/editor-export/'+ref.source);
 function track(kind){const list=ref[kind].samples;return{description:Buffer.from(ref[kind].description,'hex'),samples:list.map((s,i)=>({data:original.subarray(s.offset,s.offset+s.size),key:s.key,duration:kind==='video'?(i===list.length-1?1000000-s.timestamp:list[i+1].timestamp-s.timestamp):Math.round(s.duration*.048)}))};}
-function fake({dropVideo=false,gate=null,offlineGate=null}={}){
+function fake({dropVideo=false,gate=null,offlineGate=null,timestampShift=0}={}){
  const media=mediaFactory({}),events=[],frames=[],active=[],mixes=[],rendered=[];
  class Frame{constructor(_source,options){Object.assign(this,options);frames.push(this);}close(){assert.ok(!this.closed);this.closed=true;}}
  class Data{constructor(options){Object.assign(this,options);}close(){this.closed=true;}}
@@ -12,7 +12,7 @@ function fake({dropVideo=false,gate=null,offlineGate=null}={}){
   constructor(options){super();this.options=options;this.state='unconfigured';this.encodeQueueSize=0;this.index=0;active.push(this);}
   configure(config){this.state='configured';this.config=config;}
   send(i,input){if(this.state==='closed'||dropVideo&&kind==='video'&&i===3)return;const spec=ref[kind].samples[i%ref[kind].samples.length],data=original.subarray(spec.offset,spec.offset+spec.size),metadata=i===0?{decoderConfig:{description:Buffer.from(ref[kind].description,'hex')}}:{};
-   this.options.output({timestamp:input.timestamp,duration:kind==='video'?input.duration:spec.duration,type:spec.key?'key':'delta',byteLength:data.length,copyTo:out=>out.set(data)},metadata);}
+   this.options.output({timestamp:input.timestamp+(kind==='video'&&i>0?timestampShift:0),duration:kind==='video'?input.duration:spec.duration,type:spec.key?'key':'delta',byteLength:data.length,copyTo:out=>out.set(data)},metadata);}
   encode(frame){assert.equal(this.state,'configured');const i=this.index++;this.encodeQueueSize++;const input={timestamp:frame.timestamp,duration:frame.duration};Promise.resolve(gate).then(()=>{this.send(i,input);this.encodeQueueSize--;this.dispatchEvent(new Event('dequeue'));});}
   async flush(){while(this.encodeQueueSize)await new Promise(r=>this.addEventListener('dequeue',r,{once:true}));if(kind==='audio'&&this.index===47)this.send(47,{timestamp:1000000});}
   close(){this.state='closed';}
@@ -49,4 +49,12 @@ test('exact scene and subtitle boundaries add frames without changing 24 fps tim
 test('uncancellable offline mixing retains its reservation until settled and cancellation cannot publish output',async()=>{
  let release;const gate=new Promise(r=>release=r),f=fake({offlineGate:gate}),options=await f.options(),abort=new AbortController();let settled=false;
  const pending=f.api.encode({...options,signal:abort.signal}).finally(()=>{settled=true;});const outcome=pending.catch(e=>e);await new Promise(r=>setImmediate(r));abort.abort();await new Promise(r=>setImmediate(r));assert.equal(settled,false);assert.ok(f.media.statistics().residentBytes>0);release();assert.equal((await outcome).name,'AbortError');assert.equal(f.media.statistics().residentBytes,0);assert.ok(f.events.includes('stop mix'));assert.equal(f.frames.length,0);
+});
+
+test('one microsecond native timestamp quantization preserves exact input timing; larger drift and order changes still fail',async()=>{
+ const f=fake({timestampShift:-1}),result=await f.api.encode(await f.options());const info=I.inspectBytes(new Uint8Array(await result.blob.arrayBuffer()));assert.equal(info.video.count,24);assert.equal(info.video.end,1000);assert.equal(f.media.statistics().residentBytes,0);
+ const bad=fake({timestampShift:-2});await assert.rejects(bad.api.encode(await bad.options()),{code:'ENCODER_TIMESTAMPS'});assert.equal(bad.media.statistics().residentBytes,0);
+});
+test('native MP4 admission requires actual browser AVC/AAC playback support before querying encoder APIs',async()=>{
+ let queries=0;const api=factory({VideoEncoder:{isConfigSupported(){queries++;throw Error('decoder unavailable');}},VideoFrame:function(){},playable:()=>false});assert.equal(await api.support(false),null);assert.equal(queries,0);
 });

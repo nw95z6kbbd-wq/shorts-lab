@@ -7,13 +7,7 @@ def component(path,hz,time):
  values=array.array('f',raw);assert len(values)>400,'Missing decoded audio samples'
  return 2*math.hypot(sum(x*math.cos(2*math.pi*hz*i/8000) for i,x in enumerate(values)),sum(x*math.sin(2*math.pi*hz*i/8000) for i,x in enumerate(values)))/len(values)
 
-def verify_file(path,result,audio):
- actual=inspect_recording(path)
- video=next(s for s in actual['streams'] if s['codec_type']=='video');sound=[s for s in actual['streams'] if s['codec_type']=='audio']
- assert video['codec_name']==result['videoCodec'];assert bool(sound)==audio
- if result['container']=='mp4':assert video['codec_name']=='h264' and (not audio or sound[0]['codec_name']=='aac'),actual
- assert video['width']==720 and video['height']==1280 and 2.85<actual['video']['end']-actual['video']['firstPts']<3.15,actual
- if audio:assert 2.85<actual['audio']['end']-actual['audio']['firstPts']<3.15,actual
+def scene_pixels(path):
  samples=[]
  # A VFR image is held until the next frame. Input -ss selects the next decoded
  # frame and could miss a genuinely absent scene. Sample the held frame instead.
@@ -21,6 +15,16 @@ def verify_file(path,result,audio):
  for t in [.5,1.5,2.5]:
   indices=[i for i,f in enumerate(pts) if float(f['best_effort_timestamp_time'])<=t];index=indices[-1] if indices else 0
   raw=subprocess.check_output(['ffmpeg','-v','error','-i',str(path),'-an','-vf',f"select='eq(n,{index})',crop=100:100:300:400,scale=1:1",'-frames:v','1','-threads:v','1','-pix_fmt','rgb24','-f','rawvideo','-']);samples.append(list(raw[:3]))
+ return samples
+
+def verify_file(path,result,audio):
+ actual=inspect_recording(path)
+ video=next(s for s in actual['streams'] if s['codec_type']=='video');sound=[s for s in actual['streams'] if s['codec_type']=='audio']
+ assert video['codec_name']==result['videoCodec'];assert bool(sound)==audio
+ if result['container']=='mp4':assert video['codec_name']=='h264' and (not audio or sound[0]['codec_name']=='aac'),actual
+ assert video['width']==720 and video['height']==1280 and 2.85<actual['video']['end']-actual['video']['firstPts']<3.15,actual
+ if audio:assert 2.85<actual['audio']['end']-actual['audio']['firstPts']<3.15,actual
+ samples=scene_pixels(path)
  r,b,g=samples;assert r[0]>r[2]*1.5 and b[2]>b[0]*1.5 and g[1]>g[0]*1.5,samples
  signal=None
  if audio:

@@ -25,7 +25,7 @@ def run():
      else:route.abort()
     page.route('**/*',offline);page.goto((ROOT/entry).as_uri() if os.environ.get('EXPORT_FILE')=='1' else base+'offline.html')
    else:page.goto(base+entry)
-   print('::notice title=Editor export browser checkpoint::'+json.dumps({'phase':'navigation','engine':engine,'entry':entry,'file':os.environ.get('EXPORT_FILE'),'ready':page.evaluate('({state:document.readyState,video:typeof VideoEncoder,audio:typeof AudioEncoder})')}),flush=True)
+   print('::notice title=Editor export browser checkpoint::'+json.dumps({'phase':'navigation','engine':engine,'entry':entry,'file':os.environ.get('EXPORT_FILE'),'ready':page.evaluate('({state:document.readyState,video:typeof VideoEncoder,audio:typeof AudioEncoder,avc:document.createElement("video").canPlayType("video/mp4;codecs=avc1.42001f"),aac:document.createElement("video").canPlayType("video/mp4;codecs=avc1.42001f,mp4a.40.2")})')}),flush=True)
    page.wait_for_function('window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert')
    for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js','editor-export-fixture.js']:page.add_script_tag(content=(ROOT/'tests'/name).read_text())
    support=page.evaluate('ShortsVideoRecorder.capabilities(true)')

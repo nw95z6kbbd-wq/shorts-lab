@@ -4,6 +4,7 @@
   else root.ShortsNativeMP4=factory({
     VideoEncoder:root.VideoEncoder,AudioEncoder:root.AudioEncoder,VideoFrame:root.VideoFrame,AudioData:root.AudioData,
     OfflineAudioContext:root.OfflineAudioContext||root.webkitOfflineAudioContext,
+    playable:type=>!!root.document.createElement('video').canPlayType(type),
     render:(...args)=>root.ShortsVideoRenderer.render(...args),mix:(...args)=>root.ShortsVideoAudio.connectMix(...args),
     workspace:owner=>root.ShortsMediaSessions.workspace(owner),yield:()=>new Promise(r=>setTimeout(r,0))
   });
@@ -14,6 +15,9 @@
   const AAC={codec:'mp4a.40.2',sampleRate:48000,numberOfChannels:2,bitrate:128000};
   async function support(audio){
     if(!io.VideoEncoder||!io.VideoFrame||audio&&(!io.AudioEncoder||!io.AudioData||!io.OfflineAudioContext))return null;
+    // Every successful export must also pass this browser's playback probe.
+    // Do not query an encoder for a container/codec the browser cannot decode.
+    if(io.playable&&!io.playable('video/mp4;codecs=avc1.42001f'+(audio?',mp4a.40.2':'')))return null;
     try{const v=await io.VideoEncoder.isConfigSupported(AVC),a=audio?await io.AudioEncoder.isConfigSupported(AAC):null;if(!v.supported||audio&&!a.supported)return null;return Object.freeze({video:Object.freeze({...AVC,avc:Object.freeze({format:'avc'})}),audio:audio?Object.freeze({...AAC}):null,mimeType:'video/mp4;codecs=avc1.42001f'+(audio?',mp4a.40.2':'')});}catch(_){return null;}
   }
   const text=s=>Uint8Array.from(s,c=>c.charCodeAt(0));
@@ -84,7 +88,14 @@
         onProgress(Math.min(.98,(i+1)/count),(i+1)===count?plan.durationMs:timestamp/1000);if(i%4===0)await io.yield();
       }
       await wait(ve.flush());ve.close();ve=null;check();if(video.samples.length!==count)throw error('INCOMPLETE','Нативный encoder потерял входные кадры.');
-      let previous=-1;for(const sample of video.samples){if(sample.timestamp<=previous||!durations.has(sample.timestamp))throw error('ENCODER_TIMESTAMPS','Encoder изменил временные метки: текущая '+sample.timestamp+' мкс, предыдущая '+previous+' мкс; вход '+times.slice(0,12).join(',')+'; выход '+video.samples.slice(0,12).map(s=>s.timestamp).join(',')+'.');sample.duration=durations.get(sample.timestamp);previous=sample.timestamp;}
+      // WebKit's MediaTime conversion can quantize 1041667 us to 1041666 us.
+      // Check every packet against its ordered input (within one microsecond),
+      // then keep exact input durations. Counts, order and completeness stay strict.
+      let previous=-1;for(let i=0;i<video.samples.length;i++){
+        const sample=video.samples[i],expected=times[i];
+        if(!Number.isSafeInteger(sample.timestamp)||sample.timestamp<=previous||Math.abs(sample.timestamp-expected)>1)throw error('ENCODER_TIMESTAMPS','Encoder изменил временные метки: кадр '+i+', фактически '+sample.timestamp+' мкс, вход '+expected+' мкс, предыдущая '+previous+' мкс.');
+        sample.duration=durations.get(expected);previous=sample.timestamp;
+      }
       if(!video.samples[0]?.key)throw error('CODEC','Нет начального ключевого кадра H.264.');
       if(audio){if(!audio.samples.length)throw error('INCOMPLETE','Нет AAC-пакетов.');for(const sample of audio.samples)sample.duration=sample.duration?Math.round(sample.duration*48000/1e6):1024;}
       budget.reserve(outputBytes);const blob=mux({video,audio,durationMs:plan.durationMs});if(blob.size>recordingPolicy.maxBytes)throw error('OUTPUT_BUDGET','Завершённый MP4 превышает рабочий предел.');check();

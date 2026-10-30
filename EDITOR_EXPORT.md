@@ -47,6 +47,10 @@ than owning the media lifecycle. No runtime object is added to project data.
 Auto first queries native WebCodecs AVC + AAC-LC (AVC only for silent projects).
 When both required encoders are available, `native-mp4.js` submits the same Canvas
 frames with exact integer-microsecond timestamps and bounded encoder queues (2).
+Every returned video packet must match its ordered input; only proven native
+MediaTime rounding of at most one microsecond is normalized to the exact input
+duration. Missing, reordered or more-drifted packets fail. Playback capability
+is checked before querying encoders, since output must pass browser decoding.
 Its small ISO BMFF muxer packages encoded AVC/AAC bytes without transcoding.
 The existing mixer renders two-channel 48 kHz PCM in an OfflineAudioContext;
 this does not play sound or require a playback resume after preparation.
