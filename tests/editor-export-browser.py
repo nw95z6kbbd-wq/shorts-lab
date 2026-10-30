@@ -21,9 +21,9 @@ def run():
    if entry.startswith('downloads/'):
     def offline(route):
      if route.request.url.endswith('/offline.html'):route.fulfill(body=(ROOT/entry).read_bytes(),content_type='text/html')
-     elif route.request.url.startswith(('blob:','data:')):route.continue_()
+     elif route.request.url.startswith(('blob:','data:')) or (os.environ.get('EXPORT_FILE')=='1' and route.request.url==(ROOT/entry).as_uri()):route.continue_()
      else:route.abort()
-    page.route('**/*',offline);page.goto(base+'offline.html')
+    page.route('**/*',offline);page.goto((ROOT/entry).as_uri() if os.environ.get('EXPORT_FILE')=='1' else base+'offline.html')
    else:page.goto(base+entry)
    page.wait_for_function('window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert')
    for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js','editor-export-fixture.js']:page.add_script_tag(content=(ROOT/'tests'/name).read_text())

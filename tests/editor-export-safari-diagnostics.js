@@ -1,15 +1,13 @@
 /* Failure-only native diagnosis; never used to rescue an export assertion. */
 window.installEditorExportTrace=function(){
- const Native=window.MediaRecorder,Original=ShortsVideoRecorder.record,trace=window.editorExportTrace={recorders:[],contexts:[],progress:[]};
- const Tracked=new Proxy(Native,{get:(target,key)=>key==='isTypeSupported'?target.isTypeSupported.bind(target):Reflect.get(target,key),construct:(target,args)=>{
-  const r=Reflect.construct(target,args),item={requested:args[1],actual:r.mimeType,tracks:args[0].getTracks().map(t=>({kind:t.kind,readyState:t.readyState,muted:t.muted,requestFrame:typeof t.requestFrame,...t.getSettings()})),events:[]};trace.recorders.push(item);
-  for(const name of ['start','dataavailable','pause','stop','error'])r.addEventListener(name,e=>{item.events.push({name,type:e.data?.type,size:e.data?.size,error:e.error?.message,state:r.state,contexts:trace.contexts.map(c=>({rate:c.sampleRate,time:c.currentTime,state:c.state}))});});return r;
- }});window.MediaRecorder=Tracked;
+ // Observe public callbacks only. The compatibility test must use the actual
+ // browser constructor, without Proxy/getSettings calls during native startup.
+ const Original=ShortsVideoRecorder.record,trace=window.editorExportTrace={recorders:[],contexts:[],progress:[]};
  ShortsVideoRecorder.record=options=>{
   const policy=options.recordingPolicy?Object.freeze({...options.recordingPolicy,onContext:c=>{trace.contexts.push(c);options.recordingPolicy.onContext?.(c);}}):null;
-  return Original({...options,recordingPolicy:policy,onProgress:(fraction,ms)=>{trace.progress.push(ms);options.onProgress?.(fraction,ms);}});
+  return Original({...options,recordingPolicy:policy,onFormat:type=>{trace.recorders.push({actual:type});options.onFormat?.(type);},onProgress:(fraction,ms)=>{trace.progress.push(ms);options.onProgress?.(fraction,ms);}});
  };
- return()=>{if(window.MediaRecorder===Tracked)window.MediaRecorder=Native;ShortsVideoRecorder.record=Original;};
+ return()=>{ShortsVideoRecorder.record=Original;};
 };
 window.setupEditorExportMatrix=async function(){
  window.exportMatrixSession=ShortsRenderSessions.create({slot:'editor',project:exportOriginal,plan:ShortsRenderAdapters.fromEditor(exportOriginal),contentRevision:0});await exportMatrixSession.prepare();window.exportMatrixLease=exportMatrixSession.acquire();

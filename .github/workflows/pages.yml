@@ -99,7 +99,7 @@ jobs:
         run: |
           python scripts/prepare-site.py
           python tests/check-errors.py tests/editor-export-browser.py
-          EXPORT_ENTRY=downloads/Shorts-Studio.html EXPORT_MOBILE=1 python tests/check-errors.py tests/editor-export-browser.py
+          EXPORT_FILE=1 EXPORT_ENTRY=downloads/Shorts-Studio.html EXPORT_MOBILE=1 python tests/check-errors.py tests/editor-export-browser.py
       - name: Check Editor audio UI and actual signals
         run: |
           python scripts/prepare-site.py
@@ -213,7 +213,7 @@ jobs:
       - name: Check Editor export capability refusal or real recording in WebKit
         run: |
           EXPORT_BROWSER=webkit python tests/check-errors.py tests/editor-export-browser.py
-          EXPORT_BROWSER=webkit EXPORT_ENTRY=downloads/Shorts-Studio.html EXPORT_MOBILE=1 python tests/check-errors.py tests/editor-export-browser.py
+          EXPORT_BROWSER=webkit EXPORT_FILE=1 EXPORT_ENTRY=downloads/Shorts-Studio.html EXPORT_MOBILE=1 python tests/check-errors.py tests/editor-export-browser.py
       - name: Check Editor audio UI and actual signals in WebKit/mobile
         run: |
           EDITOR_AUDIO_BROWSER=webkit python tests/check-errors.py tests/editor-audio-browser.py
