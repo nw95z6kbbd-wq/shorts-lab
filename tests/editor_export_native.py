@@ -57,8 +57,12 @@ def check_native_editor_export(root,script,command,click):
      try:
       data=encoded('exportRawBlob');failed=folder/('failed'+('.mp4' if data['type'].startswith('video/mp4') else '.webm'));failed.write_bytes(base64.b64decode(data['data']));actual=inspect_recording(failed)
       colors=[]
+      pts=json.loads(subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0','-show_entries','frame=best_effort_timestamp_time','-of','json',str(failed)]))['frames']
       for point in [.5,1.5,2.5]:
-       raw=subprocess.check_output(['ffmpeg','-v','error','-i',str(failed),'-an','-vf',f"select='lte(t,{point})',crop=100:100:300:400,scale=1:1",'-vsync','0','-pix_fmt','rgb24','-f','rawvideo','-']);colors.append(list(raw[-3:]))
+       indices=[i for i,f in enumerate(pts) if float(f['best_effort_timestamp_time'])<=point];index=indices[-1] if indices else 0
+       raw=subprocess.run(['ffmpeg','-v','error','-i',str(failed),'-an','-vf',f"select='eq(n,{index})',crop=100:100:300:400,scale=1:1",'-frames:v','1','-threads:v','1','-pix_fmt','rgb24','-f','rawvideo','-'],capture_output=True)
+       if raw.returncode:raise RuntimeError('Held frame decode: '+raw.stderr.decode(errors='replace')[-800:])
+       colors.append(list(raw.stdout[:3]))
       print('::notice title=Rejected export actual content::'+json.dumps({'colors':colors,'voice':component(failed,440,1),'music':component(failed,880,1),'musicFade':[component(failed,880,.03),component(failed,880,2.9)]}),flush=True)
       print('::error title=Native Editor export independent evidence::'+json.dumps({'failure':str(failure),'mime':data['type'],'formats':prepared['formats'],'streams':actual['streams'],'video':actual['video'],'audio':actual['audio'],'format':actual['format']}),flush=True)
       (folder/'state.json').write_text(json.dumps(script('return {states:window.exportStates,progress:window.exportProgress,status:window.exportJob?.status()};'),ensure_ascii=False,indent=2))
