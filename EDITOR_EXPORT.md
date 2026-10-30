@@ -23,13 +23,12 @@ validation, audio decoding/windowing, mixing and recording remain the existing
 implementations. Decoder contexts may be created/closed during prepare; no
 playback resume, mixer or recording is started by prepare. Start synchronously
 enters session.record before awaiting so Safari retains the trusted gesture.
-The Editor recorder creates its owned audio session before its capture source.
+Native MP4 uses explicit frame timestamps rather than a realtime capture clock.
 Preparation exercises distinct media/camera/transition paths at scene boundaries
 and one target-frame offset, then restores frame zero. Repeated scene paths share
 these probes: 4000 repeated scenes use three probes and one final reset, rather
 than 4000 Canvas surfaces. Each probe commits a complete 3.52 MiB temporary RGBA
-snapshot; it is never retained. The same bounded commit occurs at MP4 completion,
-not on every recorded frame. Video defaults remain unchanged.
+snapshot; it is never retained. Video defaults remain unchanged.
 
 States: idle -> preparing -> ready -> recording -> finalizing -> validating ->
 complete, with error/cancelled/disposed. Progress reaches 1 only after validation.
@@ -45,7 +44,15 @@ than owning the media lifecycle. No runtime object is added to project data.
 
 ## Formats and validation
 
-Auto tries explicit AVC + AAC-LC (AVC only for silent projects), then explicit
+Auto first queries native WebCodecs AVC + AAC-LC (AVC only for silent projects).
+When both required encoders are available, `native-mp4.js` submits the same Canvas
+frames with exact integer-microsecond timestamps and bounded encoder queues (2).
+Its small ISO BMFF muxer packages encoded AVC/AAC bytes without transcoding.
+The existing mixer renders two-channel 48 kHz PCM in an OfflineAudioContext;
+this does not play sound or require a playback resume after preparation.
+There is no second renderer, mixer, WASM or runtime dependency.
+
+Without native encoder support, auto tries explicit MediaRecorder AVC/AAC, then explicit
 VP9/Opus and VP8/Opus WebM. Explicit project format webm stays WebM. Generic
 video/mp4 is excluded: it can encode VP9/Opus. isTypeSupported is advisory;
 actual constructor/start fallback is still native. Runtime encoding errors fail
@@ -86,14 +93,21 @@ the conservative estimate at the existing requested 2.6Mbps + 128kbps. Recorder
 also caps actual delivered bytes, then checks final size (including WebM patch).
 This bound avoids unbounded chunks and leaves room for finalization/inspection
 copies. It is an export limit, not a project/ZIP limit or a guarantee of tab RSS.
+Native encoder workspaces share the existing global 256 MiB budget: three RGBA
+frame buffers, offline PCM (at most 64 MiB), encoded packets and final Blob-copy
+reservation are admitted explicitly. The queue is limited to two inputs per
+encoder, every VideoFrame/AudioData is closed, and cancellation awaits any
+uncancellable offline mix before releasing the workspace. At most 20,000 exact
+frame timestamps (24 fps plus scene/cue boundaries) are admitted. Native/GPU
+internal copies are browser-owned; these limits are not a tab RSS guarantee.
 Media are disposed before byte inspection. Native codec/GPU allocations remain
 browser-owned. No WASM, servers, registration or runtime dependency is added.
 
 ## Legacy proof and tests
 
-Only explicit Editor recordingPolicy (MIME candidates/maxBytes) is forwarded.
-Editor MP4 commits its final frame and stops in that render task. WebM retains
-its acknowledged pause/requestData drain. Default Video behavior, clocks,
+Only an explicit Editor recordingPolicy is forwarded (MIME candidates/maxBytes
+and an optional prepared native encoder configuration). Native MP4 bypasses
+MediaRecorder; WebM retains its acknowledged pause/requestData drain. Default Video behavior, clocks,
 container-specific finalization and mixer stay unchanged. Exact reversible additions precede the old clock/source proofs; no
 baseline hash/ref is moved and all eight original counterexamples remain.
 
@@ -109,3 +123,10 @@ The existing complete IndexedDB/ZIP/Editor/Video suites remain mandatory.
 Next UI stage must pause and close old preview/audio owners, wait for pending
 uploads or disable export while they run, pass a stable snapshot, call start in
 a trusted gesture, coordinate mode/project/ZIP changes and own download URLs.
+
+The macOS Safari worker produced incomplete Editor MediaRecorder MP4 output:
+7 video packets over approximately three seconds, with the second source image
+absent even after full independent decoding. The native encoder path is covered
+by explicit frame-count/timestamp checks and independent three-scene verification.
+This localizes the failure to Canvas capture through MediaRecorder; it does not
+claim to establish an internal Safari codec implementation cause.

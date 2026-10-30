@@ -3,7 +3,7 @@
  if(typeof module==='object'&&module.exports)module.exports=factory;
  else root.ShortsEditorExport=factory({
   adapters:root.ShortsRenderAdapters,plan:root.ShortsRenderPlan,profile:root.ShortsEditorProfile,runtime:root.ShortsRenderSessions,media:root.ShortsMediaSessions,
-  recorder:root.ShortsVideoRecorder,inspector:root.ShortsExportInspector,supported:type=>typeof root.MediaRecorder?.isTypeSupported==='function'&&root.MediaRecorder.isTypeSupported(type),
+  mp4:root.ShortsNativeMP4,recorder:root.ShortsVideoRecorder,inspector:root.ShortsExportInspector,supported:type=>typeof root.MediaRecorder?.isTypeSupported==='function'&&root.MediaRecorder.isTypeSupported(type),
   fonts:()=>root.document.fonts?.ready||Promise.resolve(),yield:()=>new Promise(resolve=>setTimeout(resolve,0))
  });
 })(typeof globalThis!=='undefined'?globalThis:this,function(io){
@@ -55,9 +55,11 @@
      const plan=data.plan;io.plan.assertRenderable(plan);
      if(!canvas||canvas.width!==720||canvas.height!==1280||typeof canvas.getContext!=='function')throw error('CANVAS','Для экспорта требуется отдельный Canvas 720×1280.');
      const support=io.recorder.capabilities(Boolean(plan.audio.voice.assetId||plan.audio.music.assetId),plan.exportSettings.format);
-     const mimeTypes=formats(Boolean(plan.audio.voice.assetId||plan.audio.music.assetId),plan.exportSettings.format);
-     if(!support.capture||!support.mediaRecorder||!mimeTypes.length)throw error('FORMAT','Браузер не поддерживает совместимый MP4 H.264/AAC или WebM. Предпросмотр и проект остаются доступны.');
-     if((plan.audio.voice.assetId||plan.audio.music.assetId)&&!support.audio)throw error('AUDIO_UNSUPPORTED','Браузер не поддерживает запись смешанного аудио.');
+     const nativeSupport=plan.exportSettings.format==='auto'&&io.mp4?await io.mp4.support(Boolean(plan.audio.voice.assetId||plan.audio.music.assetId)):null;check(job);
+     const legacyFormats=formats(Boolean(plan.audio.voice.assetId||plan.audio.music.assetId),plan.exportSettings.format);
+     const mimeTypes=nativeSupport?Object.freeze([nativeSupport.mimeType,...legacyFormats.filter(type=>type.startsWith('video/webm'))]):legacyFormats;
+     if(!nativeSupport&&(!support.capture||!support.mediaRecorder)||!mimeTypes.length)throw error('FORMAT','Браузер не поддерживает совместимый MP4 H.264/AAC или WebM. Предпросмотр и проект остаются доступны.');
+     if(!nativeSupport&&(plan.audio.voice.assetId||plan.audio.music.assetId)&&!support.audio)throw error('AUDIO_UNSUPPORTED','Браузер не поддерживает запись смешанного аудио.');
      const uniqueImages=new Set(plan.timeline.filter(s=>s.visual==='image').map(s=>s.imageId));
      if(uniqueImages.size>io.media.DEFAULTS.maxImages)throw error('IMAGE_COUNT','Для полной записи допускается до '+io.media.DEFAULTS.maxImages+' уникальных активных изображений; в плане '+uniqueImages.size+'. Проект не изменён.');
      if(plan.durationMs<1000/plan.output.fps)throw error('EXPORT_TIMING','Общая длительность короче одного кадра 24 fps. Измените длительность явно.');
@@ -69,7 +71,7 @@
       if(scene.endMs-scene.startMs<1000/plan.output.fps)throw error('EXPORT_TIMING','Длительность сцены короче одного кадра 24 fps. Измените её явно.',{sceneId:scene.id});
       for(const cue of scene.cues){if(cue.endMs-cue.startMs<1000/plan.output.fps)throw error('EXPORT_TIMING','Интервал субтитра короче одного кадра 24 fps. Увеличьте длительность или явно выберите субтитры по сценам.',{sceneId:scene.id});try{io.profile.layout(ctx,cue.text,style);}catch(cause){throw Object.assign(cause,{sceneId:scene.id});}if(++count%8===0){await io.yield();check(job);}}
      }
-     job.policy=Object.freeze({mimeTypes,maxBytes:maxOutputBytes,onContext:context=>job.contexts.add(context)});
+     job.policy=Object.freeze({mimeTypes,maxBytes:maxOutputBytes,onContext:context=>job.contexts.add(context),...(nativeSupport?{encoder:'native-mp4',nativeSupport}:{})});
      job.session=io.runtime.create({slot:'editor',projectId:data.project.id,...data,contentRevision,savedRevision,signal:job.abort.signal});
      await job.session.prepare();check(job);
      // Exercise each media/camera/transition path before starting any media

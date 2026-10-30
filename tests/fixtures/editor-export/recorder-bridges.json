@@ -1,15 +1,7 @@
 [
   {
-    "old": "    try {\n      render(0);",
-    "new": "    try {\n      if (recordingPolicy && hasAudio) {\n        const Audio = AudioContextClass();\n        context = new Audio();\n        recordingPolicy.onContext?.(context);\n      }\n      render(0);"
-  },
-  {
-    "old": "        context = new Audio();\n        recordingPolicy?.onContext?.(context);",
-    "new": "        if (!context) {\n          context = new Audio();\n          recordingPolicy?.onContext?.(context);\n        }"
-  },
-  {
-    "old": "                stopping = true;\n                // Allow the last drawn frame to reach the canvas capture track before flushing.",
-    "new": "                stopping = true;\n                if (recordingPolicy && !drainRequired) {\n                  // Finish the prepared Editor MP4 in this capture task. A\n                  // complete read commits its last frame before stop.\n                  canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);\n                  finalTimer = setTimeout(() => fail(new Error('Браузер не смог завершить видеофайл. Попробуйте WebM.')), 10000);\n                  recorder.stop();\n                  return;\n                }\n                // Allow the last drawn frame to reach the canvas capture track before flushing."
+    "old": "    if (!support.supported) throw",
+    "new": "    if (recordingPolicy?.encoder === 'native-mp4') return window.ShortsNativeMP4.encode({canvas,plan,resources,voiceBuffer,musicBuffer,voiceVolume,musicVolume,fadeIn,fadeOut,recordingPolicy,signal,onProgress,onFormat});\n    if (!support.supported) throw"
   },
   {
     "old": "format = 'auto', signal,",

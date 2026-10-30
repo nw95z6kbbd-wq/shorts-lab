@@ -15,8 +15,12 @@ def verify_file(path,result,audio):
  assert video['width']==720 and video['height']==1280 and 2.85<actual['video']['end']-actual['video']['firstPts']<3.15,actual
  if audio:assert 2.85<actual['audio']['end']-actual['audio']['firstPts']<3.15,actual
  samples=[]
+ # A VFR image is held until the next frame. Input -ss selects the next decoded
+ # frame and could miss a genuinely absent scene. Sample the held frame instead.
+ pts=json.loads(subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0','-show_entries','frame=best_effort_timestamp_time','-of','json',str(path)]))['frames']
  for t in [.5,1.5,2.5]:
-  raw=subprocess.check_output(['ffmpeg','-v','error','-ss',str(t),'-i',str(path),'-frames:v','1','-vf','crop=100:100:300:400,scale=1:1','-pix_fmt','rgb24','-f','rawvideo','-']);samples.append(list(raw[:3]))
+  indices=[i for i,f in enumerate(pts) if float(f['best_effort_timestamp_time'])<=t];index=indices[-1] if indices else 0
+  raw=subprocess.check_output(['ffmpeg','-v','error','-i',str(path),'-an','-vf',f"select='eq(n,{index})',crop=100:100:300:400,scale=1:1",'-frames:v','1','-threads:v','1','-pix_fmt','rgb24','-f','rawvideo','-']);samples.append(list(raw[:3]))
  r,b,g=samples;assert r[0]>r[2]*1.5 and b[2]>b[0]*1.5 and g[1]>g[0]*1.5,samples
  signal=None
  if audio:

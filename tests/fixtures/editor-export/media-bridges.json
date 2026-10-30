@@ -1,0 +1,10 @@
+[
+  {
+    "new": "  // Encoding workspaces share the existing global resident budget with media.\n  // They own only temporary bytes, never originals or database records.\n  function workspace(owner) {\n    if(typeof owner!=='string'||!owner)throw error('IDENTITY','Укажите владельца временного кодирования.');\n    let held=0,closed=false;\n    function reserve(bytes){if(closed)throw error('STATE','Временная область закрыта.');if(!Number.isSafeInteger(bytes)||bytes<0)throw error('LIMITS','Некорректный объём временных данных.');if(resident+bytes>globalLimits.maxResidentBytes)throw error('ENCODING_BUDGET','Подготовленные медиа и кодирование превышают общий бюджет памяти.');held+=bytes;resident+=bytes;peakResident=Math.max(peakResident,resident);}\n    function release(bytes){if(!Number.isSafeInteger(bytes)||bytes<0||bytes>held)throw error('LIMITS','Некорректное освобождение временных данных.');held-=bytes;resident-=bytes;}\n    return Object.freeze({reserve,release,close(){if(closed)return;closed=true;resident-=held;held=0;},toJSON:noJSON});\n  }\n\n",
+    "old": ""
+  },
+  {
+    "new": "return Object.freeze({ create, workspace, DEFAULTS,",
+    "old": "return Object.freeze({ create, DEFAULTS,"
+  }
+]

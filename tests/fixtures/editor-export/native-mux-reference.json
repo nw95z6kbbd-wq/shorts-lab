@@ -1,0 +1,518 @@
+{
+  "source": "classic.mp4",
+  "sha256": "004285975986235c09eef39dc6d482fcccb6f308d50f1d2f93b7c9953b3f4266",
+  "video": {
+    "description": "0142c01fffe100176742c01fda02d0286c0440000003004000000c03c60ca801000468ce0fc8",
+    "samples": [
+      {
+        "offset": 2143,
+        "size": 3333,
+        "timestamp": 0,
+        "duration": 41667,
+        "key": true
+      },
+      {
+        "offset": 5913,
+        "size": 12,
+        "timestamp": 41667,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 6349,
+        "size": 12,
+        "timestamp": 83333,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 6744,
+        "size": 12,
+        "timestamp": 125000,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 7133,
+        "size": 12,
+        "timestamp": 166667,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 7501,
+        "size": 12,
+        "timestamp": 208333,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 7813,
+        "size": 12,
+        "timestamp": 250000,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 8181,
+        "size": 12,
+        "timestamp": 291667,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 8573,
+        "size": 12,
+        "timestamp": 333333,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 8939,
+        "size": 12,
+        "timestamp": 375000,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 9330,
+        "size": 12,
+        "timestamp": 416667,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 9726,
+        "size": 12,
+        "timestamp": 458333,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 10155,
+        "size": 12,
+        "timestamp": 500000,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 10519,
+        "size": 12,
+        "timestamp": 541667,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 10949,
+        "size": 12,
+        "timestamp": 583333,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 11349,
+        "size": 12,
+        "timestamp": 625000,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 11681,
+        "size": 12,
+        "timestamp": 666667,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 12030,
+        "size": 12,
+        "timestamp": 708333,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 12384,
+        "size": 12,
+        "timestamp": 750000,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 12760,
+        "size": 12,
+        "timestamp": 791667,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 13189,
+        "size": 12,
+        "timestamp": 833333,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 13598,
+        "size": 12,
+        "timestamp": 875000,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 13777,
+        "size": 12,
+        "timestamp": 916667,
+        "duration": 41667,
+        "key": false
+      },
+      {
+        "offset": 14200,
+        "size": 12,
+        "timestamp": 958333,
+        "duration": 41667,
+        "key": false
+      }
+    ]
+  },
+  "audio": {
+    "description": "118856e500",
+    "samples": [
+      {
+        "offset": 1931,
+        "size": 212,
+        "timestamp": -21333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 5476,
+        "size": 280,
+        "timestamp": 0,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 5756,
+        "size": 157,
+        "timestamp": 21333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 5925,
+        "size": 205,
+        "timestamp": 42667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 6130,
+        "size": 219,
+        "timestamp": 64000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 6361,
+        "size": 197,
+        "timestamp": 85333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 6558,
+        "size": 186,
+        "timestamp": 106667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 6756,
+        "size": 179,
+        "timestamp": 128000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 6935,
+        "size": 198,
+        "timestamp": 149333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 7145,
+        "size": 165,
+        "timestamp": 170667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 7310,
+        "size": 191,
+        "timestamp": 192000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 7513,
+        "size": 156,
+        "timestamp": 213333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 7669,
+        "size": 144,
+        "timestamp": 234667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 7825,
+        "size": 166,
+        "timestamp": 256000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 7991,
+        "size": 190,
+        "timestamp": 277333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 8193,
+        "size": 199,
+        "timestamp": 298667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 8392,
+        "size": 181,
+        "timestamp": 320000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 8585,
+        "size": 166,
+        "timestamp": 341333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 8751,
+        "size": 188,
+        "timestamp": 362667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 8951,
+        "size": 197,
+        "timestamp": 384000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 9148,
+        "size": 182,
+        "timestamp": 405333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 9342,
+        "size": 187,
+        "timestamp": 426667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 9529,
+        "size": 197,
+        "timestamp": 448000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 9738,
+        "size": 227,
+        "timestamp": 469333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 9965,
+        "size": 190,
+        "timestamp": 490667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 10167,
+        "size": 167,
+        "timestamp": 512000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 10334,
+        "size": 185,
+        "timestamp": 533333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 10531,
+        "size": 210,
+        "timestamp": 554667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 10741,
+        "size": 208,
+        "timestamp": 576000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 10961,
+        "size": 181,
+        "timestamp": 597333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 11142,
+        "size": 207,
+        "timestamp": 618667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 11361,
+        "size": 158,
+        "timestamp": 640000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 11519,
+        "size": 162,
+        "timestamp": 661333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 11693,
+        "size": 168,
+        "timestamp": 682667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 11861,
+        "size": 169,
+        "timestamp": 704000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 12042,
+        "size": 172,
+        "timestamp": 725333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 12214,
+        "size": 170,
+        "timestamp": 746667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 12396,
+        "size": 176,
+        "timestamp": 768000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 12572,
+        "size": 188,
+        "timestamp": 789333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 12772,
+        "size": 182,
+        "timestamp": 810667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 12954,
+        "size": 235,
+        "timestamp": 832000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 13201,
+        "size": 182,
+        "timestamp": 853333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 13383,
+        "size": 215,
+        "timestamp": 874667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 13610,
+        "size": 167,
+        "timestamp": 896000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 13789,
+        "size": 219,
+        "timestamp": 917333,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 14008,
+        "size": 192,
+        "timestamp": 938667,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 14212,
+        "size": 159,
+        "timestamp": 960000,
+        "duration": 21333,
+        "key": true
+      },
+      {
+        "offset": 14371,
+        "size": 158,
+        "timestamp": 981333,
+        "duration": 18667,
+        "key": true
+      }
+    ]
+  }
+}

@@ -20,6 +20,16 @@
   let scratchBytes=0,peakScratchBytes=0,audioDecodes=0;
   for (const value of Object.values(globalLimits)) if (!Number.isSafeInteger(value) || value <= 0) throw error('LIMITS', 'Некорректный общий бюджет медиа.');
 
+  // Encoding workspaces share the existing global resident budget with media.
+  // They own only temporary bytes, never originals or database records.
+  function workspace(owner) {
+    if(typeof owner!=='string'||!owner)throw error('IDENTITY','Укажите владельца временного кодирования.');
+    let held=0,closed=false;
+    function reserve(bytes){if(closed)throw error('STATE','Временная область закрыта.');if(!Number.isSafeInteger(bytes)||bytes<0)throw error('LIMITS','Некорректный объём временных данных.');if(resident+bytes>globalLimits.maxResidentBytes)throw error('ENCODING_BUDGET','Подготовленные медиа и кодирование превышают общий бюджет памяти.');held+=bytes;resident+=bytes;peakResident=Math.max(peakResident,resident);}
+    function release(bytes){if(!Number.isSafeInteger(bytes)||bytes<0||bytes>held)throw error('LIMITS','Некорректное освобождение временных данных.');held-=bytes;resident-=bytes;}
+    return Object.freeze({reserve,release,close(){if(closed)return;closed=true;resident-=held;held=0;},toJSON:noJSON});
+  }
+
   function pump() {
     if (decoding || !queue.length) return;
     const item = queue.shift(); item.started = true; item.off(); decoding = true;
@@ -230,5 +240,5 @@
       status: () => Object.freeze({state,outcome,generation,consumers,pending,originalBytes,decodedBytes,imagePixels,audioInfo:[...records.values()].filter(r=>r.audioInfo).map(r=>({assetId:r.id,...r.audioInfo})),cleanupPending:terminal()&&!finished,error:cause ? {code:cause.code,message:cause.message,assetId:cause.assetId,causeCode:cause.cause?.code||cause.cause?.name||null} : null}),
       toJSON:noJSON });
   }
-  return Object.freeze({ create, DEFAULTS, globalLimits, statistics: () => Object.freeze({sessions:live,residentBytes:resident,peakResidentBytes:peakResident,scratchBytes,peakScratchBytes,audioDecodes,pooledAudio:audioPool.size,decoding,queued:queue.length}) });
+  return Object.freeze({ create, workspace, DEFAULTS, globalLimits, statistics: () => Object.freeze({sessions:live,residentBytes:resident,peakResidentBytes:peakResident,scratchBytes,peakScratchBytes,audioDecodes,pooledAudio:audioPool.size,decoding,queued:queue.length}) });
 });

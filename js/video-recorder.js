@@ -66,6 +66,7 @@
       const formats = recordingPolicy.mimeTypes.filter(type => { try { return MediaRecorder.isTypeSupported(type); } catch (_) { return false; } });
       support = { ...support, formats, supported: support.capture && support.mediaRecorder && formats.length > 0 };
     }
+    if (recordingPolicy?.encoder === 'native-mp4') return window.ShortsNativeMP4.encode({canvas,plan,resources,voiceBuffer,musicBuffer,voiceVolume,musicVolume,fadeIn,fadeOut,recordingPolicy,signal,onProgress,onFormat});
     if (!support.supported) throw new Error('Браузер не поддерживает запись Canvas в MP4 или WebM. Откройте сайт в актуальном Chrome, Edge, Firefox или Safari. Предпросмотр и сценарий остаются доступны.');
     if (hasAudio && !support.audio) throw new Error('Запись аудио не поддерживается. Уберите аудиодорожки и попробуйте снова.');
     signal?.throwIfAborted();
@@ -73,20 +74,13 @@
     let stream, context, mix, recorder, animationFrame, flushTimer, finalTimer;
     let abortListener, visibilityListener;
     try {
-      if (recordingPolicy && hasAudio) {
-        const Audio = AudioContextClass();
-        context = new Audio();
-        recordingPolicy.onContext?.(context);
-      }
       render(0);
       stream = canvas.captureStream(V.FPS);
       if (!stream.getVideoTracks().length) throw new Error('Браузер не смог захватить изображение Canvas.');
       if (hasAudio) {
         const Audio = AudioContextClass();
-        if (!context) {
-          context = new Audio();
-          recordingPolicy?.onContext?.(context);
-        }
+        context = new Audio();
+        recordingPolicy?.onContext?.(context);
         await resumeAudio(context);
         signal?.throwIfAborted();
         const destination = context.createMediaStreamDestination();
@@ -180,14 +174,6 @@
               onProgress(Math.min(.99, elapsed / plan.durationMs), elapsed);
               if (elapsed >= plan.durationMs) {
                 stopping = true;
-                if (recordingPolicy && !drainRequired) {
-                  // Finish the prepared Editor MP4 in this capture task. A
-                  // complete read commits its last frame before stop.
-                  canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-                  finalTimer = setTimeout(() => fail(new Error('Браузер не смог завершить видеофайл. Попробуйте WebM.')), 10000);
-                  recorder.stop();
-                  return;
-                }
                 // Allow the last drawn frame to reach the canvas capture track before flushing.
                 flushTimer = setTimeout(() => {
                   if (settled || recorder.state === 'inactive') return;

@@ -19,3 +19,8 @@ full-duration claims on short actual sample coverage.
 recorder-bridges.json and session-bridges.json list only exact reviewed optional
 Editor policy additions. Source guards reverse them before the original frozen
 proof. Never regenerate the historical Video baseline with current code.
+
+`native-mux-reference.json` independently records FFprobe packet offsets, sizes,
+timestamps, key flags and codec extradata from classic.mp4, with its SHA-256.
+The muxer test copies these exact packet bytes into new tables and verifies
+byte identity and AVC/AAC coverage; browser tests also perform full FFmpeg decode.
