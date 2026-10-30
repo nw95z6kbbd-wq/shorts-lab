@@ -3,7 +3,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const factory=require('../js/native-mp4.js'),mediaFactory=require('../js/media-session.js'),I=require('../js/export-inspector.js'),C=require('../js/core.js'),A=require('../js/render-adapters.js');
 const ref=require('./fixtures/editor-export/native-mux-reference.json'),original=fs.readFileSync('tests/fixtures/editor-export/'+ref.source);
 function track(kind){const list=ref[kind].samples;return{description:Buffer.from(ref[kind].description,'hex'),samples:list.map((s,i)=>({data:original.subarray(s.offset,s.offset+s.size),key:s.key,duration:kind==='video'?(i===list.length-1?1000000-s.timestamp:list[i+1].timestamp-s.timestamp):Math.round(s.duration*.048)}))};}
-function fake({dropVideo=false,gate=null}={}){
+function fake({dropVideo=false,gate=null,offlineGate=null}={}){
  const media=mediaFactory({}),events=[],frames=[],active=[],mixes=[],rendered=[];
  class Frame{constructor(_source,options){Object.assign(this,options);frames.push(this);}close(){assert.ok(!this.closed);this.closed=true;}}
  class Data{constructor(options){Object.assign(this,options);}close(){this.closed=true;}}
@@ -17,7 +17,7 @@ function fake({dropVideo=false,gate=null}={}){
   async flush(){while(this.encodeQueueSize)await new Promise(r=>this.addEventListener('dequeue',r,{once:true}));if(kind==='audio'&&this.index===47)this.send(47,{timestamp:1000000});}
   close(){this.state='closed';}
  };}
- class Offline{constructor(channels,length,sampleRate){this.numberOfChannels=channels;this.length=length;this.sampleRate=sampleRate;this.destination={};events.push('offline');}async startRendering(){await Promise.resolve();return{getChannelData:()=>new Float32Array(this.length)};}}
+ class Offline{constructor(channels,length,sampleRate){this.numberOfChannels=channels;this.length=length;this.sampleRate=sampleRate;this.destination={};events.push('offline');}async startRendering(){await Promise.resolve(offlineGate);return{getChannelData:()=>new Float32Array(this.length)};}}
  const api=factory({VideoEncoder:encoder('video'),AudioEncoder:encoder('audio'),VideoFrame:Frame,AudioData:Data,OfflineAudioContext:Offline,workspace:owner=>media.workspace(owner),render:(_canvas,_plan,time)=>rendered.push(time),mix:(_ctx,options)=>{mixes.push(options);return{start:time=>events.push(['mix',time]),stop:()=>events.push('stop mix')};},yield:()=>Promise.resolve()});
  const p=C.upgradeProject(C.createProject());p.timing='manual';p.scenes=[{id:'native-scene',text:'',visual:'animated',imageId:null,imageName:'',camera:'static',transition:'none',durationMs:1000}];const plan=A.fromEditor(p);
  return{api,media,events,frames,active,mixes,rendered,plan,async options(){return{canvas:{},plan,resources:{images:new Map()},voiceBuffer:{duration:1},musicBuffer:{duration:1},voiceVolume:.65,musicVolume:.45,fadeIn:.3,fadeOut:.4,recordingPolicy:{maxBytes:1000000,nativeSupport:await api.support(true)}};}};
@@ -40,4 +40,13 @@ test('cancel while native encoding is queued cannot return a partial MP4; shared
 });
 test('the absence of a native AAC encoder is an actual capability refusal, not an MP4 label',async()=>{
  assert.equal(await factory({}).support(false),null);assert.equal(await factory({VideoEncoder:{isConfigSupported:async()=>({supported:true})},VideoFrame:function(){}}).support(true),null);
+});
+
+test('exact scene and subtitle boundaries add frames without changing 24 fps timing or scene identities',async()=>{
+ const f=fake(),p=C.upgradeProject(C.createProject());p.timing='manual';p.scenes=[{id:'first',text:'one',durationMs:333,visual:'animated',camera:'static',transition:'none'},{id:'second',text:'two',durationMs:667,visual:'animated',camera:'static',transition:'crossfade'}];p.selectedSceneId='first';const plan=A.fromEditor(p),before=JSON.stringify(p),options=await f.options();options.plan=plan;await f.api.encode(options);
+ assert.ok(f.rendered.includes(333));assert.equal(f.frames.length,25);assert.equal(f.frames[8].timestamp,333000);assert.equal(f.frames[8].duration,333);assert.equal(f.frames.reduce((n,frame)=>n+frame.duration,0),1000000);assert.equal(JSON.stringify(p),before);assert.equal(f.media.statistics().residentBytes,0);
+});
+test('uncancellable offline mixing retains its reservation until settled and cancellation cannot publish output',async()=>{
+ let release;const gate=new Promise(r=>release=r),f=fake({offlineGate:gate}),options=await f.options(),abort=new AbortController();let settled=false;
+ const pending=f.api.encode({...options,signal:abort.signal}).finally(()=>{settled=true;});const outcome=pending.catch(e=>e);await new Promise(r=>setImmediate(r));abort.abort();await new Promise(r=>setImmediate(r));assert.equal(settled,false);assert.ok(f.media.statistics().residentBytes>0);release();assert.equal((await outcome).name,'AbortError');assert.equal(f.media.statistics().residentBytes,0);assert.ok(f.events.includes('stop mix'));assert.equal(f.frames.length,0);
 });

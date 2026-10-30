@@ -60,6 +60,7 @@
      const mimeTypes=nativeSupport?Object.freeze([nativeSupport.mimeType,...legacyFormats.filter(type=>type.startsWith('video/webm'))]):legacyFormats;
      if(!nativeSupport&&(!support.capture||!support.mediaRecorder)||!mimeTypes.length)throw error('FORMAT','Браузер не поддерживает совместимый MP4 H.264/AAC или WebM. Предпросмотр и проект остаются доступны.');
      if(!nativeSupport&&(plan.audio.voice.assetId||plan.audio.music.assetId)&&!support.audio)throw error('AUDIO_UNSUPPORTED','Браузер не поддерживает запись смешанного аудио.');
+     if(nativeSupport?.audio&&Math.ceil(plan.durationMs*48)*8>64*1048576)throw error('DECODED_BUDGET','Смешанный звук для MP4 превышает проверенный предел 64 МиБ PCM. Сократите ролик или явно выберите WebM; проект не изменён.');
      const uniqueImages=new Set(plan.timeline.filter(s=>s.visual==='image').map(s=>s.imageId));
      if(uniqueImages.size>io.media.DEFAULTS.maxImages)throw error('IMAGE_COUNT','Для полной записи допускается до '+io.media.DEFAULTS.maxImages+' уникальных активных изображений; в плане '+uniqueImages.size+'. Проект не изменён.');
      if(plan.durationMs<1000/plan.output.fps)throw error('EXPORT_TIMING','Общая длительность короче одного кадра 24 fps. Измените длительность явно.');

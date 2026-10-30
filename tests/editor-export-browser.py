@@ -25,12 +25,15 @@ def run():
      else:route.abort()
     page.route('**/*',offline);page.goto((ROOT/entry).as_uri() if os.environ.get('EXPORT_FILE')=='1' else base+'offline.html')
    else:page.goto(base+entry)
+   print('::notice title=Editor export browser checkpoint::'+json.dumps({'phase':'navigation','engine':engine,'entry':entry,'file':os.environ.get('EXPORT_FILE'),'ready':page.evaluate('({state:document.readyState,video:typeof VideoEncoder,audio:typeof AudioEncoder})')}),flush=True)
    page.wait_for_function('window.ShortsEditor && window.ShortsVideoRestored && !document.body.inert')
    for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js','editor-export-fixture.js']:page.add_script_tag(content=(ROOT/'tests'/name).read_text())
    support=page.evaluate('ShortsVideoRecorder.capabilities(true)')
+   print('::notice title=Editor export capability checkpoint::'+json.dumps(support),flush=True)
    if not support['supported']:
+    print('::notice title=Editor export refusal checkpoint::before prepare',flush=True)
     result=page.evaluate('async()=>{const p=ShortsCore.createProject(true),before=JSON.stringify(p),canvas=document.createElement("canvas");canvas.width=720;canvas.height=1280;const c=ShortsEditorExport.create();try{await c.prepare({project:p,canvas});throw Error("Unsupported recorder accepted");}catch(e){if(e.code!=="FORMAT")throw e;}finally{await c.dispose();}return before===JSON.stringify(p);}')
-    assert result;print(f'PASS [{engine}]: actual recording unavailable; FORMAT refusal leaves DTO/media intact (no simulated recording)');browser.close();return
+    assert result;print(f'::notice title=Editor export refusal passed::PASS [{engine}]: actual recording unavailable; FORMAT refusal leaves DTO/media intact (no simulated recording)');browser.close();return
    outcomes=[]
    for mode,audio in [('auto',True),('webm',True),('auto',False)]:
     prepared=page.evaluate('args=>prepareEditorExportFixture(...args)',[media_payload(),{'format':mode,'audio':audio}]);page.locator('#editorExportStart').click()

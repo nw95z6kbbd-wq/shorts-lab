@@ -84,7 +84,7 @@
         onProgress(Math.min(.98,(i+1)/count),(i+1)===count?plan.durationMs:timestamp/1000);if(i%4===0)await io.yield();
       }
       await wait(ve.flush());ve.close();ve=null;check();if(video.samples.length!==count)throw error('INCOMPLETE','Нативный encoder потерял входные кадры.');
-      let previous=-1;for(const sample of video.samples){if(sample.timestamp<=previous||!durations.has(sample.timestamp))throw error('ENCODER_TIMESTAMPS','Encoder изменил порядок временных меток.');sample.duration=durations.get(sample.timestamp);previous=sample.timestamp;}
+      let previous=-1;for(const sample of video.samples){if(sample.timestamp<=previous||!durations.has(sample.timestamp))throw error('ENCODER_TIMESTAMPS','Encoder изменил временные метки: текущая '+sample.timestamp+' мкс, предыдущая '+previous+' мкс; вход '+times.slice(0,12).join(',')+'; выход '+video.samples.slice(0,12).map(s=>s.timestamp).join(',')+'.');sample.duration=durations.get(sample.timestamp);previous=sample.timestamp;}
       if(!video.samples[0]?.key)throw error('CODEC','Нет начального ключевого кадра H.264.');
       if(audio){if(!audio.samples.length)throw error('INCOMPLETE','Нет AAC-пакетов.');for(const sample of audio.samples)sample.duration=sample.duration?Math.round(sample.duration*48000/1e6):1024;}
       budget.reserve(outputBytes);const blob=mux({video,audio,durationMs:plan.durationMs});if(blob.size>recordingPolicy.maxBytes)throw error('OUTPUT_BUDGET','Завершённый MP4 превышает рабочий предел.');check();
