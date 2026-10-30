@@ -69,14 +69,16 @@ def check_native_editor_export(root,script,command,click):
      except Exception as diagnostic:print('::warning title=Editor export evidence::'+str(diagnostic)[:500],flush=True)
      repeats=[];script('window.exportOriginalBitmap=window.createImageBitmap;')
      try:
-      for backend in ['native','element']:
+      for backend in ['native','element','cpu-mirror']:
        row={'backend':backend}
        script('window.createImageBitmap=arguments[0]==="element"?undefined:window.exportOriginalBitmap;',[backend])
+       if backend=='cpu-mirror':script('window.stopCpuMirror=attachExportCpuMirror(exportCanvas);')
        try:
         execute('await exportJob.prepare({project:exportOriginal,canvas:exportCanvas,contentRevision:8});return true;');click('#editorExportStart');result=execute('return await finishEditorExportFixture();');row['valid']=True;row['file']={k:result[k] for k in ['container','videoCodec','audioCodec','durationMs']}
        except Exception as diagnostic:row['error']=str(diagnostic)[:450]
        row['raw']=execute('return exportRawBlob?ShortsExportInspector.inspectBytes(new Uint8Array(await exportRawBlob.arrayBuffer())):null;');repeats.append(row)
        execute('await exportJob.cancel();return true;')
+       if backend=='cpu-mirror':row['mirror']=script('return stopCpuMirror();')
       print('::notice title=Failure-only controller decoder comparison::'+json.dumps(repeats),flush=True)
      finally:script('window.createImageBitmap=window.exportOriginalBitmap;')
      raise

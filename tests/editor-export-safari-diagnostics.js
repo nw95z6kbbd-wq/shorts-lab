@@ -34,3 +34,10 @@ window.setupEditorExportMatrix=async function(){
   row.events=events;exportMatrixRows.push(row);return row;
  })();};
 };
+window.attachExportCpuMirror=function(source){
+ const target=document.createElement('canvas');target.width=source.width;target.height=source.height;target.style='position:fixed;right:0;bottom:0;width:360px;height:640px;z-index:25000;pointer-events:none';target.setAttribute('aria-hidden','true');document.body.append(target);
+ const ctx=target.getContext('2d',{alpha:false,willReadFrequently:true}),render=ShortsVideoRenderer.render,capture=source.captureStream;let frames=0;
+ const copy=()=>{ctx.putImageData(source.getContext('2d').getImageData(0,0,source.width,source.height),0,0);frames++;};
+ ShortsVideoRenderer.render=(canvas,...args)=>{const result=render(canvas,...args);if(canvas===source)copy();return result;};source.captureStream=rate=>{copy();return target.captureStream(rate);};
+ return()=>{ShortsVideoRenderer.render=render;source.captureStream=capture;target.width=target.height=1;target.remove();return{frames};};
+};
