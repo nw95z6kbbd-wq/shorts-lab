@@ -211,6 +211,23 @@ jobs:
           RUNTIME_BROWSER=webkit python tests/check-errors.py tests/runtime-session-browser.py
           RUNTIME_BROWSER=webkit RUNTIME_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/runtime-session-browser.py
           RUNTIME_BROWSER=webkit RUNTIME_MOBILE=1 RUNTIME_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/runtime-session-browser.py
+      - name: Ensure independent WebKit export inspection tools
+        run: |
+          if ! command -v ffprobe >/dev/null; then
+            printf '%s\n' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' 'Acquire::Retries "1";' | tee /etc/apt/apt.conf.d/99-shortsstudio-ci-timeouts >/dev/null
+            # FFmpeg needs only Ubuntu's own repositories; unrelated vendor
+            # indexes on hosted runners must not hold up the browser checks.
+            printf '%s\n' 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://archive.ubuntu.com/ubuntu noble main universe' 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://archive.ubuntu.com/ubuntu noble-updates main universe' 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://security.ubuntu.com/ubuntu noble-security main universe' > /tmp/shorts-studio-ubuntu.list
+            shorts_apt_status=0
+            timeout 3m apt-get -o Dir::Etc::sourcelist=/tmp/shorts-studio-ubuntu.list -o Dir::Etc::sourceparts=- update > /tmp/shorts-studio-apt.log 2>&1 || shorts_apt_status=$?
+            if [ "$shorts_apt_status" -eq 0 ]; then
+              timeout 3m apt-get -o Dir::Etc::sourcelist=/tmp/shorts-studio-ubuntu.list -o Dir::Etc::sourceparts=- install -y ffmpeg >> /tmp/shorts-studio-apt.log 2>&1 || shorts_apt_status=$?
+            fi
+            if [ "$shorts_apt_status" -ne 0 ]; then
+              python -c 'from pathlib import Path; text="\n".join(Path("/tmp/shorts-studio-apt.log").read_text().splitlines()[-18:]); print("::error title=FFmpeg installation::"+text.replace("%","%25").replace("\r","%0D").replace("\n","%0A"))'
+              exit "$shorts_apt_status"
+            fi
+          fi
       - name: Check Editor export capability refusal or real recording in WebKit
         run: |
           EXPORT_BROWSER=webkit python tests/check-errors.py tests/editor-export-browser.py

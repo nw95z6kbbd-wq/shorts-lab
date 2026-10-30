@@ -3259,7 +3259,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const descriptor=(p,end)=>{check(p,2,end);const tag=b[p++];let size=0,done=false;for(let i=0;i<4;i++){check(p,1,end);const byte=b[p++];size=size*128+(byte&127);if(!(byte&128)){done=true;break;}}if(!done)fail('CONTAINER','Неверный AAC descriptor.');check(p,size,end);return{tag,data:p,end:p+size};};
     check(esds.data,4,esds.end);let d=descriptor(esds.data+4,esds.end);if(d.tag!==3)fail('CODEC','В MP4 нет описания AAC.');check(d.data,3,d.end);const flags=b[d.data+2];let p=d.data+3;if(flags&128)p+=2;if(flags&64){check(p,1,d.end);p+=1+b[p];}if(flags&32)p+=2;
     d=descriptor(p,d.end);if(d.tag!==4||b[d.data]!==64)fail('CODEC','Аудиодорожка MP4 не является MPEG-4 AAC.');check(d.data,13,d.end);const asc=descriptor(d.data+13,d.end);if(asc.tag!==5)fail('CODEC','Отсутствует AudioSpecificConfig AAC.');check(asc.data,2,asc.end);
-    if(b[asc.data]>>>3!==2)fail('CODEC','Для совместимого MP4 требуется AAC-LC.');
+    if(b[asc.data]>>>3!==2)fail('CODEC','Для совместимого MP4 требуется AAC-LC; фактический AOT '+(b[asc.data]>>>3)+', AudioSpecificConfig '+[...b.subarray(asc.data,Math.min(asc.end,asc.data+24))].map(n=>n.toString(16).padStart(2,'0')).join('')+' ('+(asc.end-asc.data)+' байт).');
     const rates=[96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350],rateIndex=((b[asc.data]&7)<<1)|(b[asc.data+1]>>>7),channels=(b[asc.data+1]>>>3)&15;
     if(rateIndex===15||!rates[rateIndex]||![1,2].includes(channels))fail('CODEC','Неподдерживаемая конфигурация AAC.');return{codec:'aac',profile:'AAC-LC',sampleRate:rates[rateIndex],channels};
    }

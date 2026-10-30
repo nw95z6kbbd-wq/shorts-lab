@@ -9,35 +9,3 @@ window.installEditorExportTrace=function(){
  };
  return()=>{ShortsVideoRecorder.record=Original;};
 };
-window.setupEditorExportMatrix=async function(){
- window.exportMatrixSession=ShortsRenderSessions.create({slot:'editor',project:exportOriginal,plan:ShortsRenderAdapters.fromEditor(exportOriginal),contentRevision:0});await exportMatrixSession.prepare();window.exportMatrixLease=exportMatrixSession.acquire();
- const button=document.createElement('button');button.id='exportMatrix';button.textContent='Codec diagnostics';button.style='position:fixed;top:0;left:0;z-index:25000';document.body.append(button);
- window.exportMatrixRows=[];
- button.onclick=()=>{window.exportMatrixPromise=(async()=>{
-  const config=window.exportMatrixConfig,Audio=window.AudioContext||window.webkitAudioContext,context=new Audio(config.rate?{sampleRate:config.rate}:undefined),canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;canvas.style='position:fixed;bottom:0;left:0;width:'+config.cssWidth+'px;height:'+(config.cssWidth*16/9)+'px;z-index:24000';document.body.append(canvas);
-  let stream,osc,mix,recorder,frame,timer;const events=[],chunks=[],row={config,supported:MediaRecorder.isTypeSupported(config.type)};
-  try{
-   const duration=3,plan=exportMatrixSession.plan,resources=exportMatrixLease.resources;const paint=elapsed=>{if(config.renderer)ShortsVideoRenderer.render(canvas,plan,Math.min(2999,elapsed*1000),resources);else if(config.image)canvas.getContext('2d').drawImage(resources.images.values().next().value,0,0,720,1280);else{const x=canvas.getContext('2d');x.fillStyle=elapsed%1<.5?'#6633ee':'#331155';x.fillRect(0,0,720,1280);}};
-   const ctx=canvas.getContext('2d',{alpha:!config.opaque,willReadFrequently:!!config.software});paint(0);let video;if(config.captureFirst)video=canvas.captureStream(24);await context.resume();const destination=context.createMediaStreamDestination();
-   if(config.mixer){const voice=context.createBuffer(1,32000,16000),music=context.createBuffer(1,32000,16000);for(let i=0;i<32000;i++){voice.getChannelData(0)[i]=.08*Math.sin(2*Math.PI*440*i/16000);music.getChannelData(0)[i]=.08*Math.sin(2*Math.PI*880*i/16000);}mix=ShortsVideoAudio.connectMix(context,{voiceBuffer:config.realAudio?exportMatrixLease.audio(exportOriginal.audio.voice.assetId):voice,musicBuffer:config.realAudio?exportMatrixLease.audio(exportOriginal.audio.music.assetId):music,voiceVolume:.65,musicVolume:.45,fadeIn:.3,fadeOut:.4,durationSeconds:duration,destination,monitor:!!config.monitor});if(!config.lateAudio)mix.start(context.currentTime+.02);}
-   else{osc=context.createOscillator();const gain=context.createGain();gain.gain.value=.01;osc.connect(gain);gain.connect(destination);if(!config.lateAudio)osc.start();}
-   video||=canvas.captureStream(24);stream=config.fresh?new MediaStream([...video.getVideoTracks(),...destination.stream.getAudioTracks()]):video;if(!config.fresh)destination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
-   Object.assign(row,{frameRequest:typeof stream.getVideoTracks()[0].requestFrame,rate:context.sampleRate,tracks:stream.getTracks().map(t=>({kind:t.kind,...t.getSettings()}))});
-   recorder=new MediaRecorder(stream,{mimeType:config.type,videoBitsPerSecond:2600000,audioBitsPerSecond:128000});row.actual=recorder.mimeType;
-   await new Promise((resolve,reject)=>{
-    for(const name of ['start','dataavailable','stop','error'])recorder.addEventListener(name,e=>{events.push({name,size:e.data?.size,error:e.error?.message,time:context.currentTime});if(name==='dataavailable'&&e.data.size)chunks.push(e.data);if(name==='stop')resolve();if(name==='error')reject(e.error||Error('native error'));});
-    timer=setTimeout(()=>reject(Error('native matrix timeout')),6000);config.noSlice?recorder.start():recorder.start(250);if(config.lateAudio){if(mix)mix.start(context.currentTime+.02);else osc.start(context.currentTime+.02);}const start=context.currentTime;
-    function draw(){const elapsed=context.currentTime-start;paint(elapsed);if(config.readback)ctx.getImageData(0,0,1,1);if(config.frameRequest)stream.getVideoTracks()[0].requestFrame?.();if(elapsed>=duration)recorder.stop();else frame=requestAnimationFrame(draw);}frame=requestAnimationFrame(draw);
-   });row.bytes=chunks.reduce((n,b)=>n+b.size,0);window.exportMatrixBlob=new Blob(chunks,{type:recorder.mimeType});
-  }catch(e){row.error=e.name+': '+e.message;}
-  finally{clearTimeout(timer);cancelAnimationFrame(frame);if(recorder&&recorder.state!=='inactive')recorder.stop();osc?.stop();mix?.stop();stream?.getTracks().forEach(t=>t.stop());await context.close().catch(()=>{});canvas.remove();}
-  row.events=events;exportMatrixRows.push(row);return row;
- })();};
-};
-window.attachExportCpuMirror=function(source){
- const target=document.createElement('canvas');target.width=source.width;target.height=source.height;target.style='position:fixed;right:0;bottom:0;width:360px;height:640px;z-index:25000;pointer-events:none';target.setAttribute('aria-hidden','true');document.body.append(target);
- const ctx=target.getContext('2d',{alpha:false,willReadFrequently:true}),render=ShortsVideoRenderer.render,capture=source.captureStream;let frames=0;
- const copy=()=>{ctx.putImageData(source.getContext('2d').getImageData(0,0,source.width,source.height),0,0);frames++;};
- ShortsVideoRenderer.render=(canvas,...args)=>{const result=render(canvas,...args);if(canvas===source)copy();return result;};source.captureStream=rate=>{copy();return target.captureStream(rate);};
- return()=>{ShortsVideoRenderer.render=render;source.captureStream=capture;target.width=target.height=1;target.remove();return{frames};};
-};

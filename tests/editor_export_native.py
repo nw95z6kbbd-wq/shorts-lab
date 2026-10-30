@@ -41,23 +41,7 @@ def check_native_editor_export(root,script,command,click):
      print('::warning title=Available native encoding APIs::'+json.dumps(codec_api),flush=True)
      print('::error title=Editor export native trace::'+json.dumps(script('return {states:exportStates,progress:exportProgress.slice(-6),trace:{recorders:editorExportTrace.recorders,contexts:editorExportTrace.contexts.map(c=>({rate:c.sampleRate,state:c.state,time:c.currentTime})),progress:editorExportTrace.progress.slice(-8)}};')),flush=True)
      try:
-      script('stopExportTrace();');execute('await setupEditorExportMatrix();return true;')
-      matrix=[]
-      for config in [
-       {'mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True,'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','cssWidth':90},
-       {'mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True,'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','cssWidth':180},
-       {'mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True,'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','cssWidth':270},
-       {'mixer':True,'monitor':True,'captureFirst':True,'lateAudio':True,'opaque':True,'realAudio':True,'renderer':True,'readback':True,'type':'video/mp4;codecs=avc1.42001f,mp4a.40.2','cssWidth':360},
-      ]:
-       script('window.exportMatrixConfig=arguments[0];',[config]);click('#exportMatrix');row=execute('return await exportMatrixPromise;')
-       if row.get('bytes'):
-        data=encoded('exportMatrixBlob');path=folder/('matrix-'+str(len(list(folder.glob('matrix-*.mp4'))))+'.mp4');path.write_bytes(base64.b64decode(data['data']));row['independent']=json.loads(subprocess.check_output(['ffprobe','-v','error','-count_frames','-show_entries','stream=codec_name,codec_type,profile,level,width,height,nb_read_frames,start_time,duration:format=duration','-of','json',str(path)]))
-       matrix.append(row)
-       print('::notice title=Failure-only native graph case::'+json.dumps(row),flush=True)
-     except Exception as diagnostic:print('::warning title=Native matrix failure::'+str(diagnostic)[:800],flush=True)
-     finally:execute('document.getElementById("exportMatrix")?.remove();window.exportMatrixLease?.release();await window.exportMatrixSession?.dispose();return true;')
-     try:
-      data=encoded('exportRawBlob');failed=folder/('failed'+('.mp4' if data['type'].startswith('video/mp4') else '.webm'));failed.write_bytes(base64.b64decode(data['data']));actual=inspect_recording(failed)
+      data=encoded('exportRawBlob');failed=folder/('failed'+('.mp4' if data['type'].startswith('video/mp4') else '.webm'));failed.write_bytes(base64.b64decode(data['data']));probe=subprocess.run(['ffprobe','-v','error','-show_data','-show_entries','stream=codec_name,codec_type,extradata,sample_rate,channels,width,height,duration','-of','json',str(failed)],capture_output=True,text=True);print('::notice title=Rejected export codec configuration::'+json.dumps({'returncode':probe.returncode,'metadata':probe.stdout[:4500],'error':probe.stderr[-1500:]}),flush=True);actual=inspect_recording(failed)
       colors=[]
       pts=json.loads(subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0','-show_entries','frame=best_effort_timestamp_time','-of','json',str(failed)]))['frames']
       for point in [.5,1.5,2.5]:
@@ -69,20 +53,7 @@ def check_native_editor_export(root,script,command,click):
       print('::error title=Native Editor export independent evidence::'+json.dumps({'failure':str(failure),'mime':data['type'],'formats':prepared['formats'],'streams':actual['streams'],'video':actual['video'],'audio':actual['audio'],'format':actual['format']}),flush=True)
       (folder/'state.json').write_text(json.dumps(script('return {states:window.exportStates,progress:window.exportProgress,status:window.exportJob?.status()};'),ensure_ascii=False,indent=2))
      except Exception as diagnostic:print('::warning title=Editor export evidence::'+str(diagnostic)[:500],flush=True)
-     repeats=[];script('window.exportOriginalBitmap=window.createImageBitmap;')
-     try:
-      for backend in ['native','element','cpu-mirror']:
-       row={'backend':backend}
-       script('window.createImageBitmap=arguments[0]==="element"?undefined:window.exportOriginalBitmap;',[backend])
-       if backend=='cpu-mirror':script('window.stopCpuMirror=attachExportCpuMirror(exportCanvas);')
-       try:
-        execute('await exportJob.prepare({project:exportOriginal,canvas:exportCanvas,contentRevision:8});return true;');click('#editorExportStart');result=execute('return await finishEditorExportFixture();');row['valid']=True;row['file']={k:result[k] for k in ['container','videoCodec','audioCodec','durationMs']}
-       except Exception as diagnostic:row['error']=str(diagnostic)[:450]
-       row['raw']=execute('return exportRawBlob?ShortsExportInspector.inspectBytes(new Uint8Array(await exportRawBlob.arrayBuffer())):null;');repeats.append(row)
-       execute('await exportJob.cancel();return true;')
-       if backend=='cpu-mirror':row['mirror']=script('return stopCpuMirror();')
-       print('::notice title=Failure-only controller backend::'+json.dumps(row),flush=True)
-     finally:script('window.createImageBitmap=window.exportOriginalBitmap;')
+
      raise
     script('stopExportTrace();');execute('await disposeEditorExportFixture();return true;')
   print('::notice title=Native Safari Editor export confirmed::'+json.dumps(evidence),flush=True)

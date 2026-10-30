@@ -30,12 +30,12 @@ def run():
    for name in ['studio-data-fixture.js','editor-timing-fixture.js','editor-live-fixture.js','editor-export-fixture.js']:page.add_script_tag(content=(ROOT/'tests'/name).read_text())
    support=page.evaluate('ShortsVideoRecorder.capabilities(true)')
    print('::notice title=Editor export capability checkpoint::'+json.dumps(support),flush=True)
-   if not support['supported']:
-    print('::notice title=Editor export refusal checkpoint::before prepare',flush=True)
-    result=page.evaluate('async()=>{const p=ShortsCore.createProject(true),before=JSON.stringify(p),canvas=document.createElement("canvas");canvas.width=720;canvas.height=1280;const c=ShortsEditorExport.create();try{await c.prepare({project:p,canvas});throw Error("Unsupported recorder accepted");}catch(e){if(e.code!=="FORMAT")throw e;}finally{await c.dispose();}return before===JSON.stringify(p);}')
-    assert result;print(f'::notice title=Editor export refusal passed::PASS [{engine}]: actual recording unavailable; FORMAT refusal leaves DTO/media intact (no simulated recording)');browser.close();return
    outcomes=[]
    for mode,audio in [('auto',True),('webm',True),('auto',False)]:
+    available=page.evaluate('async ([mode,audio])=>{const native=mode==="auto"?await ShortsNativeMP4.support(audio):null,caps=ShortsVideoRecorder.capabilities(audio,mode);return {native:!!native,recorder:!!(caps.capture&&caps.mediaRecorder&&(!audio||caps.audio)&&ShortsEditorExport.formats(audio,mode).length)};}',[mode,audio])
+    if not (available['native'] or available['recorder']):
+     result=page.evaluate('async ([mode,audio])=>{const p=ShortsCore.upgradeProject(ShortsCore.createProject(true));p.exportSettings.format=mode;if(audio)p.audio.voice.assetId="capability-probe-voice";const before=JSON.stringify(p),saved=JSON.stringify(await studioUiSnapshot()),canvas=document.createElement("canvas");canvas.width=720;canvas.height=1280;const c=ShortsEditorExport.create();try{await c.prepare({project:p,canvas});throw Error("Unsupported encoder accepted");}catch(e){if(e.code!=="FORMAT")throw e;}finally{await c.dispose();}return before===JSON.stringify(p)&&saved===JSON.stringify(await studioUiSnapshot())&&ShortsMediaSessions.statistics().residentBytes===0;}',[mode,audio])
+     assert result;print('::notice title=Editor export genuine format refusal::'+json.dumps({'engine':engine,'entry':entry,'mode':mode,'audio':audio,'unchanged':result}),flush=True);continue
     prepared=page.evaluate('args=>prepareEditorExportFixture(...args)',[media_payload(),{'format':mode,'audio':audio}]);page.locator('#editorExportStart').click()
     try:result=page.evaluate('finishEditorExportFixture()')
     except Exception:
@@ -49,6 +49,6 @@ def run():
     page.evaluate('async()=>{await exportJob.prepare({project:exportOriginal,canvas:exportCanvas});exportStates=[];exportProgress=[];}');page.locator('#editorExportStart').click()
     page.evaluate('async()=>{const stopped=exportPromise.catch(e=>e);await editorLiveUntil(()=>exportProgress.some(p=>p.timeMs>=200),"native encoder advanced before cancellation");await exportJob.cancel();await stopped;exportCheck(!exportJob.status().hasResult,"cancel returned a partial video");exportCheck(ShortsMediaSessions.statistics().sessions===0,"cancel leak");}')
     page.evaluate('disposeEditorExportFixture()')
-   assert not errors,errors;browser.close();print(f'PASS [{engine} {entry}]: real Editor PNG/JPG/WebP, voice+music, byte codecs, full FFmpeg decode, scene pixels/frequencies, cancel/restart/errors and unchanged persisted DTO/media; '+json.dumps(outcomes),flush=True)
+   assert not errors,errors;browser.close();print(f'PASS [{engine} {entry}]: actual available Editor encoders and genuine refusals, PNG/JPG/WebP, byte codecs, full FFmpeg decode, scene pixels/frequencies, cancel/restart/errors and unchanged persisted DTO/media; '+json.dumps(outcomes),flush=True)
  finally:server.shutdown();server.server_close()
 if __name__=='__main__':run()
