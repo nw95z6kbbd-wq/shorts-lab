@@ -37,6 +37,8 @@ def check_native_editor_export(root,script,command,click):
      if audio:assert execute('return await exerciseEditorExportErrors();')==['missing image','overflow','resource count']
      evidence.append({'entry':entry,'mode':mode,'actual':actual})
     except Exception as failure:
+     codec_api=execute('const result={VideoEncoder:typeof VideoEncoder,AudioEncoder:typeof AudioEncoder,VideoFrame:typeof VideoFrame,AudioData:typeof AudioData};if(typeof VideoEncoder==="function")try{result.avc=await VideoEncoder.isConfigSupported({codec:"avc1.42001f",width:720,height:1280,bitrate:2600000,framerate:24,avc:{format:"avc"},latencyMode:"realtime"});}catch(e){result.avcError=e.message;}if(typeof AudioEncoder==="function")try{result.aac=await AudioEncoder.isConfigSupported({codec:"mp4a.40.2",sampleRate:48000,numberOfChannels:2,bitrate:128000});}catch(e){result.aacError=e.message;}return result;')
+     print('::warning title=Available native encoding APIs::'+json.dumps(codec_api),flush=True)
      print('::error title=Editor export native trace::'+json.dumps(script('return {states:exportStates,progress:exportProgress.slice(-6),trace:{recorders:editorExportTrace.recorders,contexts:editorExportTrace.contexts.map(c=>({rate:c.sampleRate,state:c.state,time:c.currentTime})),progress:editorExportTrace.progress.slice(-8)}};')),flush=True)
      try:
       script('stopExportTrace();');execute('await setupEditorExportMatrix();return true;')
