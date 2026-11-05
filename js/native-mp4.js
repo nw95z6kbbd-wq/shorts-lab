@@ -20,7 +20,8 @@
     if(io.playable&&!io.playable('video/mp4;codecs=avc1.42001f'+(audio?',mp4a.40.2':'')))return null;
     try{const v=await io.VideoEncoder.isConfigSupported(AVC),a=audio?await io.AudioEncoder.isConfigSupported(AAC):null;if(!v.supported||audio&&!a.supported)return null;return Object.freeze({video:Object.freeze({...AVC,avc:Object.freeze({format:'avc'})}),audio:audio?Object.freeze({...AAC}):null,mimeType:'video/mp4;codecs=avc1.42001f'+(audio?',mp4a.40.2':'')});}catch(_){return null;}
   }
-  function audioSpecificConfig(bytes) {
+  function audioSpecificConfig(bytes,profile) {
+    let cocoaCookie=false;
     if(!(bytes instanceof Uint8Array)||bytes.length<2||bytes.length>65536)throw error('CODEC','Неверное описание AAC encoder.');
     const bad=()=>{throw error('CODEC','Повреждён или не поддерживается AAC ES_Descriptor encoder.');};
     if(bytes[0]===3){
@@ -30,13 +31,18 @@
       const es=descriptor(0,bytes.length);if(es.tag!==3||es.end!==bytes.length||es.data+3>es.end)bad();const flags=bytes[es.data+2];let at=es.data+3;
       if(flags&128)at+=2;if(flags&64){if(at>=es.end)bad();at+=1+bytes[at];}if(flags&32)at+=2;
       const dc=descriptor(at,es.end);if(dc.tag!==4||dc.data+13>dc.end||bytes[dc.data]!==64||(bytes[dc.data+1]>>>2)!==5)bad();
+      // Captured older Cocoa cookie: streamType byte 0x14 and 6144-byte
+      // converter buffer. A generic standards-compliant ES descriptor (0x15)
+      // does not establish a Cocoa priming profile.
+      cocoaCookie=bytes[dc.data+1]===20&&bytes[dc.data+2]===0&&bytes[dc.data+3]===24&&bytes[dc.data+4]===0;
       const asc=descriptor(dc.data+13,dc.end);if(asc.tag!==5||asc.end!==dc.end||asc.end-asc.data<2)bad();
       if(dc.end<es.end){const sl=descriptor(dc.end,es.end);if(sl.tag!==6||sl.end!==es.end||sl.end-sl.data!==1||bytes[sl.data]!==2)bad();}
       bytes=bytes.slice(asc.data,asc.end);
     }
     // This backend explicitly requests AAC-LC, 48 kHz stereo. Do not manufacture
     // a config from that request or relabel another actual codec/rate/channel set.
-    if(bytes.length>64||bytes[0]>>>3!==2||((bytes[0]&7)<<1|bytes[1]>>>7)!==3||((bytes[1]>>>3)&15)!==2)throw error('CODEC','Encoder не вернул AAC-LC 48 кГц stereo.');
+    if(bytes.length>64||bytes[0]>>>3!==2||((bytes[0]&7)<<1|bytes[1]>>>7)!==3||((bytes[1]>>>3)&15)!==2||(bytes[1]&4))throw error('CODEC','Encoder не вернул AAC-LC 48 кГц stereo с блоками 1024 samples.');
+    if(profile&&cocoaCookie)profile.cocoaCookie=true;
     return bytes;
   }
   const text=s=>Uint8Array.from(s,c=>c.charCodeAt(0));
@@ -46,16 +52,41 @@
   const full=(name,payload,version=0,flags=0)=>box(name,uint(version,1),uint(flags,3),payload);
   const matrix=cat(uint(65536),zeros(12),uint(65536),zeros(12),uint(1073741824));
   function runs(samples){const out=[];for(const s of samples){if(!Number.isSafeInteger(s.duration)||s.duration<1)throw error('MUX','Неверная длительность MP4 sample.');const last=out.at(-1);if(last&&last.duration===s.duration)last.count++;else out.push({count:1,duration:s.duration});}return cat(uint(out.length),...out.map(s=>cat(uint(s.count),uint(s.duration))));}
+  function validateAAC(audio,pcmFrames){
+    if(!audio.samples.length)throw error('INCOMPLETE','Нет AAC-пакетов.');
+    // AAC-LC access units decode to 1024 samples. Permit up to three units of
+    // *leading* codec priming (including Cocoa's 2112 samples), never a positive
+    // shift. Timestamp rounding is checked against the absolute 48kHz grid;
+    // rounding each duration separately must not accumulate drift.
+    const first=audio.samples[0].timestamp,timestampPriming=Math.round(-first*48000/1e6);
+    if(!Number.isSafeInteger(first)||timestampPriming<0||timestampPriming>3072||Math.abs(first+timestampPriming*1e6/48000)>1)throw error('ENCODER_TIMESTAMPS','Необъяснённое начало AAC относительно исходного PCM.');
+    // Older Cocoa's structurally verified ES cookie identifies its AAC-LC
+    // converter: it can timestamp the *coded* stream at zero while retaining
+    // its 2112 leading samples. This is a codec profile, not a gap tolerance.
+    const priming=timestampPriming===0&&audio.cocoaCookie?2112:timestampPriming;
+    let decoded=0;
+    for(let i=0;i<audio.samples.length;i++){
+      const sample=audio.samples[i],expected=(decoded-timestampPriming)*1e6/48000;
+      if(!Number.isSafeInteger(sample.timestamp)||Math.abs(sample.timestamp-expected)>1)throw error('ENCODER_TIMESTAMPS','Потеря, повтор или перестановка AAC-пакета '+i+'.');
+      const duration=sample.duration==null?1024:Math.round(sample.duration*48000/1e6);
+      if(!Number.isSafeInteger(duration)||duration<1||duration>1024||sample.duration!=null&&Math.abs(sample.duration-duration*1e6/48000)>1||i<audio.samples.length-1&&duration!==1024)throw error('ENCODER_TIMESTAMPS','Некорректная длительность AAC-пакета '+i+'.');
+      sample.duration=duration;decoded+=duration;
+    }
+    // A final partial unit or one padded unit is legal. Missing tail samples
+    // and an extra complete unit are not encoder padding.
+    if(decoded-priming<pcmFrames||decoded-priming-pcmFrames>=1024)throw error('INCOMPLETE','AAC не покрывает исходный PCM либо содержит лишние пакеты.');
+    audio.mediaTime=priming;audio.presentationFrames=pcmFrames;
+  }
   function mux({video,audio=null,durationMs}){
     if(!video?.samples?.length||!video.description?.length||!Number.isSafeInteger(durationMs)||durationMs<=0)throw error('MUX','Нет подготовленных видеоданных MP4.');
     for(const t of [video,...(audio?[audio]:[])]){if(!(t.description instanceof Uint8Array)||!t.description.length||t.description.length>65536||!t.samples.length||t.samples.length>20000||t.samples.some(s=>!(s.data instanceof Uint8Array)||!s.data.length))throw error('MUX','Неверная структура MP4 sample.');}
     if(video.samples.reduce((n,s)=>n+s.data.length,0)+(audio?audio.samples.reduce((n,s)=>n+s.data.length,0):0)>64*1048576)throw error('OUTPUT_BUDGET','Медиаданные MP4 превышают 64 МиБ.');
     const ftyp=box('ftyp',text('isom'),uint(512),text('isomiso2avc1mp41')),tracks=[{...video,id:1,kind:'video',scale:1000000}];if(audio)tracks.push({...audio,id:2,kind:'audio',scale:48000});
     let offset=ftyp.length+8;for(const t of tracks){t.offset=offset;t.total=t.samples.reduce((n,s)=>n+s.duration,0);offset+=t.samples.reduce((n,s)=>n+s.data.length,0);}
-    const movieDuration=Math.max(durationMs,...tracks.map(t=>Math.ceil(t.total/t.scale*1000)));
+    const movieDuration=Math.max(durationMs,...tracks.map(t=>Math.ceil((t.presentationFrames??t.total)/t.scale*1000)));
     const mvhd=full('mvhd',cat(zeros(8),uint(1000),uint(movieDuration),uint(65536),uint(256,2),zeros(10),matrix,zeros(24),uint(tracks.length+1)));
     function track(t){
-      const video=t.kind==='video',tkhd=full('tkhd',cat(zeros(8),uint(t.id),zeros(4),uint(Math.ceil(t.total/t.scale*1000)),zeros(8),zeros(4),uint(video?0:256,2),zeros(2),matrix,uint(video?720*65536:0),uint(video?1280*65536:0)),0,7);
+      const video=t.kind==='video',tkhd=full('tkhd',cat(zeros(8),uint(t.id),zeros(4),uint(Math.ceil((t.presentationFrames??t.total)/t.scale*1000)),zeros(8),zeros(4),uint(video?0:256,2),zeros(2),matrix,uint(video?720*65536:0),uint(video?1280*65536:0)),0,7);
       const mdhd=full('mdhd',cat(zeros(8),uint(t.scale),uint(t.total),uint(0x55c4,2),zeros(2)));
       const hdlr=full('hdlr',cat(zeros(4),text(video?'vide':'soun'),zeros(12),text('Shorts Studio\0')));
       let entry;
@@ -70,7 +101,10 @@
       const sync=video?full('stss',cat(uint(t.samples.filter(s=>s.key).length),...t.samples.flatMap((s,i)=>s.key?[uint(i+1)]:[]))):zeros(0);
       const dinf=box('dinf',full('dref',cat(uint(1),full('url ',zeros(0),0,1))));
       const minf=box('minf',video?full('vmhd',zeros(8),0,1):full('smhd',zeros(4)),dinf,box('stbl',stsd,stts,stsc,stsz,stco,sync));
-      return box('trak',tkhd,box('mdia',mdhd,hdlr,minf));
+      // Preserve proven leading codec priming and trim final padding using the
+      // standard MP4 edit list. Encoded AAC bytes are never removed/relabelled.
+      const edits=t.presentationFrames===undefined?zeros(0):box('edts',full('elst',cat(uint(1),uint(Math.ceil(t.presentationFrames/t.scale*1000)),uint(t.mediaTime),uint(1,2),zeros(2))));
+      return box('trak',tkhd,edits,box('mdia',mdhd,hdlr,minf));
     }
     const moov=box('moov',mvhd,...tracks.map(track)),data=tracks.flatMap(t=>t.samples.map(s=>s.data)),bytes=data.reduce((n,a)=>n+a.length,0);
     return new Blob([ftyp,uint(bytes+8),text('mdat'),...data,moov],{type:'video/mp4'});
@@ -87,7 +121,7 @@
     const wait=promise=>Promise.race([promise,failure]);
     const output=(target,kind)=>(chunk,metadata)=>{try{
       if(closed)return;check();if(outputBytes+chunk.byteLength>recordingPolicy.maxBytes)throw error('OUTPUT_BUDGET','Видео превышает рабочий предел результата.');budget.reserve(chunk.byteLength);outputBytes+=chunk.byteLength;
-      if(metadata?.decoderConfig?.description){const d=metadata.decoderConfig.description,raw=(ArrayBuffer.isView(d)?new Uint8Array(d.buffer,d.byteOffset,d.byteLength):new Uint8Array(d)).slice(),next=kind==='audio'?audioSpecificConfig(raw):raw;if(target.description&&(next.length!==target.description.length||next.some((v,i)=>v!==target.description[i])))throw error('CODEC','Encoder изменил конфигурацию дорожки во время записи.');target.description=next;}
+      if(metadata?.decoderConfig?.description){const d=metadata.decoderConfig.description,raw=(ArrayBuffer.isView(d)?new Uint8Array(d.buffer,d.byteOffset,d.byteLength):new Uint8Array(d)).slice(),next=kind==='audio'?audioSpecificConfig(raw,target):raw;if(target.description&&(next.length!==target.description.length||next.some((v,i)=>v!==target.description[i])))throw error('CODEC','Encoder изменил конфигурацию дорожки во время записи.');target.description=next;}
       const data=new Uint8Array(chunk.byteLength);chunk.copyTo(data);target.samples.push({data,timestamp:chunk.timestamp,duration:chunk.duration,key:chunk.type==='key'});
     }catch(cause){fail(cause);}};
     async function drain(encoder){while(encoder.encodeQueueSize>=2){check();let done;const pending=new Promise(resolve=>{done=resolve;encoder.addEventListener('dequeue',done,{once:true});if(encoder.encodeQueueSize<2)done();});try{await wait(pending);}finally{encoder.removeEventListener('dequeue',done);}}}
@@ -116,7 +150,7 @@
         sample.duration=durations.get(expected);previous=sample.timestamp;
       }
       if(!video.samples[0]?.key)throw error('CODEC','Нет начального ключевого кадра H.264.');
-      if(audio){if(!audio.samples.length)throw error('INCOMPLETE','Нет AAC-пакетов.');for(const sample of audio.samples)sample.duration=sample.duration?Math.round(sample.duration*48000/1e6):1024;}
+      if(audio)validateAAC(audio,Math.ceil(plan.durationMs*48));
       budget.reserve(outputBytes);const blob=mux({video,audio,durationMs:plan.durationMs});if(blob.size>recordingPolicy.maxBytes)throw error('OUTPUT_BUDGET','Завершённый MP4 превышает рабочий предел.');check();
       return{blob,mimeType:config.mimeType,extension:'mp4',width:720,height:1280,durationMs:plan.durationMs};
     }finally{

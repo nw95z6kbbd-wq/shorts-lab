@@ -14,6 +14,13 @@
   const u64=p=>{check(p,8);const n=v.getUint32(p)*4294967296+v.getUint32(p+4);if(!Number.isSafeInteger(n))fail('CONTAINER','Слишком большое значение в контейнере.');return n;};
   const text=(p,n)=>{check(p,n);return String.fromCharCode(...b.subarray(p,p+n));};
   const tick=()=>{if(++nodes>MAX_NODES)fail('CONTAINER','Превышен рабочий предел структуры контейнера.');};
+  // Presentation order can differ from decode order (MP4 CTTS/B frames).
+  // Keep only bounded video timing, never packet payloads or runtime resources.
+  function presentation(t,pts,duration=null){
+   if(t.kind!=='video')return;
+   if(!Number.isFinite(pts)||duration!==null&&(!Number.isFinite(duration)||duration<=0))fail('CONTAINER','Неверный интервал видеокадра.');
+   (t.presentation||=[]).push([pts,duration]);if(t.presentation.length>MAX_SAMPLES)fail('CONTAINER','Слишком много временных меток видео.');
+  }
   function mp4(){
    function boxes(start,end){const result=[];for(let p=start;p<end;){tick();check(p,8,end);let size=u32(p),head=8;if(size===1){check(p,16,end);size=u64(p+8);head=16;}else if(size===0)size=end-p;if(size<head)fail('CONTAINER','Неверный MP4 box.');check(p,size,end);result.push({type:text(p+4,4),start:p,data:p+head,end:p+size,size});p+=size;}return result;}
    const children=box=>boxes(box.data,box.end),find=(list,type,required=true)=>{const a=list.filter(x=>x.type===type);if(a.length>1||required&&!a.length)fail('CONTAINER','Некорректная структура MP4: '+type);return a[0];};
@@ -54,13 +61,18 @@
     if(stsz&&stts){
      check(stsz.data,12,stsz.end);const fixed=u32(stsz.data+4),count=u32(stsz.data+8);if(count>MAX_SAMPLES)fail('CONTAINER','Слишком много MP4 samples.');if(!fixed)check(stsz.data+12,count*4,stsz.end);
      let duration=0,total=0;for(const p of table(stts,8)){const n=u32(p),d=u32(p+4);if(!n||!d)fail('CONTAINER','Нулевой интервал MP4.');total+=n;duration+=n*d;}if(total!==count)fail('CONTAINER','Таблицы длительности и кадров MP4 не совпадают.');
+     if(t.kind==='video'&&count){
+      const ctts=find(stbl,'ctts',false),composition=[];
+      if(ctts){if(b[ctts.data]>1)fail('CONTAINER','Неизвестная версия CTTS.');for(const p of table(ctts,8)){const n=u32(p),offset=b[ctts.data]===1?v.getInt32(p+4):u32(p+4);if(!n||composition.length+n>count)fail('CONTAINER','Неверное число CTTS samples.');for(let i=0;i<n;i++)composition.push(offset);}if(composition.length!==count)fail('CONTAINER','CTTS не покрывает видеодорожку.');}
+      let time=0,index=0;for(const p of table(stts,8)){const n=u32(p),d=u32(p+4);for(let i=0;i<n;i++){presentation(t,(time+(composition[index++]||0))/scale*1000,d/scale*1000);time+=d;}}
+     }
      if(count){if(!co||!stsc)fail('CONTAINER','Отсутствуют адреса медиаданных MP4.');const offsets=table(co,co.type==='co64'?8:4),mapping=table(stsc,12);let sample=0,group=0;if(!mapping.length||u32(mapping[0])!==1)fail('CONTAINER','Некорректная карта MP4 chunks.');
       for(let i=0;i<offsets.length;i++){while(group+1<mapping.length&&u32(mapping[group+1])<=i+1)group++;const n=u32(mapping[group]+4);if(!n||sample+n>count)fail('CONTAINER','Некорректное число MP4 samples.');let size=0;for(let j=0;j<n;j++)size+=fixed||u32(stsz.data+12+(sample++)*4);if(fixed)sample+=n;const at=co.type==='co64'?u64(offsets[i]):u32(offsets[i]);if(!size||!inData(at,size))fail('CONTAINER','Медиаданные MP4 обрезаны.');t.bytes+=size;}
       if(sample!==count)fail('CONTAINER','Часть кадров MP4 отсутствует.');t.count=count;t.first=0;t.end=duration/scale*1000;
      }
     }
    }
-   function add(t,pts,duration,size,at){if(!duration||!size||!inData(at,size))fail('CONTAINER','Фрагмент MP4 не содержит полного sample.');t.first=Math.min(t.first,pts/t.scale*1000);t.end=Math.max(t.end,(pts+duration)/t.scale*1000);t.count++;t.bytes+=size;if(t.count>MAX_SAMPLES)fail('CONTAINER','Слишком много MP4 samples.');}
+   function add(t,pts,duration,size,at){if(!duration||!size||!inData(at,size))fail('CONTAINER','Фрагмент MP4 не содержит полного sample.');presentation(t,pts/t.scale*1000,duration/t.scale*1000);t.first=Math.min(t.first,pts/t.scale*1000);t.end=Math.max(t.end,(pts+duration)/t.scale*1000);t.count++;t.bytes+=size;if(t.count>MAX_SAMPLES)fail('CONTAINER','Слишком много MP4 samples.');}
    for(const moof of top.filter(x=>x.type==='moof')){
     let implicit=moof.start;
     for(const traf of children(moof).filter(x=>x.type==='traf')){
@@ -99,7 +111,7 @@
     }
     let at=time;for(const size of sizes){tick();check(p,size,e.end);if(!size)fail('CONTAINER','Пустой WebM packet.');let duration=blockDuration?blockDuration/sizes.length:t.defaultDuration;
      if(t.codec==='opus'){const toc=b[p],config=toc>>>3,frames=(toc&3)===0?1:(toc&3)===3?(size>1?b[p+1]&63:0):2;const samples=config>=16?120*(2**(config&3)):config>=12?480*(2**(config&1)):(config&3)===3?2880:480*(2**(config&3));if(!frames||frames*samples>5760)fail('CONTAINER','Неверный Opus packet.');duration=frames*samples/48;}
-     t.first=Math.min(t.first,at);t.end=Math.max(t.end,at+duration);t.count++;t.bytes+=size;if(t.count>MAX_SAMPLES)fail('CONTAINER','Слишком много WebM packets.');p+=size;at+=duration;
+     presentation(t,at,blockDuration?duration:null);t.first=Math.min(t.first,at);t.end=Math.max(t.end,at+duration);t.count++;t.bytes+=size;if(t.count>MAX_SAMPLES)fail('CONTAINER','Слишком много WebM packets.');p+=size;at+=duration;
     }if(p!==e.end)fail('CONTAINER','Неверные размеры WebM lacing.');
    }
    for(const c of segment.filter(e=>e.id===0x1f43b675)){
@@ -110,7 +122,13 @@
   function finish(container,tracks){
    const video=tracks.filter(t=>t.kind==='video'),audio=tracks.filter(t=>t.kind==='audio');if(video.length!==1||audio.length>1)fail('CONTAINER','Требуется одна видеодорожка и не больше одной смешанной аудиодорожки.');
    for(const t of tracks)if(!t.count||!t.bytes||!Number.isFinite(t.first)||t.end<=t.first)fail('INCOMPLETE','В файле нет полного медиапотока.');
-   const clean=t=>{const {scale,defaultDuration,...result}=t;return result;};
+   const clean=t=>{
+    const {scale,defaultDuration,presentation:frames,...result}=t;
+    if(frames){frames.sort((a,b)=>a[0]-b[0]);let maxUnexplainedGapMs=0,duplicates=0;
+     for(let i=1;i<frames.length;i++){const [previous,duration]=frames[i-1],delta=frames[i][0]-previous;if(delta<=0)duplicates++;maxUnexplainedGapMs=Math.max(maxUnexplainedGapMs,delta-(duration??0));}
+     result.timing=Object.freeze({maxUnexplainedGapMs,duplicates});
+    }return result;
+   };
    return Object.freeze({container,extension:container,bytes:b.length,video:Object.freeze(clean(video[0])),audio:audio[0]?Object.freeze(clean(audio[0])):null,durationMs:video[0].end-video[0].first});
   }
   if(b.length>=4&&u32(0)===0x1a45dfa3)return webm();
@@ -122,6 +140,10 @@
   const tolerance=Math.min(250,Math.max(2000/fps,durationMs*.05));
   if(info.video.width!==width||info.video.height!==height)fail('OUTPUT_DIMENSIONS','Фактическое разрешение видео не совпадает с 720×1280.');
   if(Boolean(info.audio)!==hasAudio)fail('OUTPUT_AUDIO','Количество звуковых дорожек не соответствует проекту.');
+  // Existing admission requires >=4 video packets/sec. Apply its 250ms cadence
+  // locally as well: global counts cannot hide a middle hole. Explicit MP4 /
+  // WebM BlockDuration holds explain VFR time; DefaultDuration alone does not.
+  if(!info.video.timing||info.video.timing.duplicates||info.video.timing.maxUnexplainedGapMs>250)fail('INCOMPLETE','Видеодорожка содержит повторные временные метки или необъяснённый внутренний разрыв.');
   for(const t of [info.video,...(info.audio?[info.audio]:[])])if(Math.abs(t.end-t.first-durationMs)>tolerance||t.first>tolerance||t.count<(t.kind==='video'?Math.max(2,Math.floor(durationMs/1000*4)):2))fail('INCOMPLETE',(t.kind==='video'?'Видеодорожка':'Аудиодорожка')+': '+t.count+' пакетов, интервал '+Math.round(t.end-t.first)+' мс (план '+durationMs+' мс), начало '+Math.round(t.first)+' мс. Запись неполна; файл не готов для скачивания.');
   return info;
  }

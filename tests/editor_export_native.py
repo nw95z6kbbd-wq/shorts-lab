@@ -6,6 +6,7 @@ from runtime_session_native import command_result
 from safari_file_entry import prepare_native_file_entry
 from editor_export_checks import verify_file,component
 from editor_recording_evidence import inspect_recording
+from editor_av_markers import marker_payload,verify_markers
 
 def check_native_editor_export(root,script,command,click):
  class Handler(SimpleHTTPRequestHandler):
@@ -57,6 +58,12 @@ def check_native_editor_export(root,script,command,click):
 
      raise
     script('stopExportTrace();');execute('await disposeEditorExportFixture();return true;')
+    if mode=='auto' and audio:
+     execute('return await prepareEditorExportFixture(arguments[0],{format:"auto",audio:true,markers:true});',[marker_payload()]);click('#editorExportStart')
+     marker_result=execute('return await finishEditorExportFixture();');assert marker_result['container']=='mp4' and marker_result['audioCodec']=='aac',marker_result
+     marker_data=encoded('editorExportBlob');marker_file=folder/'av-markers.mp4';marker_file.write_bytes(base64.b64decode(marker_data['data']))
+     print('::notice title=Native Safari AV markers::'+json.dumps({'origin':'file' if entry.startswith('file:') else 'http','markers':verify_markers(marker_file)}),flush=True)
+     execute('await disposeEditorExportFixture();return true;')
   print('::notice title=Native Safari Editor export confirmed::'+json.dumps({'cases':len(evidence),'origins':['http','file'],'completeIndependentDecode':True}),flush=True)
  finally:
   for grant in grants:grant.unlink(missing_ok=True)

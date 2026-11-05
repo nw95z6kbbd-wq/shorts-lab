@@ -3,7 +3,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const factory=require('../js/native-mp4.js'),mediaFactory=require('../js/media-session.js'),I=require('../js/export-inspector.js'),C=require('../js/core.js'),A=require('../js/render-adapters.js');
 const ref=require('./fixtures/editor-export/native-mux-reference.json'),original=fs.readFileSync('tests/fixtures/editor-export/'+ref.source);
 function track(kind){const list=ref[kind].samples;return{description:Buffer.from(ref[kind].description,'hex'),samples:list.map((s,i)=>({data:original.subarray(s.offset,s.offset+s.size),key:s.key,duration:kind==='video'?(i===list.length-1?1000000-s.timestamp:list[i+1].timestamp-s.timestamp):Math.round(s.duration*.048)}))};}
-function fake({dropVideo=false,gate=null,offlineGate=null,timestampShift=0,audioDescription=null}={}){
+function fake({dropVideo=false,gate=null,offlineGate=null,timestampShift=0,audioDescription=null,audioShift=0,dropAudio=-1,audioDuration=false,audioPriming=1024,trimTail=false,audioTimestamp=(i,t)=>t,audioZeroAnchor=false}={}){
  const media=mediaFactory({}),events=[],frames=[],active=[],mixes=[],rendered=[];
  class Frame{constructor(_source,options){Object.assign(this,options);frames.push(this);}close(){assert.ok(!this.closed);this.closed=true;}}
  class Data{constructor(options){Object.assign(this,options);}close(){this.closed=true;}}
@@ -11,10 +11,10 @@ function fake({dropVideo=false,gate=null,offlineGate=null,timestampShift=0,audio
   static async isConfigSupported(config){return{supported:true,config};}
   constructor(options){super();this.options=options;this.state='unconfigured';this.encodeQueueSize=0;this.index=0;active.push(this);}
   configure(config){this.state='configured';this.config=config;}
-  send(i,input){if(this.state==='closed'||dropVideo&&kind==='video'&&i===3)return;const spec=ref[kind].samples[i%ref[kind].samples.length],data=original.subarray(spec.offset,spec.offset+spec.size),metadata=i===0?{decoderConfig:{description:kind==='audio'&&audioDescription?audioDescription:Buffer.from(ref[kind].description,'hex')}}:{};
-   this.options.output({timestamp:input.timestamp+(kind==='video'&&i>0?timestampShift:0),duration:kind==='video'?input.duration:spec.duration,type:spec.key?'key':'delta',byteLength:data.length,copyTo:out=>out.set(data)},metadata);}
+  send(i,input){if(this.state==='closed'||dropVideo&&kind==='video'&&i===3||kind==='audio'&&i===dropAudio)return;const spec=ref[kind].samples[i%ref[kind].samples.length],data=original.subarray(spec.offset,spec.offset+spec.size),metadata=i===0?{decoderConfig:{description:kind==='audio'&&audioDescription?audioDescription:Buffer.from(ref[kind].description,'hex')}}:{};
+   this.options.output({timestamp:kind==='video'?input.timestamp+(i>0?timestampShift:0):audioTimestamp(i,Math.round((i*1024-(audioZeroAnchor?0:audioPriming))*1e6/48000))+audioShift,duration:kind==='video'?input.duration:audioDuration?undefined:Math.round((trimTail&&i===47?48000+audioPriming-i*1024:1024)*1e6/48000),type:spec.key?'key':'delta',byteLength:data.length,copyTo:out=>out.set(data)},metadata);}
   encode(frame){assert.equal(this.state,'configured');const i=this.index++;this.encodeQueueSize++;const input={timestamp:frame.timestamp,duration:frame.duration};Promise.resolve(gate).then(()=>{this.send(i,input);this.encodeQueueSize--;this.dispatchEvent(new Event('dequeue'));});}
-  async flush(){while(this.encodeQueueSize)await new Promise(r=>this.addEventListener('dequeue',r,{once:true}));if(kind==='audio'&&this.index===47)this.send(47,{timestamp:1000000});}
+  async flush(){while(this.encodeQueueSize)await new Promise(r=>this.addEventListener('dequeue',r,{once:true}));if(kind==='audio')for(let i=this.index;i<Math.ceil((48000+audioPriming)/1024);i++)this.send(i,{timestamp:Math.round(i*1024*1e6/48000)});}
   close(){this.state='closed';}
  };}
  class Offline{constructor(channels,length,sampleRate){this.numberOfChannels=channels;this.length=length;this.sampleRate=sampleRate;this.destination={};events.push('offline');}async startRendering(){await Promise.resolve(offlineGate);return{getChannelData:()=>new Float32Array(this.length)};}}
@@ -65,4 +65,28 @@ test('Cocoa ES_Descriptor magic cookie is parsed structurally to its unchanged A
  assert.equal(cookie.length,39);assert.equal(cookie.subarray(0,24).toString('hex'),'038080802200000004808080144014001800000000000000');
  const f=fake({audioDescription:cookie}),result=await f.api.encode(await f.options()),info=I.inspectBytes(new Uint8Array(await result.blob.arrayBuffer()));assert.equal(info.audio.profile,'AAC-LC');assert.equal(info.audio.channels,2);assert.equal(info.audio.sampleRate,48000);assert.equal(info.audio.count,48);assert.equal(f.media.statistics().residentBytes,0);
  for(const mutate of [b=>b.subarray(0,b.length-1),b=>{b[4]++;return b;},b=>{b[b.indexOf(5,13)]=7;return b;},b=>{b[31]=(5<<3)|(b[31]&7);return b;}]){const bad=fake({audioDescription:mutate(Buffer.from(cookie))});await assert.rejects(bad.api.encode(await bad.options()),{code:'CODEC'});assert.equal(bad.media.statistics().residentBytes,0);}
+});
+
+for(const [name,options] of [
+ ['unexplained +500ms shift',{audioShift:500000}],['missing interior packet',{dropAudio:3}],
+ ['unexplained negative shift',{audioShift:-500000}],['missing final PCM samples',{dropAudio:47}],
+ ['duplicate timestamp',{audioTimestamp:(i,t)=>i===3?Math.round(1024*1e6/48000):t}],
+ ['reversed timestamp',{audioTimestamp:(i,t)=>i===3?t-45000:t}]
+])test('D2 rejects AAC '+name+' and releases resources',async()=>{
+ const f=fake(options);await assert.rejects(f.api.encode(await f.options()),e=>['ENCODER_TIMESTAMPS','INCOMPLETE'].includes(e.code));assert.equal(f.media.statistics().residentBytes,0);assert.ok(f.active.every(e=>e.state==='closed'));
+});
+test('AAC permits absent chunk durations, sample-grid quantization, bounded priming and final padding',async()=>{
+ for(const options of [{},{audioPriming:0},{audioDuration:true},{audioPriming:1024},{audioPriming:2112},{audioPriming:1024,trimTail:true},{audioTimestamp:i=>Math.trunc((i*1024-1024)*1e6/48000)}]){
+  const f=fake(options),raw=await f.api.encode(await f.options());assert.equal((await I.inspect(raw.blob,{durationMs:1000,hasAudio:true})).audio.codec,'aac');assert.equal(f.media.statistics().residentBytes,0);
+ }
+});
+
+test('Cocoa ES-cookie AAC may anchor coded packets at zero while preserving 2112 priming samples',async()=>{
+ const desc=(tag,payload)=>Buffer.concat([Buffer.from([tag,128,128,128,payload.length]),payload]),asc=Buffer.from(ref.audio.description,'hex').subarray(0,2),dc=desc(4,Buffer.concat([Buffer.from([64,20,0,24,0]),Buffer.alloc(8),desc(5,asc)])),cookie=desc(3,Buffer.concat([Buffer.alloc(3),dc,desc(6,Buffer.from([2]))]));
+ const f=fake({audioPriming:2112,audioZeroAnchor:true,audioDescription:cookie}),raw=await f.api.encode(await f.options());assert.equal((await I.inspect(raw.blob,{durationMs:1000,hasAudio:true})).audio.count,49);assert.equal(f.media.statistics().residentBytes,0);
+ const bytes=Buffer.from(await raw.blob.arrayBuffer()),elst=bytes.indexOf('elst');assert.ok(elst>0);assert.equal(bytes.readUInt32BE(elst+16),2112);
+ for(const options of [{audioShift:500000},{dropAudio:3},{dropAudio:48}]){const bad=fake({audioPriming:2112,audioZeroAnchor:true,audioDescription:cookie,...options});await assert.rejects(bad.api.encode(await bad.options()));assert.equal(bad.media.statistics().residentBytes,0);}
+ const unknown=fake({audioPriming:2112,audioZeroAnchor:true});await assert.rejects(unknown.api.encode(await unknown.options()),{code:'INCOMPLETE'});
+ const generic=Buffer.from(cookie);generic[generic.indexOf(Buffer.from([64,20,0,24,0]))+1]=21;
+ const other=fake({audioPriming:2112,audioZeroAnchor:true,audioDescription:generic});await assert.rejects(other.api.encode(await other.options()),{code:'INCOMPLETE'});
 });

@@ -138,3 +138,48 @@ absent even after full independent decoding. The native encoder path is covered
 by explicit frame-count/timestamp checks and independent three-scene verification.
 This localizes the failure to Canvas capture through MediaRecorder; it does not
 claim to establish an internal Safari codec implementation cause.
+
+## Timing validation after export review (D1/D2)
+
+Video coverage now checks internal presentation intervals as well as endpoints
+and counts. Classic MP4 STTS/CTTS and fragmented MP4 TRUN composition offsets
+are interpreted in presentation order, so valid decode-order reordering is not
+rejected. Duplicate presentation timestamps fail. An unexplained internal gap
+over 250 ms fails: this is the local form of the existing four-packets/second
+admission floor, not a new 24-fps/CFR requirement. Explicit sample durations or
+WebM BlockDuration explain a VFR hold; WebM DefaultDuration alone does not explain
+missing intermediate frames. Correct explicit long holds remain valid. This is
+packet-timeline validation, not proof that every scene contains the right pixels.
+
+Native AAC is checked against the absolute 48-kHz PCM grid, with at most one
+microsecond of timestamp representation error. Duplicate, reordered, shifted or
+missing internal access units fail before muxing. AAC-LC uses 1024-sample units;
+a final partial unit or less than one unit of padding is allowed, but the decoded
+timeline must cover every input PCM sample. Omitted chunk duration is inferred
+from the AAC-LC unit size. The existing Cocoa ES descriptor support is retained.
+
+Only leading codec priming is admitted: zero to three AAC units (3072 samples),
+including the 1024-sample fixture and Cocoa's 2112-sample priming. A positive
+offset or a larger unexplained negative shift is refused. MP4 edit lists retain
+the priming packets and present precisely the PCM interval, trimming priming and
+tail padding without removing or changing encoded bytes. This is local container
+timing metadata; DTO, IndexedDB, ZIP and legacy Video behavior are unchanged.
+The captured older Cocoa ES cookie (streamType byte 0x14, converter buffer 6144)
+also admits zero-anchored coded AAC with 2112 leading samples; the same strict
+packet grid and final padding check apply. Generic ES descriptors or raw ASC
+do not infer that profile or gain a larger padding allowance.
+WebKit's primary converter/encoder sources were consulted for its sample-grid
+timestamps and priming handling; current Safari still requires an actual run:
+https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/audio/cocoa/AudioEncoderCocoa.cpp
+https://github.com/WebKit/WebKit/blob/main/Source/WebCore/platform/audio/cocoa/AudioSampleBufferConverter.mm
+
+`tests/export-timing.test.cjs` reproduces the 24-packet WebM collapse and MP4
+composition-time variants. Native tests inject AAC shifts/loss/reordering and
+retain positive priming, padding and omitted-duration cases. The independent
+FFmpeg oracle in `tests/editor-av-sync-test.py` proves both a shifted audible
+track and a container-only audio timestamp shift fail, and a remuxed primed AAC
+fixture has identical decoded PCM.
+`tests/editor-av-sync-browser.py` exports actual flashes and tone bursts at
+0.25, 1.5 and 2.75 seconds; decoded video/audio onsets must agree with the plan
+and each other within the existing two-frame tolerance. Native Safari exercises
+the same marker consumer with H.264/AAC over HTTP and actual standalone file://.

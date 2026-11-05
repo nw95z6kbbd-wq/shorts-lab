@@ -1,11 +1,16 @@
 /* Test-only consumer; no new app controls or production persistence contract. */
 window.exportCheck=(condition,message)=>{if(!condition)throw Error('Editor export: '+message);};
-window.prepareEditorExportFixture=async function(payload,{format='auto',audio=true}={}){
+window.prepareEditorExportFixture=async function(payload,{format='auto',audio=true,markers=false}={}){
  await window.ShortsEditorReady;await editorLiveUntil(()=>window.ShortsVideoRestored&&!document.body.inert,'startup');
  const p=ShortsCore.upgradeProject(ShortsCore.createProject());p.id=ShortsCore.id();p.name='Editor export '+format+' '+p.id.slice(-8);p.timing='manual';p.script='Исходный сценарий отличается от отредактированных сцен.';
  const ids=[];for(const file of payload){const id=ShortsCore.id();ids.push(id);ShortsStorage.stage(id,new Blob([Uint8Array.from(atob(file.base64),c=>c.charCodeAt(0))],{type:file.type}),file.name,file.type.startsWith('image/')?'image':file.name.startsWith('voice')?'voice':'music');}
  p.scenes=payload.slice(0,3).map((file,i)=>({id:'export-scene-'+i,text:'Сцена '+(i+1),durationMs:1000,visual:'image',imageId:ids[i],imageName:file.name,camera:'static',transition:'crossfade'}));p.selectedSceneId=p.scenes[2].id;
  if(audio){p.audio.voice={assetId:ids[3],name:'voice.wav',volume:.65};p.audio.music={assetId:ids[4],name:'music.wav',volume:.45,fadeInMs:300,fadeOutMs:400};}
+ if(markers){
+  const durations=[250,100,1150,100,1150,100,150],images=[0,1,0,2,0,1,0];
+  p.scenes=durations.map((durationMs,i)=>({id:'marker-'+i,text:'',durationMs,visual:'image',imageId:ids[images[i]],imageName:payload[images[i]].name,camera:'static',transition:'none'}));
+  p.selectedSceneId=p.scenes[0].id;p.subtitles.enabled=false;p.audio.music.assetId=null;
+ }
  p.exportSettings.format=format;await editorLiveImport(p);await editorTimingWaitForSave();document.getElementById('openVideoMode').click();await editorLiveUntil(()=>ShortsMediaSessions.statistics().sessions===0,'old preview teardown');
  window.exportOriginal=ShortsEditor.backupSnapshot();window.exportBefore=await studioUiSnapshot();window.exportStates=[];window.exportProgress=[];
  const canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;canvas.style='position:fixed;left:0;bottom:0;width:min(360px,40vw,45vh);height:auto;z-index:24000';document.body.append(canvas);window.exportCanvas=canvas;

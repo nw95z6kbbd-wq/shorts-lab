@@ -92,6 +92,7 @@ jobs:
         run: |
           python tests/editor-recording-evidence-test.py
           python tests/editor-export-evidence-test.py
+          python tests/editor-av-sync-test.py
           python tests/check-errors.py tests/editor-canvas-browser.py
           EDITOR_MOBILE=1 python tests/check-errors.py tests/editor-canvas-browser.py
       - name: Check real browser video and audio recording
@@ -100,6 +101,8 @@ jobs:
         run: |
           python scripts/prepare-site.py
           python tests/check-errors.py tests/editor-export-browser.py
+          python tests/check-errors.py tests/editor-av-sync-browser.py
+          EXPORT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/editor-av-sync-browser.py
           EXPORT_FILE=1 EXPORT_ENTRY=downloads/Shorts-Studio.html EXPORT_MOBILE=1 python tests/check-errors.py tests/editor-export-browser.py
       - name: Check Editor audio UI and actual signals
         run: |
@@ -324,6 +327,7 @@ jobs:
           ffprobe -version
           python tests/editor-recording-evidence-test.py
           python tests/editor-export-evidence-test.py
+          python tests/editor-av-sync-test.py
       - name: Enable Safari WebDriver
         run: sudo /usr/bin/safaridriver --enable
       - name: Check product UI and video smoke test in real Safari
