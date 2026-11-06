@@ -10,6 +10,7 @@ class Handler(SimpleHTTPRequestHandler):
  def log_message(self,*args):pass
 
 from editor_export_checks import verify_file
+from editor_aac_evidence import save_from_page
 
 def run():
  engine=os.environ.get('EXPORT_BROWSER','chromium');entry=os.environ.get('EXPORT_ENTRY','index.html')
@@ -18,6 +19,7 @@ def run():
   with sync_playwright() as p,tempfile.TemporaryDirectory(prefix='studio-export-') as folder:
    options={} if engine=='webkit' else {'executable_path':os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'),'args':['--no-sandbox']}
    browser=getattr(p,engine).launch(**options);page=browser.new_page(viewport={'width':390,'height':844} if os.environ.get('EXPORT_MOBILE')=='1' else {'width':1440,'height':1000});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+   page.add_init_script((ROOT/'tests/safari-aac-probe.js').read_text()+'\n'+(ROOT/'tests/editor-aac-trace.js').read_text())
    if entry.startswith('downloads/'):
     def offline(route):
      if route.request.url.endswith('/offline.html'):route.fulfill(body=(ROOT/entry).read_bytes(),content_type='text/html')
@@ -36,11 +38,19 @@ def run():
     if not (available['native'] or available['recorder']):
      result=page.evaluate('async ([mode,audio])=>{const p=ShortsCore.upgradeProject(ShortsCore.createProject(true));p.exportSettings.format=mode;if(audio)p.audio.voice.assetId="capability-probe-voice";const before=JSON.stringify(p),saved=JSON.stringify(await studioUiSnapshot()),canvas=document.createElement("canvas");canvas.width=720;canvas.height=1280;const c=ShortsEditorExport.create();try{await c.prepare({project:p,canvas});throw Error("Unsupported encoder accepted");}catch(e){if(e.code!=="FORMAT")throw e;}finally{await c.dispose();}return before===JSON.stringify(p)&&saved===JSON.stringify(await studioUiSnapshot())&&ShortsMediaSessions.statistics().residentBytes===0;}',[mode,audio])
      assert result;print('::notice title=Editor export genuine format refusal::'+json.dumps({'engine':engine,'entry':entry,'mode':mode,'audio':audio,'unchanged':result}),flush=True);continue
-    prepared=page.evaluate('args=>prepareEditorExportFixture(...args)',[media_payload(),{'format':mode,'audio':audio}]);page.locator('#editorExportStart').click()
-    try:result=page.evaluate('finishEditorExportFixture()')
+    prepared=page.evaluate('args=>prepareEditorExportFixture(...args)',[media_payload(),{'format':mode,'audio':audio}])
+    tracing=mode=='auto' and audio and available['native']
+    if tracing:page.evaluate('durationMs=>EditorAACTrace.arm({fixture:"editor-export-synthetic-3s",durationMs,pcmFrames:Math.ceil(durationMs*48),sampleRate:48000,numberOfChannels:2})',prepared['plan']['durationMs'])
+    try:
+     page.locator('#editorExportStart').click()
+     result=page.evaluate('finishEditorExportFixture()')
     except Exception:
      print('::error title=Editor export result diagnostics::'+json.dumps(page.evaluate('async()=>{const b=window.exportRawBlob;return {mode:exportOriginal.exportSettings.format,audio:!!exportOriginal.audio.voice.assetId,states:exportStates,streams:b?ShortsExportInspector.inspectBytes(new Uint8Array(await b.arrayBuffer())):null};}')),flush=True)
      raise
+    finally:
+     if tracing:
+      label=engine+('-standalone' if entry.startswith('downloads/') else '-source')+('-file' if os.environ.get('EXPORT_FILE')=='1' else '-http')+('-mobile' if os.environ.get('EXPORT_MOBILE')=='1' else '-desktop')
+      save_from_page(page,label)
     data=page.evaluate('async()=>{const r=new FileReader();const done=new Promise((resolve,reject)=>{r.onload=()=>resolve(r.result.slice(r.result.lastIndexOf(",")+1));r.onerror=reject;});r.readAsDataURL(editorExportBlob);return done;}');path=Path(folder)/('export.'+result['extension']);path.write_bytes(base64.b64decode(data));evidence=verify_file(path,result,audio);outcomes.append(evidence)
     if mode=='auto' and audio and not any(t.startswith('video/mp4') for t in prepared['formats']):assert result['container']=='webm' and result['fallback']
     if mode=='webm':assert result['container']=='webm'

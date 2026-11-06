@@ -93,6 +93,7 @@ jobs:
           python tests/editor-recording-evidence-test.py
           python tests/editor-export-evidence-test.py
           python tests/editor-av-sync-test.py
+          python tests/editor-aac-evidence-test.py
           python tests/check-errors.py tests/editor-canvas-browser.py
           EDITOR_MOBILE=1 python tests/check-errors.py tests/editor-canvas-browser.py
       - name: Check real browser video and audio recording
@@ -104,6 +105,15 @@ jobs:
           python tests/check-errors.py tests/editor-av-sync-browser.py
           EXPORT_ENTRY=downloads/Shorts-Studio.html python tests/check-errors.py tests/editor-av-sync-browser.py
           EXPORT_FILE=1 EXPORT_ENTRY=downloads/Shorts-Studio.html EXPORT_MOBILE=1 python tests/check-errors.py tests/editor-export-browser.py
+      - name: Preserve synthetic Editor AAC evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-aac-chromium-${{ github.sha }}
+          path: test-results/editor-canvas/editor-export-aac/
+          if-no-files-found: ignore
+          retention-days: 14
+          include-hidden-files: false
       - name: Check Editor audio UI and actual signals
         run: |
           python scripts/prepare-site.py
@@ -231,10 +241,21 @@ jobs:
               exit "$shorts_apt_status"
             fi
           fi
+      - name: Test synthetic AAC evidence collection in WebKit job
+        run: python tests/editor-aac-evidence-test.py
       - name: Check Editor export capability refusal or real recording in WebKit
         run: |
           EXPORT_BROWSER=webkit python tests/check-errors.py tests/editor-export-browser.py
           EXPORT_BROWSER=webkit EXPORT_FILE=1 EXPORT_ENTRY=downloads/Shorts-Studio.html EXPORT_MOBILE=1 python tests/check-errors.py tests/editor-export-browser.py
+      - name: Preserve synthetic WebKit AAC evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-aac-webkit-${{ github.sha }}
+          path: test-results/editor-canvas/editor-export-aac/
+          if-no-files-found: ignore
+          retention-days: 14
+          include-hidden-files: false
       - name: Check Editor audio UI and actual signals in WebKit/mobile
         run: |
           EDITOR_AUDIO_BROWSER=webkit python tests/check-errors.py tests/editor-audio-browser.py
