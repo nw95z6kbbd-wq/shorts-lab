@@ -1,0 +1,58 @@
+name: Experiment WebKit AAC completion
+on:
+  push:
+    branches: [feat/editor-export-foundation]
+    paths:
+      - .github/workflows/aac-completion-experiment.yml
+      - tests/aac-completion-*
+      - tests/aac_completion_analysis.py
+      - tests/fixtures/aac-completion/**
+      - tests/safari-aac-probe.js
+      - tests/safari_aac_analysis.py
+      - tests/requirements-safari-aac.txt
+      - requirements-dev.txt
+      - js/native-mp4.js
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: aac-completion-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  experiment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.62.0-noble@sha256:aa81288e738725378becba5b3e06cb0f3a7f012a610e87e8d767a090ea3f740d
+      options: --init --shm-size=1g
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install experiment tools
+        run: |
+          python -m pip install --timeout 30 --retries 2 -r requirements-dev.txt -r tests/requirements-safari-aac.txt
+          if ! command -v ffprobe >/dev/null || ! command -v ffmpeg >/dev/null; then
+            timeout 3m apt-get update
+            timeout 3m apt-get install -y ffmpeg
+          fi
+      - name: Check experiment oracles
+        run: |
+          node --test tests/aac-completion-probe.test.cjs
+          python tests/aac-completion-test.py
+      - name: Run isolated real WebKit experiment
+        run: python tests/aac-completion-experiment.py
+      - name: Preserve synthetic experiment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aac-completion-${{ github.sha }}
+          path: test-results/aac-completion/
+          retention-days: 14
+          if-no-files-found: warn
+          include-hidden-files: false
