@@ -1,11 +1,14 @@
 """Regressions using real, freshly encoded AAC; no prepared validator answers."""
 import base64
 from copy import deepcopy
+from contextlib import redirect_stdout
 import importlib.util
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -140,6 +143,52 @@ class IndependentOracles(unittest.TestCase):
 
 
 class Isolation(unittest.TestCase):
+    def test_container_trust_is_scoped_to_checkout_and_other_repositories_stay_unsafe(self):
+        workflow = yaml.safe_load((ROOT / '.github/workflows/aac-runtime-experiment.yml').read_text())
+        steps = workflow['jobs']['webkit']['steps']
+        trust = next(s for s in steps if s.get('id') == 'checkout-trust')
+        self.assertLess(steps.index(trust), next(i for i, s in enumerate(steps) if s.get('name') == 'Check candidate and rejection oracles'))
+        with tempfile.TemporaryDirectory(prefix='aac-git-trust-') as folder:
+            base = Path(folder)
+            repositories = [base / 'checkout with spaces', base / 'other checkout']
+            for repo in repositories:
+                subprocess.run(['git', 'init', str(repo)], check=True, capture_output=True)
+            env = {**os.environ, 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': str(base / 'gitconfig'),
+                   'GIT_TEST_ASSUME_DIFFERENT_OWNER': '1', 'GITHUB_WORKSPACE': str(repositories[0])}
+            def status(repo):
+                return subprocess.run(['git', 'status', '--porcelain'], cwd=repo, env=env, capture_output=True)
+            for repo in repositories:
+                result = status(repo)
+                self.assertEqual(result.returncode, 128)
+                self.assertIn(b'dubious ownership', result.stderr)
+            # Execute the actual workflow command with an isolated global config.
+            subprocess.run(['sh', '-eu', '-c', trust['run']], cwd=repositories[0], env=env, check=True, capture_output=True)
+            self.assertEqual(status(repositories[0]).returncode, 0)
+            self.assertEqual(status(repositories[1]).returncode, 128)
+            trusted = subprocess.check_output(['git', 'config', '--global', '--get-all', 'safe.directory'], cwd=base, env=env, text=True).splitlines()
+            self.assertEqual(trusted, [str(repositories[0])])
+
+    def test_both_jobs_retain_safe_fallback_evidence_without_overwriting_summary(self):
+        workflow = yaml.safe_load((ROOT / '.github/workflows/aac-runtime-experiment.yml').read_text())
+        for job_name, mode in [('webkit', 'webkit'), ('safari', 'native-safari')]:
+            steps = workflow['jobs'][job_name]['steps']
+            fallback = next(s for s in steps if s.get('id') == 'preparation-evidence')
+            upload = next(s for s in steps if s.get('uses', '').startswith('actions/upload-artifact@'))
+            self.assertEqual(fallback['if'], 'always()')
+            self.assertLess(steps.index(fallback), steps.index(upload))
+            with tempfile.TemporaryDirectory(prefix='aac-preparation-shell-') as folder:
+                output = Path(folder) / upload['with']['path']
+                subprocess.run(['sh', '-eu', '-c', fallback['run']], cwd=folder, check=True)
+                report = json.loads((output / 'preparation.json').read_text())
+                self.assertEqual(report, {'schema': 1, 'mode': mode, 'status': 'incomplete', 'stage': 'ci-before-summary', 'productionEnabled': False})
+                (output / 'summary.json').write_bytes(b'synthetic existing summary')
+                (output / 'capture.json').write_bytes(b'synthetic existing capture')
+                (output / 'preparation.json').unlink()
+                subprocess.run(['sh', '-eu', '-c', fallback['run']], cwd=folder, check=True)
+                self.assertFalse((output / 'preparation.json').exists())
+                self.assertEqual((output / 'summary.json').read_bytes(), b'synthetic existing summary')
+                self.assertEqual((output / 'capture.json').read_bytes(), b'synthetic existing capture')
+
     def test_workflow_is_read_only_real_browsers_and_always_uploads(self):
         workflow = yaml.safe_load((ROOT / '.github/workflows/aac-runtime-experiment.yml').read_text())
         self.assertEqual(workflow['permissions'], {'contents': 'read'})
@@ -168,6 +217,85 @@ class Isolation(unittest.TestCase):
             self.assertNotIn(forbidden, source)
         self.assertNotIn('aac-runtime-probe', (ROOT / 'index.html').read_text())
         self.assertNotIn('aac-runtime-probe', (ROOT / 'js/native-mp4.js').read_text())
+
+
+class PreparationFailures(unittest.TestCase):
+    def run_failure(self, stage):
+        sentinel = 'SYNTHETIC_PRIVATE_PREPARATION_CONTEXT'
+        source_files = E.SCRIPTS + ['tests/aac-runtime-experiment.py', 'tests/aac-runtime-safari.py',
+                                   'tests/aac-completion-mux.cjs', 'tests/aac_completion_analysis.py',
+                                   'tests/safari_aac_analysis.py', 'js/native-mp4.js',
+                                   'tests/fixtures/aac-runtime/decoder-reference.json']
+        with tempfile.TemporaryDirectory(prefix='aac-preparation-runner-') as folder:
+            root = Path(folder)
+            for name in source_files:
+                destination = root / name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(ROOT / name, destination)
+
+            def git_metadata(command, **_):
+                actual = 'git-revision' if command[1] == 'rev-parse' else 'git-status'
+                if stage == actual:
+                    raise subprocess.CalledProcessError(128, command, output=sentinel, stderr=sentinel)
+                return 'c47386aded1709df873bc7ac0d1101a15bccb8e4\n' if actual == 'git-revision' else b''
+
+            with patch.object(E, 'ROOT', root), patch.dict(os.environ, {'AAC_RUNTIME_MODE': 'webkit'}), \
+                    patch.object(E, 'identity_source', side_effect=ValueError(sentinel) if stage == 'source' else None, return_value=b'synthetic PCM'), \
+                    patch.object(E.subprocess, 'check_output', side_effect=git_metadata), \
+                    patch.object(E, 'ThreadingHTTPServer', side_effect=OSError(sentinel)) as server, \
+                    patch.object(E, 'browser_session') as browser, redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(RuntimeError, 'inconclusive/refused'):
+                    E.run()
+                browser.assert_not_called()
+                self.assertEqual(server.called, stage == 'server')
+            report_file = root / 'test-results/aac-runtime-webkit/summary.json'
+            self.assertNotIn(sentinel, report_file.read_text())
+            report = json.loads(report_file.read_text())
+            self.assertEqual(report['stage'], stage)
+            self.assertEqual(report['status'], 'incomplete')
+            self.assertFalse(report['productionEnabled'])
+            self.assertEqual(report['cases'], [])
+            if stage.startswith('git-'):
+                self.assertEqual(report['exitCode'], 128)
+                self.assertEqual(report['errorType'], 'CalledProcessError')
+
+    def test_git_failures_retain_stage_and_exit_code_without_starting_audio(self):
+        for stage in ['git-revision', 'git-status']:
+            with self.subTest(stage=stage):
+                self.run_failure(stage)
+
+    def test_source_preparation_failure_retains_summary(self):
+        self.run_failure('source')
+
+    def test_server_preparation_failure_retains_summary(self):
+        self.run_failure('server')
+
+    def test_existing_evidence_is_never_overwritten(self):
+        with tempfile.TemporaryDirectory(prefix='aac-existing-evidence-') as folder:
+            root = Path(folder)
+            output = root / 'test-results/aac-runtime-webkit'
+            output.mkdir(parents=True)
+            original = b'synthetic previous evidence'
+            (output / 'summary.json').write_bytes(original)
+            with patch.object(E, 'ROOT', root), patch.dict(os.environ, {'AAC_RUNTIME_MODE': 'webkit'}), patch.object(E, '_run_experiment') as experiment:
+                with self.assertRaisesRegex(RuntimeError, 'Preserve previous evidence'):
+                    E.run()
+                experiment.assert_not_called()
+            self.assertEqual((output / 'summary.json').read_bytes(), original)
+
+    def test_failure_after_candidate_status_is_not_converted_to_success(self):
+        def failed_cleanup(mode, output, summary):
+            summary['status'] = 'candidate-confirmed-in-this-engine'
+            raise OSError('synthetic cleanup failure')
+        with tempfile.TemporaryDirectory(prefix='aac-cleanup-evidence-') as folder:
+            root = Path(folder)
+            with patch.object(E, 'ROOT', root), patch.dict(os.environ, {'AAC_RUNTIME_MODE': 'webkit'}), \
+                    patch.object(E, '_run_experiment', side_effect=failed_cleanup), redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(RuntimeError, 'inconclusive/refused'):
+                    E.run()
+            report = json.loads((root / 'test-results/aac-runtime-webkit/summary.json').read_text())
+            self.assertEqual(report['status'], 'incomplete')
+            self.assertEqual(report['errorType'], 'OSError')
 
 
 if __name__ == '__main__':

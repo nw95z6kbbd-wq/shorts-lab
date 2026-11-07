@@ -208,7 +208,27 @@ def run():
     if output.exists() and any(output.iterdir()):
         raise RuntimeError('Preserve previous evidence before another run')
     output.mkdir(parents=True, exist_ok=True)
+    summary = {'schema': 1, 'mode': mode, 'status': 'incomplete', 'cases': [], 'productionEnabled': False,
+               'meaning': 'Candidate experiment; no production sync or Merge approval.', 'stage': 'source'}
+    try:
+        _run_experiment(mode, output, summary)
+    except Exception as error:
+        # Do not retain exception messages/stderr, which may contain credentials
+        # or process context. Stage and exit code identify preparation failures.
+        summary['status'] = 'incomplete'
+        summary['errorType'] = type(error).__name__
+        if isinstance(error, subprocess.CalledProcessError):
+            summary['exitCode'] = error.returncode
+    finally:
+        (output / 'summary.json').write_text(json.dumps(summary, indent=2))
+    print(json.dumps({'status': summary['status'], 'mode': mode, 'profile': summary.get('runtime', {}).get('profile'), 'cases': summary['cases']}), flush=True)
+    if summary['status'] != 'candidate-confirmed-in-this-engine':
+        raise RuntimeError('Runtime calibration inconclusive/refused; inspect synthetic evidence')
+
+
+def _run_experiment(mode, output, summary):
     source = identity_source()
+    summary['stage'] = 'assets'
     replay = replay_assets() if mode == 'chromium-replay' else None
     assets = {'/': (b'<!doctype html><title>Synthetic runtime AAC calibration</title><script src="/probe.js"></script>', 'text/html'),
               '/probe.js': (b'\n'.join((ROOT / s).read_bytes() for s in SCRIPTS), 'text/javascript'),
@@ -232,14 +252,19 @@ def run():
         def log_message(self, *_):
             pass
 
-    summary = {'schema': 1, 'mode': mode, 'status': 'incomplete', 'cases': [], 'productionEnabled': False,
-               'meaning': 'Candidate experiment; no production sync or Merge approval.',
-               'sourceHashes': {s: hashlib.sha256((ROOT / s).read_bytes()).hexdigest() for s in SCRIPTS + ['tests/aac-runtime-experiment.py', 'tests/aac-runtime-safari.py', 'tests/aac-completion-mux.cjs', 'tests/aac_completion_analysis.py', 'tests/safari_aac_analysis.py', 'js/native-mp4.js', 'tests/fixtures/aac-runtime/decoder-reference.json']},
-               'workingTreeDirty': bool(subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=all'], cwd=ROOT)),
-               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()}
+    summary['stage'] = 'source-hashes'
+    summary['sourceHashes'] = {s: hashlib.sha256((ROOT / s).read_bytes()).hexdigest() for s in SCRIPTS + ['tests/aac-runtime-experiment.py', 'tests/aac-runtime-safari.py', 'tests/aac-completion-mux.cjs', 'tests/aac_completion_analysis.py', 'tests/safari_aac_analysis.py', 'js/native-mp4.js', 'tests/fixtures/aac-runtime/decoder-reference.json']}
+    summary['stage'] = 'git-revision'
+    summary['commit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    summary['stage'] = 'git-status'
+    summary['workingTreeDirty'] = bool(subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=all'], cwd=ROOT))
+    summary['stage'] = 'server'
     server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
+    server_started = False
     try:
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        server_started = True
+        summary['stage'] = 'browser'
         with browser_session(mode, f'http://127.0.0.1:{server.server_port}/') as (browser_version, evaluate):
             summary['browserVersion'] = browser_version
             result = evaluate('''async replay=>{
@@ -262,15 +287,10 @@ return AACRuntimeBrowser.run(new Float32Array(raw),replay?await (await fetch('/r
                     raise ValueError('Synthetic artifact budget')
             summary['status'] = 'candidate-confirmed-in-this-engine' if result['status'] == 'candidate-measured' and count == 11 and all(c['status'] == 'independently-confirmed-candidate' for c in summary['cases']) else 'inconclusive'
 
-    except Exception as error:
-        summary['errorType'] = type(error).__name__
     finally:
-        server.shutdown()
+        if server_started:
+            server.shutdown()
         server.server_close()
-        (output / 'summary.json').write_text(json.dumps(summary, indent=2))
-    print(json.dumps({'status': summary['status'], 'mode': mode, 'profile': summary.get('runtime', {}).get('profile'), 'cases': summary['cases']}), flush=True)
-    if summary['status'] != 'candidate-confirmed-in-this-engine':
-        raise RuntimeError('Runtime calibration inconclusive/refused; inspect synthetic evidence')
 
 
 if __name__ == '__main__':

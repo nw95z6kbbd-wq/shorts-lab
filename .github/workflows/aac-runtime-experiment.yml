@@ -34,6 +34,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Trust only this container checkout for diagnostic Git reads
+        id: checkout-trust
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -50,6 +53,14 @@ jobs:
           python tests/aac-runtime-test.py
       - name: Measure real WebKit and independently decode raw AAC and MP4
         run: timeout 8m python tests/aac-runtime-experiment.py
+      - name: Retain preparation failure evidence when no summary exists
+        id: preparation-evidence
+        if: always()
+        run: |
+          if [ ! -f test-results/aac-runtime-webkit/summary.json ]; then
+            mkdir -p test-results/aac-runtime-webkit
+            printf '%s\n' '{"schema":1,"mode":"webkit","status":"incomplete","stage":"ci-before-summary","productionEnabled":false}' > test-results/aac-runtime-webkit/preparation.json
+          fi
       - name: Preserve synthetic evidence even on refusal
         if: always()
         uses: actions/upload-artifact@v4
@@ -88,6 +99,14 @@ jobs:
         run: sudo /usr/bin/safaridriver --enable
       - name: Measure native Safari and independently decode raw AAC and MP4
         run: python tests/aac-runtime-experiment.py
+      - name: Retain preparation failure evidence when no summary exists
+        id: preparation-evidence
+        if: always()
+        run: |
+          if [ ! -f test-results/aac-runtime-native-safari/summary.json ]; then
+            mkdir -p test-results/aac-runtime-native-safari
+            printf '%s\n' '{"schema":1,"mode":"native-safari","status":"incomplete","stage":"ci-before-summary","productionEnabled":false}' > test-results/aac-runtime-native-safari/preparation.json
+          fi
       - name: Preserve synthetic evidence even on refusal
         if: always()
         uses: actions/upload-artifact@v4
